@@ -4,29 +4,30 @@ function agregarMovimiento() {
   const tipo = document.getElementById('tipo').value;
 
   let categoria = document.getElementById('categoria').value;
-if (categoria === 'Otro') {
-  categoria = document.getElementById('nuevaCategoria').value.trim();
-  if (categoria) agregarOpcionCategoria(categoria);
-}
+  if (categoria === 'Otro') {
+    categoria = document.getElementById('nuevaCategoria').value.trim();
+    if (categoria) {
+      agregarCategoriaNueva(); // guarda y actualiza el select
+      document.getElementById('categoria').value = categoria; // selecciona la nueva
+    }
+  }
 
-  if (!concepto || isNaN(cantidad)) return;
-
-  // Leemos la fecha que eligió el usuario (o usamos hoy si no eligió)
+  // Fecha y banco (igual que antes)
   let fechaInput = document.getElementById('fechaMov').value;
   let fecha = fechaInput ? new Date(fechaInput + 'T12:00:00') : new Date();
 
-  // Aseguramos que el banco sea string o "(Sin banco)"
   const bancoRaw = agregarBancoSiEsNecesario();
   const banco = (bancoRaw && typeof bancoRaw === 'string') ? bancoRaw : '(Sin banco)';
 
-  let mov = {
-  concepto,
-  cantidad,
-  tipo,
-  categoria: categoria || undefined, // automática si está vacía
-  fecha: fecha.toISOString(),
-  banco: banco,
-};
+  // Crear movimiento
+  const mov = {
+    concepto,
+    cantidad,
+    tipo,
+    categoria: categoria || undefined,
+    fecha: fecha.toISOString(),
+    banco: banco
+  };
 
   const lista = leerDatos();
   lista.push(mov);
@@ -102,6 +103,17 @@ function renderizar() {
 function limpiarForm() {
   document.getElementById('concepto').value = '';
   document.getElementById('cantidad').value = '';
+  document.getElementById('tipo').value = 'ingreso'; // resetea a valor por defecto
+  document.getElementById('categoria').value = '';    // vuelve a "(automática)"
+  document.getElementById('nuevaCategoria').value = ''; // limpia input oculto
+  document.getElementById('nuevaCategoria').style.display = 'none'; // lo oculta
+  document.getElementById('banco').value = '';         // vuelve a "(Sin banco)"
+  document.getElementById('nuevoBanco').value = '';     // limpia input oculto
+  document.getElementById('nuevoBanco').style.display = 'none'; // lo oculta
+  document.getElementById('fechaMov').value = '';      // limpia fecha
+
+  // Opcional: enfocar de nuevo en concepto para flujo rápido
+  document.getElementById('concepto').focus();
 }
 
 function borrar(index) {
@@ -129,6 +141,9 @@ function cargarSelectBancos() {
     select.appendChild(opt);
   });
   select.appendChild(nuevoOpt);
+
+  cargarSelectBancoRegla(); // para mantener sincronizado
+  cargarSelectEliminarBancos(); // y también el de eliminación
 }
 
 function agregarBancoSiEsNecesario() {
@@ -141,6 +156,7 @@ function agregarBancoSiEsNecesario() {
         bancos.push(banco);
         guardarBancos(bancos);
         cargarSelectBancos();
+        cargarSelectBancoRegla(); // para que también aparezca en reglas
       }
       document.getElementById('banco').value = banco;
     }
@@ -433,3 +449,206 @@ function mostrarSideTab(id) {
 }
 // pestaña inicial
 mostrarSideTab('dashboard');
+
+// ---- CREAR CATEGORÍA NUEVA ----
+function agregarCategoriaNueva() {
+  const input = document.getElementById('nuevaCategoria');
+  const nombre = input.value.trim();
+  if (!nombre) return;
+
+  const bancos = leerBancos();          // ya tenés esta función
+  const categorias = JSON.parse(localStorage.getItem('agenda_categorias') || '[]');
+
+  if (!categorias.includes(nombre)) {
+    categorias.push(nombre);
+    localStorage.setItem('agenda_categorias', JSON.stringify(categorias));
+  }
+
+  // Actualizar selector sin recargar
+  actualizarSelectCategorias();
+  input.value = '';
+  input.style.display = 'none';
+  document.getElementById('categoria').value = nombre;
+}
+
+// Actualizar selector de categorías
+function actualizarSelectCategorias() {
+  const cats = JSON.parse(localStorage.getItem('agenda_categorias') || '[]');
+  const select = document.getElementById('categoria');
+  const optOtro = select.options[select.options.length - 1]; // guardamos “+ Nueva…”
+  // borramos todo excepto “(automática)” y “+ Nueva…”
+  while (select.options.length > 2) select.remove(1);
+  // agregamos las nuevas
+  cats.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = c;
+    select.insertBefore(opt, optOtro);
+  });
+
+  cargarSelectEliminarCategorias();
+}
+
+// Llamar al cargar la página
+document.addEventListener('DOMContentLoaded', actualizarSelectCategorias);
+
+// Mostrar/ocultar campo de nueva categoría
+document.getElementById('categoria').addEventListener('change', function(e) {
+  const inputNuevaCategoria = document.getElementById('nuevaCategoria');
+  if (e.target.value === 'Otro') {
+    inputNuevaCategoria.style.display = 'block';
+    inputNuevaCategoria.focus(); // Enfocar automáticamente para mejor UX
+  } else {
+    inputNuevaCategoria.style.display = 'none';
+  }
+});
+
+function eliminarCategoria() {
+  const select = document.getElementById('selectEliminarCategoria');
+  const categoria = select.value;
+
+  if (!categoria) {
+    alert('Selecciona una categoría para eliminar.');
+    return;
+  }
+
+  if (!confirm(`¿Seguro que quieres eliminar la categoría "${categoria}"? Los movimientos que la usan quedarán sin categoría.`)) {
+    return;
+  }
+
+  // Eliminar de localStorage
+  let categorias = JSON.parse(localStorage.getItem('agenda_categorias') || '[]');
+  categorias = categorias.filter(c => c !== categoria);
+  localStorage.setItem('agenda_categorias', JSON.stringify(categorias));
+
+  // Eliminar de los movimientos existentes
+  const lista = leerDatos();
+  lista.forEach(m => {
+    if (m.categoria === categoria) {
+      m.categoria = undefined; // o '' si prefieres
+    }
+  });
+  guardarDatos(lista);
+
+  // Actualizar UI
+  actualizarSelectCategorias();
+  cargarSelectEliminarCategorias(); // actualiza el select de eliminación
+  renderizar(); // actualiza la lista de movimientos
+
+  alert(`Categoría "${categoria}" eliminada.`);
+}
+
+function cargarSelectEliminarCategorias() {
+  const select = document.getElementById('selectEliminarCategoria');
+  const categorias = JSON.parse(localStorage.getItem('agenda_categorias') || '[]');
+
+  // Limpiar opciones excepto la primera
+  while (select.options.length > 1) {
+    select.remove(1);
+  }
+
+  // Agregar categorías
+  categorias.forEach(cat => {
+    const opt = document.createElement('option');
+    opt.value = cat;
+    opt.textContent = cat;
+    select.appendChild(opt);
+  });
+
+  const botonEliminar = document.querySelector('[onclick="eliminarCategoria()"]');
+  if (categorias.length === 0) {
+    botonEliminar.disabled = true;
+    botonEliminar.textContent = "No hay categorías para eliminar";
+  } else {
+    botonEliminar.disabled = false;
+    botonEliminar.textContent = "Eliminar";
+  }
+}
+
+function eliminarBanco() {
+  const select = document.getElementById('selectEliminarBanco');
+  const banco = select.value;
+
+  if (!banco) {
+    alert('Selecciona un banco para eliminar.');
+    return;
+  }
+
+  const lista = leerDatos();
+  const afectados = lista.filter(m => m.banco === banco).length;
+
+  if (!confirm(`¿Seguro que quieres eliminar el banco "${banco}"? \n\nSe quitará de ${afectados} movimiento${afectados !== 1 ? 's' : ''}.`)) {
+    return;
+  }
+
+  // Eliminar de localStorage
+  let bancos = leerBancos();
+  bancos = bancos.filter(b => b !== banco);
+  guardarBancos(bancos);
+
+  // Quitar banco de los movimientos
+  lista.forEach(m => {
+    if (m.banco === banco) {
+      m.banco = '(Sin banco)';
+    }
+  });
+  guardarDatos(lista);
+
+  // Actualizar UI
+  cargarSelectBancos(); // actualiza select de movimientos
+  cargarSelectBancoRegla(); // actualiza select de reglas (lo creamos abajo)
+  cargarSelectEliminarBancos(); // actualiza este select
+  renderizar(); // actualiza lista y resúmenes
+  renderizarResumenBancos(); // actualiza filtro y resumen por banco
+
+  alert(`✅ Banco "${banco}" eliminado.\nSe actualizó${afectados !== 1 ? 'ron' : ''} ${afectados} movimiento${afectados !== 1 ? 's' : ''}.`);
+}
+
+function cargarSelectEliminarBancos() {
+  const select = document.getElementById('selectEliminarBanco');
+  const bancos = leerBancos();
+
+  // Limpiar opciones excepto la primera
+  while (select.options.length > 1) {
+    select.remove(1);
+  }
+
+  // Agregar bancos
+  bancos.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b;
+    opt.textContent = b;
+    select.appendChild(opt);
+  });
+}
+
+function cargarSelectBancoRegla() {
+  const select = document.getElementById('txtBancoRegla');
+  const bancos = leerBancos();
+
+  // Guardar opciones especiales
+  const cualquierBanco = select.options[0];
+  const nuevoOpt = select.options[select.options.length - 1];
+
+  // Limpiar
+  select.innerHTML = '';
+  select.appendChild(cualquierBanco);
+
+  // Agregar bancos
+  bancos.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b;
+    opt.textContent = b;
+    select.appendChild(opt);
+  });
+
+  // Volver a agregar "+ Nuevo..."
+  select.appendChild(nuevoOpt);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  actualizarSelectCategorias();
+  cargarSelectEliminarCategorias();
+  cargarSelectEliminarBancos(); // <-- NUEVO
+  cargarSelectBancoRegla();     // <-- NUEVO (por si hay bancos guardados)
+});
