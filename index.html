@@ -138,6 +138,23 @@
         <h2>Reglas de automatización</h2>
         <ul id="listaReglas"></ul>
         <details>
+
+          <details>
+            <summary>🗑️ Eliminar categoría</summary>
+            <select id="selectEliminarCategoria">
+              <option value="">Selecciona una categoría</option>
+            </select>
+            <button onclick="eliminarCategoria()">Eliminar</button>
+          </details>
+
+          <details>
+            <summary>🗑️ Eliminar banco</summary>
+            <select id="selectEliminarBanco">
+              <option value="">Selecciona un banco</option>
+            </select>
+            <button onclick="eliminarBanco()">Eliminar</button>
+          </details>
+
           <summary>➕ Nueva regla</summary>
           <input type="text" id="txtPalabra" placeholder="Palabra clave (ej. netflix)" />
           <input type="text" id="txtCat" placeholder="Categoría a asignar" />
