@@ -236,3 +236,84 @@ li button:hover {
   .sidebar { flex-direction: column; }
   .side-tabs { flex-direction: row; width: 100%; overflow-x: auto; }
 }
+
+/* ----------  BASE RESPONSIVE  ---------- */
+
+/* Tablets y pantallas medianas */
+@media (max-width: 900px) {
+  .sidebar {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .side-tabs {
+    flex-direction: row !important;
+    width: 100%;
+    overflow-x: auto;
+    gap: .5rem;
+  }
+  .side-tab {
+    white-space: nowrap;
+    font-size: .9rem;
+    padding: .5rem .75rem;
+  }
+  section {
+    padding: 1rem;
+  }
+  h1 {
+    font-size: 1.5rem;
+  }
+  input, select, button {
+    font-size: 1rem;
+    padding: .6rem .75rem;
+  }
+  table {
+    font-size: .9rem;
+  }
+  canvas {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* Móviles pequeños */
+@media (max-width: 480px) {
+  body {
+    padding: .75rem;
+  }
+  .side-tabs {
+    gap: .25rem;
+  }
+  .side-tab {
+    font-size: .8rem;
+    padding: .4rem .6rem;
+  }
+  section {
+    padding: .75rem;
+    margin-bottom: 1rem;
+  }
+  h1 {
+    font-size: 1.3rem;
+  }
+  input, select, button {
+    font-size: .95rem;
+    padding: .5rem .6rem;
+  }
+  table {
+    font-size: .85rem;
+  }
+  #torta, #barChart {
+    width: 100% !important;
+    height: auto !important;
+  }
+}
+
+/* Evitar zoom en iOS al tocar inputs */
+input, select, button {
+  touch-action: manipulation;
+}
+
+/* Evitar desbordamiento de texto */
+body {
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
