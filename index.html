@@ -34,40 +34,77 @@
 
       <section id="resumen">
         <h2>Resumen</h2>
-        <p>Saldo actual: <strong id="saldo">$0.00</strong></p>
+        <p>Saldo actual: <strong id="saldo">Bs. 0,00</strong></p>
+
+        <div style="margin-top: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+  <label style="font-size: 0.875rem; color: var(--text-light);">
+    Convertir a:
+    <select id="monedaDestino">
+      <option value="USD">Dólar (USD)</option>
+      <option value="EUR">Euro (EUR)</option>
+      <option value="COP">Peso Colombiano (COP)</option>
+      <option value="ARS">Peso Argentino (ARS)</option>
+      <option value="MXN">Peso Mexicano (MXN)</option>
+    </select>
+  </label>
+
+  <label style="font-size: 0.875rem; color: var(--text-light);">
+    Tasa 1 Bs. =
+    <input type="number" id="tasaCambio" step="0.000001" value="0.00012" style="width: 80px;" />
+  </label>
+
+  <div style="font-weight: 500; font-size: 1.1rem;">
+    Equivalente: <span id="equivalente">--</span>
+  </div>
+</div>
+
       </section>
 
       <section id="alertaSaldo" style="display:none;">
         <p style="color:var(--danger); font-weight:500;">
-          ⚠️ Tu saldo está por debajo de $<span id="umbralAlerta">0</span>
+          ⚠️ Tu saldo está por debajo de Bs. <span id="umbralAlerta">500</span>
         </p>
       </section>
 
       <section id="disponibilidad">
         <h2>Disponibilidad total</h2>
-        <p><strong>$<span id="totalGeneral">0.00</span></strong> en todos los bancos</p>
+        <p><strong>Bs. <span id="totalGeneral">0,00</span></strong> en todos los bancos</p>
       </section>
 
       <section id="ingGastPorBanco">
-        <h2>Ingresos vs Gastos por banco</h2>
-        <table id="tablaBancos" style="width:100%; border-collapse:collapse;">
-          <thead>
-            <tr style="border-bottom:1px solid var(--text-light);">
-              <th style="text-align:left;">Banco</th>
-              <th style="text-align:right;">Ingresos</th>
-              <th style="text-align:right;">Gastos</th>
-              <th style="text-align:right;">Saldo</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </section>
+  <h2>Ingresos vs Gastos por banco</h2>
+  <table id="tablaBancos" style="width:100%; border-collapse:collapse;">
+    <thead>
+      <tr style="border-bottom:1px solid var(--text-light);">
+        <th style="text-align:left;">Banco</th>
+        <th style="text-align:right;">Ingresos</th>
+        <th style="text-align:right;">Gastos</th>
+        <th style="text-align:right;">Saldo</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</section>
     </div>
 
     <!-- MOVIMIENTOS -->
     <div class="side-content" id="side-movimientos">
       <section>
         <h2>Agregar Movimiento</h2>
+
+        <section>
+          <h3>Saldo Inicial</h3>
+          <input type="number" id="saldoInicial" placeholder="Ingrese saldo inicial (opcional)" step="0.01" />
+
+          <label>
+          <input type="checkbox" id="ocultarSaldoInicial" />
+          Ocultar saldo inicial en la lista (solo afecta visualmente)
+        </label>
+        
+          <button onclick="agregarSaldoInicial()">Guardar Saldo</button>
+        </section>
+        
+
         <input type="text" id="concepto" placeholder="Concepto" />
         <input type="number" id="cantidad" placeholder="Cantidad" />
         <select id="tipo">
@@ -76,22 +113,25 @@
         </select>
 
         <label>Categoría:
-          <select id="categoria">
-            <option value="">(automática)</option>
-            <option value="Ocio">Ocio</option>
-            <option value="Alquiler">Alquiler</option>
-            <option value="Supermercado">Supermercado</option>
-            <option value="Otro">+ Nueva…</option>
-          </select>
-        </label>
+  <div style="display:flex; gap:.5rem;">
+    <select id="categoria">
+      <option value="">(automática)</option>
+     <!-- <option value="Otro">+ Nueva…</option> -->
+    </select>
+    <button onclick="agregarCategoria()" style="padding:.5rem; border:none; background:#0b57d0; color:white; border-radius:50%; width:2rem; height:2rem; font-size:1rem;">+</button>
+  </div>
+</label>
         <input type="text" id="nuevaCategoria" placeholder="Nombre nueva categoría" style="display:none;" />
 
         <label>Banco:
-          <select id="banco">
-            <option value="">(Sin banco)</option>
-            <option value="Otro">+ Nuevo…</option>
-          </select>
-        </label>
+  <div style="display:flex; gap:.5rem;">
+    <select id="banco">
+      <option value="">(Sin banco)</option>
+      <!-- <option value="Otro">+ Nuevo…</option> -->
+    </select>
+    <button onclick="agregarBanco()" style="padding:.5rem; border:none; background:#0b57d0; color:white; border-radius:50%; width:2rem; height:2rem; font-size:1rem;">+</button>
+  </div>
+</label>
         <input type="text" id="nuevoBanco" placeholder="Nombre del banco" style="display:none;" />
 
         <label>Fecha:
