@@ -44,18 +44,20 @@ function calcularSaldo() {
 }
 
 function actualizarSaldo() {
-  document.getElementById('saldo').textContent = '$' + calcularSaldo().toFixed(2);
+  const saldoBs = calcularSaldo();
+  document.getElementById('saldo').textContent = 'Bs. ' + saldoBs.toFixed(2);
 
-  const umbral = 500; // <-- cambiá este número al que quieras
+  const umbral = 500;
   const alerta = document.getElementById('alertaSaldo');
-  const saldoActual = calcularSaldo();
   document.getElementById('umbralAlerta').textContent = umbral;
 
-  if (saldoActual < umbral) {
-  alerta.style.display = 'block';
+  if (saldoBs < umbral) {
+    alerta.style.display = 'block';
   } else {
-  alerta.style.display = 'none';
-}
+    alerta.style.display = 'none';
+  }
+
+  actualizarEquivalente(); // ✅ SIEMPRE se actualiza, sin importar el umbral
 }
 
 function renderizar() {
@@ -72,6 +74,9 @@ function renderizar() {
   );
 
   listaFiltrada.forEach(m => {
+
+     if (m.oculto) return; // no renderizar
+
     const li = document.createElement('li');
     li.innerHTML = `
   <div style="display:flex; flex-direction:column; gap:.25rem; flex:1;">
@@ -203,7 +208,7 @@ function renderizarResumenBancos() {
 
     const nombreBanco = (b === '(Sin banco)' || !b || typeof b !== 'string') ? '(Sin banco)' : b;
     const li = document.createElement('li');
-    li.innerHTML = `<span>${nombreBanco}</span><span>$${saldo.toFixed(2)}</span>`;
+    li.innerHTML = `<span>${nombreBanco}</span><span>Bs. ${saldo.toFixed(2)}</span>`;
     ul.appendChild(li);
   });
 }
@@ -380,9 +385,9 @@ function actualizarResumenBancosCompleto() {
     const nombreBanco = (b === '(Sin banco)' || !b) ? '(Sin banco)' : b;
     fila.innerHTML = `
       <td>${nombreBanco}</td>
-      <td style="text-align:right; color:var(--success)">+$${ingresos.toFixed(2)}</td>
-      <td style="text-align:right; color:var(--danger)">-$${gastos.toFixed(2)}</td>
-      <td style="text-align:right; font-weight:500">$${saldo.toFixed(2)}</td>
+        <td style="text-align:right; color:var(--success)">+Bs. ${ingresos.toFixed(2)}</td>
+        <td style="text-align:right; color:var(--danger)">-Bs. ${gastos.toFixed(2)}</td>
+        <td style="text-align:right; font-weight:500">Bs. ${saldo.toFixed(2)}</td>
     `;
     tbody.appendChild(fila);
   });
@@ -446,9 +451,9 @@ function mostrarSideTab(id) {
   document.querySelectorAll('.side-tab').forEach(btn => btn.classList.remove('active'));
   document.getElementById('side-' + id).classList.add('active');
   document.querySelector(`[onclick="mostrarSideTab('${id}')"]`).classList.add('active');
+
+  localStorage.setItem('agendaPestañaActiva', id);
 }
-// pestaña inicial
-mostrarSideTab('dashboard');
 
 // ---- CREAR CATEGORÍA NUEVA ----
 function agregarCategoriaNueva() {
@@ -646,9 +651,112 @@ function cargarSelectBancoRegla() {
   select.appendChild(nuevoOpt);
 }
 
+function actualizarEquivalente() {
+  const saldoBs = calcularSaldo(); // en bolívares
+  const tasa = parseFloat(document.getElementById('tasaCambio').value);
+  const monedaDestino = document.getElementById('monedaDestino').value;
+
+  if (isNaN(tasa) || tasa <= 0) {
+    document.getElementById('equivalente').textContent = 'Tasa inválida';
+    return;
+  }
+
+  const equivalente = saldoBs * tasa;
+
+  // Definir símbolo según moneda
+  let simbolo = '$';
+  if (monedaDestino === 'EUR') simbolo = '€';
+  if (monedaDestino === 'COP') simbolo = 'COL$';
+  if (monedaDestino === 'ARS') simbolo = 'ARS$';
+  if (monedaDestino === 'MXN') simbolo = 'MX$';
+
+  // Formatear número: sin decimales si es entero, con 2 si no
+  const tieneDecimales = equivalente % 1 !== 0;
+  const formato = new Intl.NumberFormat('es-VE', {
+    minimumFractionDigits: tieneDecimales ? 2 : 0,
+    maximumFractionDigits: 2
+  }).format(equivalente);
+
+  document.getElementById('equivalente').textContent = `${simbolo} ${formato}`;
+
+  localStorage.setItem('tasaCambio', tasa.toString());
+}
+
+function agregarCategoria() {
+  const nombre = prompt('Nombre de la nueva categoría:');
+  if (!nombre || nombre.trim() === '') return;
+
+  const categorias = JSON.parse(localStorage.getItem('agenda_categorias') || '[]');
+  if (!categorias.includes(nombre)) {
+    categorias.push(nombre);
+    localStorage.setItem('agenda_categorias', JSON.stringify(categorias));
+  }
+
+  // Actualizar selector
+  actualizarSelectCategorias();
+  alert(`Categoría "${nombre}" agregada.`);
+}
+
+function agregarBanco() {
+  const nombre = prompt('Nombre del nuevo banco:');
+  if (!nombre || nombre.trim() === '') return;
+
+  const bancos = leerBancos();
+  if (!bancos.includes(nombre)) {
+    bancos.push(nombre);
+    guardarBancos(bancos);
+  }
+
+  // Actualizar select
+  cargarSelectBancos();
+  alert(`Banco "${nombre}" agregado.`);
+}
+
+function agregarSaldoInicial() {
+  const saldo = parseFloat(document.getElementById('saldoInicial').value);
+
+  const oculto = document.getElementById('ocultarSaldoInicial').checked;
+  mov.oculto = oculto;
+
+  if (isNaN(saldo) || saldo <= 0) {
+    alert('Ingresa un monto válido.');
+    return;
+  }
+
+  // Asumimos que el saldo inicial es un ingreso
+  const mov = {
+    concepto: 'Saldo inicial',
+    cantidad: saldo,
+    tipo: 'ingreso',
+    categoria: 'Ingreso inicial',
+    fecha: new Date().toISOString(),
+    banco: '(Sin banco)'
+  };
+
+  const lista = leerDatos();
+  lista.push(mov);
+  guardarDatos(lista);
+
+  document.getElementById('saldoInicial').value = '';
+  renderizar();
+  alert(`Saldo inicial de Bs. ${saldo.toFixed(2)} registrado.`);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   actualizarSelectCategorias();
   cargarSelectEliminarCategorias();
-  cargarSelectEliminarBancos(); // <-- NUEVO
-  cargarSelectBancoRegla();     // <-- NUEVO (por si hay bancos guardados)
+  cargarSelectEliminarBancos();
+  cargarSelectBancoRegla();
+
+  document.getElementById('tasaCambio').addEventListener('input', actualizarEquivalente);
+  document.getElementById('monedaDestino').addEventListener('change', actualizarEquivalente);
+
+  const pestañaGuardada = localStorage.getItem('agendaPestañaActiva');
+  if (pestañaGuardada) {
+    mostrarSideTab(pestañaGuardada);
+  } else {
+    mostrarSideTab('dashboard');
+  }
+
+  actualizarEquivalente();
 });
