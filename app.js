@@ -5,12 +5,17 @@ const DB_VERSION = 1;
 
 // Nombres de los almacenes de objetos
 const STORES = {
+    
     MOVIMIENTOS: 'movimientos',
     CATEGORIAS: 'categorias',
     BANCOS: 'bancos',
     REGLAS: 'reglas',
     SALDO_INICIAL: 'saldo_inicial'
 };
+
+// Configuración de paginación
+const MOVIMIENTOS_POR_PAGINA = 10;
+let paginaActual = 1;
 
 /**
  * ## 1. Inicialización de la base de datos
@@ -201,11 +206,19 @@ async function calcularSaldo() {
     const saldoInicialArray = await getAllEntries(STORES.SALDO_INICIAL);
     const saldoInicial = saldoInicialArray.length > 0 ? saldoInicialArray[0].monto : 0;
 
-    // Sumar solo ingresos y restar gastos
-    const saldoMovimientos = movimientos.reduce((acc, m) => 
-        acc + (m.tipo === 'ingreso' ? m.cantidad : -m.cantidad), 0);
+    let totalComisiones = 0;
 
-    return saldoMovimientos + saldoInicial;
+    const saldoMovimientos = movimientos.reduce((acc, m) => {
+        if (m.tipo === 'gasto') {
+            const comision = m.cantidad * 0.003; // 0.3%
+            totalComisiones += comision;
+            return acc - m.cantidad; // Restar solo el monto original
+        }
+        return acc + m.cantidad; // Sumar ingresos
+    }, 0);
+
+    // El saldo final es: movimientos + saldo inicial - comisiones
+    return saldoMovimientos + saldoInicial - totalComisiones;
 }
 
 async function actualizarSaldo() {
@@ -230,35 +243,47 @@ async function renderizar() {
     const filtro = document.getElementById('filtroBanco').value;
     const texto = document.getElementById('txtBuscar').value.trim().toLowerCase();
 
-    // ✅ Solo filtrar movimientos reales — SIN saldo inicial ficticio
-    const listaFiltrada = movimientos.filter(m =>
+    // Filtrar movimientos reales
+    let listaFiltrada = movimientos.filter(m =>
         (filtro ? (m.banco || '(Sin banco)') === filtro : true) &&
         (texto ? (m.concepto + (m.categoria || '') + (m.banco || '')).toLowerCase().includes(texto) : true)
     );
 
-    listaFiltrada.forEach(m => {
+    // Ordenar por fecha descendente (los más recientes primero)
+    listaFiltrada.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+    // Paginación
+    const totalMovimientos = listaFiltrada.length;
+    const totalPaginas = Math.ceil(totalMovimientos / MOVIMIENTOS_POR_PAGINA);
+    paginaActual = Math.min(paginaActual, totalPaginas || 1);
+    paginaActual = Math.max(paginaActual, 1);
+
+    const inicio = (paginaActual - 1) * MOVIMIENTOS_POR_PAGINA;
+    const fin = inicio + MOVIMIENTOS_POR_PAGINA;
+    const movimientosPagina = listaFiltrada.slice(inicio, fin);
+
+    // Renderizar movimientos de la página actual
+    movimientosPagina.forEach(m => {
         if (m.oculto) return;
 
         const li = document.createElement('li');
 
-        // Verificar si el concepto contiene información de saldo inicial
         const esSaldoInicial = m.concepto.includes('Saldo inicial');
         const conceptoBase = esSaldoInicial ? m.concepto.split(' (')[0] : m.concepto;
         const saldoInicialTexto = esSaldoInicial ? m.concepto.split(' (')[1]?.replace(')', '') : '';
 
+        // Calcular comisión si es gasto
+        const esGasto = m.tipo === 'gasto';
+        const comision = esGasto ? (m.cantidad * 0.003).toFixed(2) : null;
+
         li.innerHTML = `
     <div style="display:flex; flex-direction:column; gap:.25rem; flex:1; margin-bottom: .5rem; min-width:0;">
-        <!-- Concepto principal -->
         <input type="text" value="${conceptoBase}" 
                 onblur="guardarCambio(${m.id}, 'concepto', this.value)"
                 onkeypress="if(event.key==='Enter') this.blur();"
                 style="width:100%; border:none; background:transparent; font:inherit; font-weight:600; color:var(--text);"
                 readonly>
-
-        <!-- Nota de saldo inicial -->
         ${saldoInicialTexto ? `<div style="font-size:.8rem; color:var(--text-light); margin-top:-.25rem; padding-left: 0.25rem;">(${saldoInicialTexto})</div>` : ''}
-
-        <!-- Metadatos -->
         <div style="font-size:.75rem; color:var(--text-light); display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
             <span>${m.categoria || 'Sin categoría'}</span>
             <span>·</span>
@@ -266,28 +291,60 @@ async function renderizar() {
             <span>·</span>
             <span>${new Date(m.fecha).toLocaleDateString()}</span>
         </div>
+        ${comision ? `<div style="font-size:.8rem; color:#b00020; margin-top:0.25rem;">Comisión: ${comision} Bs</div>` : ''}
     </div>
-
     <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">
-        <!-- Cantidad con moneda -->
-        <span style="font-weight:500; color:var(--text); font-size:1rem;">
-            ${m.cantidad.toFixed(2)} Bs
-        </span>
-
-        <!-- Botón borrar -->
-        <button onclick="borrar(${m.id})" style="padding:.25rem .5rem; font-size:.8rem; background:#b00020; color:white; border-radius:50%; border:none; cursor:pointer; width:auto;">
-            ❌
-        </button>
+        <span style="font-weight:500; color:var(--text); font-size:1rem;">${m.cantidad.toFixed(2)} Bs</span>
+        <button onclick="borrar(${m.id})" style="padding:.25rem .5rem; font-size:.8rem; background:#b00020; color:white; border-radius:50%; border:none; cursor:pointer; width:auto;">❌</button>
     </div>
 `;
-
         ul.appendChild(li);
     });
 
+    // Renderizar controles de paginación
+    renderizarControlesPaginacion(totalPaginas);
+
+    // Verificar si hay movimientos para mostrar el botón de reporte
+    const controlesReporte = document.getElementById('botonReporte');
+    if (controlesReporte) {
+        controlesReporte.style.display = totalMovimientos > 0 ? 'block' : 'none';
+    }
+
+    // Actualizar saldo y demás
     actualizarSaldo();
     actualizarGrafico();
     actualizarBarChart();
     actualizarResumenBancosCompleto();
+}
+
+function renderizarControlesPaginacion(totalPaginas) {
+    const controles = document.getElementById('controlesPaginacion');
+    if (!controles) return;
+
+    // Solo mostrar controles si hay más de una página
+    if (totalPaginas <= 1) {
+        controles.innerHTML = '';
+        return;
+    }
+
+    controles.innerHTML = `
+        <div style="display:flex; gap:0.5rem; align-items:center; justify-content:center; margin-top:1rem; font-size:0.875rem;">
+            <button onclick="cambiarPagina(${Math.max(1, paginaActual - 1)})" ${paginaActual <= 1 ? 'disabled' : ''} 
+                    style="padding:0.3rem 0.6rem; font-size:0.875rem; background:#0b57d0; color:white; border:none; border-radius:4px; cursor:pointer;">
+                ◀ Anterior
+            </button>
+            <span style="color:var(--text-light);">Página ${paginaActual} de ${totalPaginas}</span>
+            <button onclick="cambiarPagina(${Math.min(totalPaginas, paginaActual + 1)})" ${paginaActual >= totalPaginas ? 'disabled' : ''} 
+                    style="padding:0.3rem 0.6rem; font-size:0.875rem; background:#0b57d0; color:white; border:none; border-radius:4px; cursor:pointer;">
+                Siguiente ▶
+            </button>
+        </div>
+    `;
+}
+
+async function cambiarPagina(nuevaPagina) {
+    paginaActual = nuevaPagina;
+    await renderizar();
 }
 
 async function borrar(id) {
@@ -784,6 +841,106 @@ async function eliminarSaldoInicial() {
     } catch (error) {
         console.error("Error al eliminar saldo inicial:", error);
     }
+}
+
+async function generarReporteImprimible() {
+    const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+    const saldoInicialArray = await getAllEntries(STORES.SALDO_INICIAL);
+
+    // Calcular total de comisiones
+    const totalComisiones = movimientos
+    .filter(m => m.tipo === 'gasto')
+    .reduce((sum, m) => sum + (m.cantidad * 0.003), 0);
+
+    const saldoInicial = saldoInicialArray.length > 0 ? saldoInicialArray[0].monto : 0;
+    const saldoTotal = await calcularSaldo();
+
+    // Agrupar movimientos por banco
+    const bancos = [...new Set(movimientos.map(m => m.banco || '(Sin banco)'))];
+    const resumenBancos = {};
+    bancos.forEach(b => {
+        const ingresos = movimientos.filter(m => (m.banco || '(Sin banco)') === b && m.tipo === 'ingreso').reduce((sum, m) => sum + m.cantidad, 0);
+        const gastos = movimientos.filter(m => (m.banco || '(Sin banco)') === b && m.tipo === 'gasto').reduce((sum, m) => sum + m.cantidad, 0);
+        resumenBancos[b] = { ingresos, gastos, saldo: ingresos - gastos };
+    });
+
+    // Crear contenido HTML para impresión
+    const contenido = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Reporte Financiero - SFP</title>
+            <style>
+                body { font-family: 'Roboto', sans-serif; padding: 2rem; }
+                h1 { text-align: center; color: #0b57d0; margin-bottom: 2rem; }
+                .resumen { background: #f5f7fa; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; }
+
+                table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
+                th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd; }
+                th { background: #0b57d0; color: white; }
+                .movimiento { margin-bottom: 1rem; padding: 1rem; border-left: 4px solid #0b57d0; background: #f9f9f9; }
+                .fecha { color: #666; font-size: 0.9rem; }
+                .total { font-weight: bold; font-size: 1.2rem; color: #0b57d0; text-align: right; margin-top: 1rem; }
+                @media print {
+                    body { padding: 0; }
+                    button { display: none; }
+                }
+            </style>
+        </head>
+        <body>
+            <h1>Reporte Financiero - Sistema Financiero Personal</h1>
+            
+            <div class="resumen">
+                <h3>Resumen General</h3>
+                <p><strong>Saldo Inicial:</strong> Bs. ${saldoInicial.toFixed(2)}</p>
+                <p><strong>Total Comisiones:</strong> Bs. ${totalComisiones.toFixed(2)}</p>
+                <p><strong>Saldo Actual:</strong> Bs. ${saldoTotal.toFixed(2)}</p>
+            </div>
+
+            <h3>Disponibilidad por Banco</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Banco</th>
+                        <th>Ingresos</th>
+                        <th>Gastos</th>
+                        <th>Saldo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${Object.entries(resumenBancos).map(([banco, datos]) => `
+                        <tr>
+                            <td>${banco}</td>
+                            <td>Bs. ${datos.ingresos.toFixed(2)}</td>
+                            <td>Bs. ${datos.gastos.toFixed(2)}</td>
+                            <td>Bs. ${datos.saldo.toFixed(2)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+
+            <h3>Movimientos Registrados</h3>
+            ${movimientos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).map(m => `
+                <div class="movimiento">
+                    <div><strong>${m.concepto}</strong></div>
+                    <div class="fecha">${m.categoria || 'Sin categoría'} · ${m.banco || '(Sin banco)'} · ${new Date(m.fecha).toLocaleDateString()}</div>
+                    <div><strong>${m.tipo === 'ingreso' ? '+' : '-'} Bs. ${m.cantidad.toFixed(2)}</strong></div>
+                </div>
+            `).join('')}
+
+            <div class="total">Saldo Final: Bs. ${saldoTotal.toFixed(2)}</div>
+
+            <script>
+                window.print();
+            </script>
+        </body>
+        </html>
+    `;
+
+    // Abrir en nueva ventana para imprimir
+    const ventana = window.open('', '_blank');
+    ventana.document.write(contenido);
+    ventana.document.close();
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------------
