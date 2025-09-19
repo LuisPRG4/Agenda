@@ -138,7 +138,13 @@
       <section>
         <h2>Movimientos</h2>
         <ul id="lista"></ul>
+
+        <div id="controlesPaginacion" style="margin-top: 1rem; text-align: center;"></div>
       </section>
+
+      <div class="button-center">
+        <button id="botonReporte" onclick="generarReporteImprimible()" style="display:none;">📄 Generar Reporte</button>
+      </div>
 
       <div class="button-center">
         <button onclick="exportarExcel()">📊 Exportar Excel</button>
