@@ -110,15 +110,20 @@ async function deleteEntry(storeName, key) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------------
-//                                       Funciones de tu app, adaptadas a IndexedDB
+//                                 Funciones de tu app, adaptadas a IndexedDB
 // ------------------------------------------------------------------------------------------------------------------------------------
 
 // Modificaciones en las funciones de tu app
 async function agregarMovimiento() {
-    const concepto = document.getElementById('concepto').value.trim();
+    const conceptoOriginal = document.getElementById('concepto').value.trim();
     const cantidad = parseFloat(document.getElementById('cantidad').value);
     const tipo = document.getElementById('tipo').value;
     let categoria = document.getElementById('categoria').value;
+
+    if (!conceptoOriginal || isNaN(cantidad)) {
+        alert('Por favor, completa el concepto y la cantidad.');
+        return;
+    }
 
     if (categoria === 'Otro') {
         const nuevaCat = document.getElementById('nuevaCategoria').value.trim();
@@ -145,17 +150,34 @@ async function agregarMovimiento() {
     
     // Aplicar regla si existe
     const reglas = await getAllEntries(STORES.REGLAS);
-    const reglaAplicada = reglas.find(r => concepto.toLowerCase().includes(r.palabra.toLowerCase()));
+    const reglaAplicada = reglas.find(r => conceptoOriginal.toLowerCase().includes(r.palabra.toLowerCase()));
     if (reglaAplicada) {
         categoria = reglaAplicada.categoria;
         if (reglaAplicada.banco) {
             banco = reglaAplicada.banco;
         }
     }
-    
-    // Crear movimiento
+
+    // ✅ Procesar saldo inicial (solo si hay valor)
+    let conceptoFinal = conceptoOriginal;
+    const saldoInicial = parseFloat(document.getElementById('saldoInicial').value);
+    if (!isNaN(saldoInicial) && saldoInicial > 0) {
+        try {
+            // Guardar en saldo_inicial solo si no existe
+            const saldoExistente = await getAllEntries(STORES.SALDO_INICIAL);
+            if (saldoExistente.length === 0) {
+                await updateEntry(STORES.SALDO_INICIAL, { id: 'saldo', monto: saldoInicial });
+            }
+            // ✅ Integrar en el concepto del movimiento
+            conceptoFinal = `${conceptoOriginal} (Saldo inicial: Bs. ${saldoInicial.toFixed(2)})`;
+        } catch (error) {
+            console.error("Error al guardar saldo inicial:", error);
+        }
+    }
+
+    // ✅ Crear movimiento único con concepto modificado
     const mov = {
-        concepto,
+        concepto: conceptoFinal,
         cantidad,
         tipo,
         categoria: categoria || 'Sin categoría',
@@ -165,7 +187,8 @@ async function agregarMovimiento() {
 
     try {
         await addEntry(STORES.MOVIMIENTOS, mov);
-        await renderizar();
+        await renderizar();     // ← Renderiza la lista
+        await actualizarSaldo(); // ← ¡Asegura que el saldo se actualice!
         limpiarForm();
     } catch (error) {
         console.error("Error al agregar el movimiento:", error);
@@ -177,7 +200,8 @@ async function calcularSaldo() {
     const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
     const saldoInicialArray = await getAllEntries(STORES.SALDO_INICIAL);
     const saldoInicial = saldoInicialArray.length > 0 ? saldoInicialArray[0].monto : 0;
-    
+
+    // Sumar solo ingresos y restar gastos
     const saldoMovimientos = movimientos.reduce((acc, m) => 
         acc + (m.tipo === 'ingreso' ? m.cantidad : -m.cantidad), 0);
 
@@ -206,6 +230,7 @@ async function renderizar() {
     const filtro = document.getElementById('filtroBanco').value;
     const texto = document.getElementById('txtBuscar').value.trim().toLowerCase();
 
+    // ✅ Solo filtrar movimientos reales — SIN saldo inicial ficticio
     const listaFiltrada = movimientos.filter(m =>
         (filtro ? (m.banco || '(Sin banco)') === filtro : true) &&
         (texto ? (m.concepto + (m.categoria || '') + (m.banco || '')).toLowerCase().includes(texto) : true)
@@ -213,25 +238,49 @@ async function renderizar() {
 
     listaFiltrada.forEach(m => {
         if (m.oculto) return;
+
         const li = document.createElement('li');
+
+        // Verificar si el concepto contiene información de saldo inicial
+        const esSaldoInicial = m.concepto.includes('Saldo inicial');
+        const conceptoBase = esSaldoInicial ? m.concepto.split(' (')[0] : m.concepto;
+        const saldoInicialTexto = esSaldoInicial ? m.concepto.split(' (')[1]?.replace(')', '') : '';
+
         li.innerHTML = `
-            <div style="display:flex; flex-direction:column; gap:.25rem; flex:1;">
-                <input type="text" value="${m.concepto}" 
-                        onblur="guardarCambio(${m.id}, 'concepto', this.value)"
-                        onkeypress="if(event.key==='Enter') this.blur();"
-                        style="width:100%; border:none; background:transparent; font:inherit;">
-                <div style="font-size:.75rem; color:var(--text-light);">
-                    ${m.categoria || 'Sin cat'} · ${m.banco || 'Sin banco'} · ${new Date(m.fecha).toLocaleDateString()}
-                </div>
-            </div>
-            <span>
-                <input type="number" value="${m.cantidad}" step="0.01"
-                        onblur="guardarCambio(${m.id}, 'cantidad', parseFloat(this.value))"
-                        onkeypress="if(event.key==='Enter') this.blur();"
-                        style="width:100%; border:none; background:transparent; font:inherit; text-align:right;">
-            </span>
-            <button onclick="borrar(${m.id})">❌</button>
-        `;
+    <div style="display:flex; flex-direction:column; gap:.25rem; flex:1; margin-bottom: .5rem; min-width:0;">
+        <!-- Concepto principal -->
+        <input type="text" value="${conceptoBase}" 
+                onblur="guardarCambio(${m.id}, 'concepto', this.value)"
+                onkeypress="if(event.key==='Enter') this.blur();"
+                style="width:100%; border:none; background:transparent; font:inherit; font-weight:600; color:var(--text);"
+                readonly>
+
+        <!-- Nota de saldo inicial -->
+        ${saldoInicialTexto ? `<div style="font-size:.8rem; color:var(--text-light); margin-top:-.25rem; padding-left: 0.25rem;">(${saldoInicialTexto})</div>` : ''}
+
+        <!-- Metadatos -->
+        <div style="font-size:.75rem; color:var(--text-light); display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
+            <span>${m.categoria || 'Sin categoría'}</span>
+            <span>·</span>
+            <span>${m.banco || '(Sin banco)'}</span>
+            <span>·</span>
+            <span>${new Date(m.fecha).toLocaleDateString()}</span>
+        </div>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">
+        <!-- Cantidad con moneda -->
+        <span style="font-weight:500; color:var(--text); font-size:1rem;">
+            ${m.cantidad.toFixed(2)} Bs
+        </span>
+
+        <!-- Botón borrar -->
+        <button onclick="borrar(${m.id})" style="padding:.25rem .5rem; font-size:.8rem; background:#b00020; color:white; border-radius:50%; border:none; cursor:pointer; width:auto;">
+            ❌
+        </button>
+    </div>
+`;
+
         ul.appendChild(li);
     });
 
@@ -244,7 +293,8 @@ async function renderizar() {
 async function borrar(id) {
     try {
         await deleteEntry(STORES.MOVIMIENTOS, id);
-        renderizar();
+        await renderizar();     // ← Renderiza la lista
+        await actualizarSaldo(); // ← ¡Asegura que el saldo se actualice!
     } catch (error) {
         console.error("Error al borrar el movimiento:", error);
     }
@@ -449,6 +499,7 @@ async function exportarExcel() {
 
 // Funciones de UI/UX del código original
 function limpiarForm() {
+    document.getElementById('saldoInicial').value = '';
     document.getElementById('concepto').value = '';
     document.getElementById('cantidad').value = '';
     document.getElementById('tipo').value = 'ingreso';
@@ -500,17 +551,25 @@ function aplicarTemaInicial() {
 }
 
 // ---- Funciones para categorías (adaptadas) ----
-async function agregarCategoria(nombre) {
-    if (!nombre || nombre.trim() === '') {
-        alert('Nombre de categoría no válido.');
+async function agregarCategoria() {
+    const input = document.getElementById('nuevaCategoria');
+    const nombre = input.value.trim();
+
+    if (!nombre) {
+        alert('Por favor, ingresa un nombre para la categoría.');
         return;
     }
+
     try {
         await addEntry(STORES.CATEGORIAS, { nombre });
         await actualizarSelectCategorias();
-        //alert(`Categoría "${nombre}" agregada.`);
+        input.value = ''; // Limpiar campo
+        input.style.display = 'none'; // Ocultar nuevamente
+        document.getElementById('categoria').value = nombre; // Seleccionar la nueva categoría
+        alert(`✅ Categoría "${nombre}" agregada.`);
     } catch (error) {
         console.error("Error al agregar categoría:", error);
+        alert("Error al agregar la categoría.");
     }
 }
 
@@ -583,17 +642,25 @@ async function cargarSelectEliminarCategorias() {
 }
 
 // ---- Funciones para bancos (adaptadas) ----
-async function agregarBanco(nombre) {
-    if (!nombre || nombre.trim() === '') {
-        alert('Nombre de banco no válido.');
+async function agregarBanco() {
+    const input = document.getElementById('nuevoBanco');
+    const nombre = input.value.trim();
+
+    if (!nombre) {
+        alert('Por favor, ingresa un nombre para el banco.');
         return;
     }
+
     try {
         await addEntry(STORES.BANCOS, { nombre });
         await cargarSelectBancos();
-        //alert(`Banco "${nombre}" agregado.`);
+        input.value = ''; // Limpiar campo
+        input.style.display = 'none'; // Ocultar nuevamente
+        document.getElementById('banco').value = nombre; // Seleccionar el nuevo banco
+        alert(`✅ Banco "${nombre}" agregado.`);
     } catch (error) {
         console.error("Error al agregar banco:", error);
+        alert("Error al agregar el banco.");
     }
 }
 
@@ -705,38 +772,22 @@ async function eliminarRegla(id) {
     }
 }
 
-async function agregarSaldoInicial() {
-    const saldo = parseFloat(document.getElementById('saldoInicial').value);
-    const oculto = document.getElementById('ocultarSaldoInicial').checked;
-    if (isNaN(saldo) || saldo <= 0) {
-        alert('Ingresa un monto válido.');
+async function eliminarSaldoInicial() {
+    if (!confirm('¿Seguro que quieres eliminar el saldo inicial? Esto borrará la base contable.')) {
         return;
     }
     try {
-        const saldoInicialDB = { id: 'saldo', monto: saldo };
-        await updateEntry(STORES.SALDO_INICIAL, saldoInicialDB);
-        
-        const mov = {
-            concepto: 'Saldo inicial',
-            cantidad: saldo,
-            tipo: 'ingreso',
-            categoria: 'Ingreso inicial',
-            fecha: new Date().toISOString(),
-            banco: '(Sin banco)',
-            oculto
-        };
-        await addEntry(STORES.MOVIMIENTOS, mov);
-        document.getElementById('saldoInicial').value = '';
-        document.getElementById('ocultarSaldoInicial').checked = false;
+        await deleteEntry(STORES.SALDO_INICIAL, 'saldo');
+        alert('Saldo inicial eliminado.');
         await renderizar();
-        alert(`Saldo inicial de Bs. ${saldo.toFixed(2)} registrado.`);
+        await actualizarSaldo();
     } catch (error) {
-        console.error("Error al agregar el saldo inicial:", error);
+        console.error("Error al eliminar saldo inicial:", error);
     }
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------------
-//                                                 Inicialización y Event Listeners
+//                                 Inicialización y Event Listeners
 // ------------------------------------------------------------------------------------------------------------------------------------
 
 document.addEventListener('DOMContentLoaded', async function() {
