@@ -317,3 +317,45 @@ body {
   overflow-wrap: break-word;
   hyphens: auto;
 }
+
+/* Diseño mejorado para las tarjetas de movimientos */
+#lista li {
+    padding: 1rem;
+    border-bottom: 1px solid #e0e0e0;
+    transition: background-color 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+#lista li:last-child {
+    border-bottom: none;
+}
+
+#lista li:hover {
+    background-color: rgba(11, 87, 208, 0.05);
+}
+
+/* Ajuste para evitar cortes en el concepto */
+#lista input[type="text"] {
+    white-space: normal;
+    word-wrap: break-word;
+    max-width: 100%;
+}
+
+/* Estilo para el botón de borrar */
+#lista button {
+    width: auto;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    background: #b00020;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+#lista button:hover {
+    background: #9c001f;
+}
