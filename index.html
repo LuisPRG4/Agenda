@@ -92,19 +92,13 @@
       <section>
         <h2>Agregar Movimiento</h2>
 
-        <section>
-          <h3>Saldo Inicial</h3>
-          <input type="number" id="saldoInicial" placeholder="Ingrese saldo inicial (opcional)" step="0.01" />
+        <!-- Campo de saldo inicial integrado -->
+<!-- Saldo Inicial (solo para establecer base contable, no genera movimiento) -->
+<label for="saldoInicial">Saldo Inicial (opcional, solo se aplica una vez):
+  <input type="number" id="saldoInicial" placeholder="Ej. 1000.00" step="0.01" />
+</label>
 
-          <label>
-          <input type="checkbox" id="ocultarSaldoInicial" />
-          Ocultar saldo inicial en la lista (solo afecta visualmente)
-        </label>
-
-          <button onclick="agregarSaldoInicial()">Guardar Saldo</button>
-        </section>
-        
-
+  
         <input type="text" id="concepto" placeholder="Concepto" />
         <input type="number" id="cantidad" placeholder="Cantidad" />
         <select id="tipo">
@@ -116,7 +110,7 @@
   <div style="display:flex; gap:.5rem;">
     <select id="categoria">
       <option value="">(automática)</option>
-     <!-- <option value="Otro">+ Nueva…</option> -->
+     <option value="Otro">+ Nueva…</option>
     </select>
     <button onclick="agregarCategoria()" style="padding:.5rem; border:none; background:#0b57d0; color:white; border-radius:50%; width:2rem; height:2rem; font-size:1rem;">+</button>
   </div>
@@ -127,7 +121,7 @@
   <div style="display:flex; gap:.5rem;">
     <select id="banco">
       <option value="">(Sin banco)</option>
-      <!-- <option value="Otro">+ Nuevo…</option> -->
+      <option value="Otro">+ Nuevo…</option>
     </select>
     <button onclick="agregarBanco()" style="padding:.5rem; border:none; background:#0b57d0; color:white; border-radius:50%; width:2rem; height:2rem; font-size:1rem;">+</button>
   </div>
@@ -193,6 +187,11 @@
               <option value="">Selecciona un banco</option>
             </select>
             <button onclick="eliminarBanco()">Eliminar</button>
+          </details>
+
+          <details>
+            <summary>🗑️ Eliminar saldo inicial</summary>
+            <button onclick="eliminarSaldoInicial()">Eliminar saldo inicial</button>
           </details>
 
           <summary>➕ Nueva regla</summary>
