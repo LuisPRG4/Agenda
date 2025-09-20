@@ -251,24 +251,24 @@ async function eliminarMovimiento(id) {
 
 // Modificaciones en las funciones de tu app
 async function agregarMovimiento() {
-    // Si hay un movimiento en edición, llamar a la función de actualización
+
+    // ✅ Si hay un movimiento en edición, llamar a la función de actualización
     if (idMovimientoEditando) {
         await actualizarMovimiento();
         return;
     }
 
     const conceptoOriginal = document.getElementById('concepto').value.trim();
-    const cantidadInput = document.getElementById('cantidad');
-    const saldoInicialInput = document.getElementById('saldoInicial');
-
-    const cantidad = parseFloat(cantidadInput.value);
-    const saldoInicial = parseFloat(saldoInicialInput.value);
-
+    const cantidad = parseFloat(document.getElementById('cantidad').value);
     const tipo = document.getElementById('tipo').value;
     let categoria = document.getElementById('categoria').value;
+    
+    // ✅ Declarar saldo inicial, banco y fecha al inicio de la función
+    const saldoInicial = parseFloat(document.getElementById('saldoInicial').value);
     const bancoInput = document.getElementById('banco').value;
     const fechaInput = document.getElementById('fechaMov').value;
 
+    // ✅ La validación corregida ahora incluye el banco y la fecha
     if (!conceptoOriginal || (isNaN(cantidad) && isNaN(saldoInicial)) || !bancoInput || !fechaInput) {
         alert('Por favor, completa el concepto, la cantidad (o saldo inicial), el banco y la fecha.');
         return;
@@ -287,14 +287,14 @@ async function agregarMovimiento() {
 
     const fecha = new Date(fechaInput + 'T12:00:00');
 
-    let banco = (bancoInput === 'Otro')
+    let banco = (bancoInput === 'Otro') 
         ? document.getElementById('nuevoBanco').value.trim() || '(Sin banco)'
         : bancoInput || '(Sin banco)';
 
     if (bancoInput === 'Otro' && document.getElementById('nuevoBanco').value.trim()) {
         await agregarBanco(banco);
     }
-
+    
     // Aplicar regla si existe
     const reglas = await getAllEntries(STORES.REGLAS);
     const reglaAplicada = reglas.find(r => conceptoOriginal.toLowerCase().includes(r.palabra.toLowerCase()));
@@ -305,30 +305,41 @@ async function agregarMovimiento() {
         }
     }
 
-    let conceptoFinal = conceptoOriginal;
-    let cantidadFinal = isNaN(cantidad) ? 0 : cantidad;
-    let tipoFinal = tipo;
-
     // Procesar saldo inicial (solo si hay valor)
+    let conceptoFinal = conceptoOriginal;
     if (!isNaN(saldoInicial) && saldoInicial > 0) {
-        conceptoFinal = `Saldo inicial: ${conceptoOriginal}`;
-        cantidadFinal = saldoInicial;
-        tipoFinal = 'ingreso'; // Los saldos iniciales siempre son ingresos
+        try {
+            // Guardar en saldo_inicial solo si no existe
+            const saldoExistente = await getAllEntries(STORES.SALDO_INICIAL);
+            if (saldoExistente.length === 0) {
+                await updateEntry(STORES.SALDO_INICIAL, { id: 'saldo', monto: saldoInicial });
+            }
+            // Integrar en el concepto del movimiento
+            conceptoFinal = `${conceptoOriginal} (Saldo inicial: Bs. ${saldoInicial.toFixed(2)})`;
+        } catch (error) {
+            console.error("Error al guardar saldo inicial:", error);
+        }
     }
 
     // Crear movimiento único con concepto modificado
     const mov = {
         concepto: conceptoFinal,
-        cantidad: cantidadFinal,
-        tipo: tipoFinal,
+        cantidad: cantidad, // Usar la cantidad del formulario
+        tipo,
         categoria: categoria || 'Sin categoría',
         fecha: fecha.toISOString(),
         banco: banco
     };
 
+    // Si se ingresó un saldo inicial, el movimiento de cantidad debe ser el mismo que el saldo inicial
+    if (!isNaN(saldoInicial) && saldoInicial > 0) {
+        mov.cantidad = saldoInicial;
+    }
+
     try {
         await addEntry(STORES.MOVIMIENTOS, mov);
-        await renderizar();
+        await renderizar();      // ← Renderiza la lista
+        await actualizarSaldo(); // ← Asegura que el saldo se actualice
         limpiarForm();
     } catch (error) {
         console.error("Error al agregar el movimiento:", error);
@@ -1165,6 +1176,103 @@ function toggleLista() {
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------------
+//                                 Funciones de Presupuesto
+// ------------------------------------------------------------------------------------------------------------------------------------
+
+async function actualizarPresupuesto() {
+    const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+    const fechaHoy = new Date();
+    const fechaHace30Dias = new Date(fechaHoy.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // Filtrar gastos de los últimos 30 días
+    const gastosUltimos30Dias = movimientos.filter(m =>
+        m.tipo === 'gasto' &&
+        new Date(m.fecha) >= fechaHace30Dias &&
+        new Date(m.fecha) <= fechaHoy
+    );
+
+    const totalGastado = gastosUltimos30Dias.reduce((sum, m) => sum + m.cantidad, 0);
+    const meta = parseFloat(localStorage.getItem('metaPresupuesto')) || 0;
+
+    // Actualizar elementos de la UI
+    document.getElementById('presupuestoActual').value = totalGastado.toFixed(2);
+    document.getElementById('gastadoTexto').textContent = `Bs. ${totalGastado.toFixed(2)}`;
+    document.getElementById('metaTexto').textContent = `Bs. ${meta.toFixed(2)}`;
+
+    // Calcular porcentaje
+    const porcentaje = Math.min(100, Math.max(0, (totalGastado / meta) * 100));
+    document.getElementById('progresoTexto').textContent = `${Math.round(porcentaje)}%`;
+    document.getElementById('barraProgreso').style.width = `${porcentaje}%`;
+
+    // Cambiar color de la barra según progreso
+    const barra = document.getElementById('barraProgreso');
+    if (porcentaje >= 90) {
+        barra.style.background = 'linear-gradient(90deg, #b00020, #d93025)'; // Rojo
+    } else if (porcentaje >= 70) {
+        barra.style.background = 'linear-gradient(90deg, #ff9800, #ff6b00)'; // Naranja
+    } else {
+        barra.style.background = 'linear-gradient(90deg, #018642, #0b57d0)'; // Verde/Azul
+    }
+
+    // Renderizar detalles
+    renderizarDetallesPresupuesto(gastosUltimos30Dias);
+}
+
+function renderizarDetallesPresupuesto(gastos) {
+    const ul = document.getElementById('listaPresupuestoDetalles');
+    ul.innerHTML = '';
+
+    if (gastos.length === 0) {
+        ul.innerHTML = '<li style="text-align:center; color:var(--text-light); padding:1rem;">No hay gastos en los últimos 30 días.</li>';
+        return;
+    }
+
+    // Agrupar por categoría
+    const resumenCategorias = {};
+    gastos.forEach(m => {
+        const cat = m.categoria || 'Sin categoría';
+        resumenCategorias[cat] = (resumenCategorias[cat] || 0) + m.cantidad;
+    });
+
+    // Ordenar por monto (de mayor a menor)
+    const categoriasOrdenadas = Object.entries(resumenCategorias).sort((a, b) => b[1] - a[1]);
+
+    categoriasOrdenadas.forEach(([categoria, monto]) => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                <span style="font-weight:500;">${categoria}</span>
+                <span style="font-weight:600; color:var(--danger);">Bs. ${monto.toFixed(2)}</span>
+            </div>
+        `;
+        ul.appendChild(li);
+    });
+}
+
+async function guardarMetaPresupuesto() {
+    const metaInput = document.getElementById('metaPresupuesto').value;
+    const meta = parseFloat(metaInput);
+
+    if (isNaN(meta) || meta < 0) {
+        alert('Por favor, ingresa una meta válida (mayor o igual a 0).');
+        return;
+    }
+
+    localStorage.setItem('metaPresupuesto', meta.toString());
+    alert('✅ Meta de presupuesto guardada con éxito.');
+    await actualizarPresupuesto(); // Actualizar inmediatamente
+}
+
+// Cargar la meta guardada al iniciar
+async function cargarMetaPresupuesto() {
+    const metaGuardada = localStorage.getItem('metaPresupuesto');
+    if (metaGuardada) {
+        document.getElementById('metaPresupuesto').value = parseFloat(metaGuardada).toFixed(2);
+    }
+    await actualizarPresupuesto(); // Inicializar el gráfico
+}
+
+// ------------------------------------------------------------------------------------------------------------------------------------
 //                                 Inicialización y Event Listeners
 // ------------------------------------------------------------------------------------------------------------------------------------
 
@@ -1192,6 +1300,9 @@ document.addEventListener('DOMContentLoaded', async function () {
         await renderizar();
         await renderizarResumenBancos();
         await renderizarReglas();
+
+         // Cargar meta de presupuesto y actualizar
+        await cargarMetaPresupuesto();
 
         // Aplicar el tema guardado
         aplicarTemaInicial();
@@ -1239,9 +1350,11 @@ document.addEventListener('DOMContentLoaded', async function () {
         if (pestañaGuardada) {
             mostrarSideTab(pestañaGuardada);
         } else {
+            mostrarSideTab('dashboard'); // ← Cambia esto por:
+            // mostrarSideTab('dashboard');
+            // Añadimos la nueva pestaña como predeterminada si no hay guardada
             mostrarSideTab('dashboard');
         }
-
     } catch (error) {
         console.error("Error en la inicialización de la app:", error);
     }
