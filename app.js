@@ -1302,6 +1302,196 @@ async function eliminarMetaPresupuesto() {
     await actualizarPresupuesto(); // Actualiza el gasto actual y el desglose
 }
 
+function mostrarModalReporte() {
+    document.getElementById('modalReporte').style.display = 'flex';
+}
+
+function cerrarModalReporte() {
+    document.getElementById('modalReporte').style.display = 'none';
+    document.getElementById('formCategoria').style.display = 'none';
+    document.getElementById('formFecha').style.display = 'none';
+}
+
+async function mostrarSeleccionCategoria() {
+    const categorias = await getAllEntries(STORES.CATEGORIAS);
+    const select = document.getElementById('selectCategoriaReporte');
+    select.innerHTML = '<option value="">Selecciona una categoría</option>';
+    categorias.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.nombre;
+        opt.textContent = c.nombre;
+        select.appendChild(opt);
+    });
+    document.getElementById('formCategoria').style.display = 'block';
+    document.getElementById('modalReporte').style.display = 'none';
+}
+
+function cerrarFormCategoria() {
+    document.getElementById('formCategoria').style.display = 'none';
+    document.getElementById('modalReporte').style.display = 'flex';
+}
+
+function mostrarSeleccionFecha() {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const fechaActual = `${yyyy}-${mm}-${dd}`;
+    
+    document.getElementById('fechaDesde').value = '';
+    document.getElementById('fechaHasta').value = fechaActual;
+    
+    document.getElementById('formFecha').style.display = 'block';
+    document.getElementById('modalReporte').style.display = 'none';
+}
+
+function cerrarFormFecha() {
+    document.getElementById('formFecha').style.display = 'none';
+    document.getElementById('modalReporte').style.display = 'flex';
+}
+
+async function generarReportePorCategoria() {
+    const categoria = document.getElementById('selectCategoriaReporte').value;
+    if (!categoria) {
+        alert('Selecciona una categoría.');
+        return;
+    }
+    const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+    const movimientosFiltrados = movimientos.filter(m => m.categoria === categoria);
+    // Adaptar la función existente para usar solo estos movimientos
+    const saldoInicialArray = await getAllEntries(STORES.SALDO_INICIAL);
+    const saldoInicial = saldoInicialArray.length > 0 ? saldoInicialArray[0].monto : 0;
+    const totalComisiones = movimientosFiltrados
+        .filter(m => m.tipo === 'gasto')
+        .reduce((sum, m) => sum + (m.cantidad * 0.003), 0);
+    const saldoTotal = saldoInicial + movimientosFiltrados.reduce((sum, m) => sum + (m.tipo === 'ingreso' ? m.cantidad : -m.cantidad), 0) - totalComisiones;
+
+    // Crear contenido HTML para impresión
+    const contenido = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Reporte Financiero - SFP</title>
+            <style>
+                body { font-family: 'Roboto', sans-serif; padding: 2rem; }
+                h1 { text-align: center; color: #0b57d0; margin-bottom: 2rem; }
+                .resumen { background: #f5f7fa; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
+                th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd; }
+                th { background: #0b57d0; color: white; }
+                .movimiento { margin-bottom: 1rem; padding: 1rem; border-left: 4px solid #0b57d0; background: #f9f9f9; }
+                .fecha { color: #666; font-size: 0.9rem; }
+                .total { font-weight: bold; font-size: 1.2rem; color: #0b57d0; text-align: right; margin-top: 1rem; }
+                @media print {
+                    body { padding: 0; }
+                    button { display: none; }
+                }
+            </style>
+        </head>
+        <body>
+            <h1>Reporte Financiero - Sistema Financiero Personal</h1>
+            <div class="resumen">
+                <h3>Resumen General</h3>
+                <p><strong>Saldo Inicial:</strong> Bs. ${saldoInicial.toFixed(2)}</p>
+                <p><strong>Total Comisiones:</strong> Bs. ${totalComisiones.toFixed(2)}</p>
+                <p><strong>Saldo Actual:</strong> Bs. ${saldoTotal.toFixed(2)}</p>
+            </div>
+            <h3>Movimientos por Categoría: "${categoria}"</h3>
+            ${movimientosFiltrados.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).map(m => `
+                <div class="movimiento">
+                    <div><strong>${m.concepto}</strong></div>
+                    <div class="fecha">${m.banco || '(Sin banco)'} · ${new Date(m.fecha).toLocaleDateString()}</div>
+                    <div><strong>${m.tipo === 'ingreso' ? '+' : '-'} Bs. ${m.cantidad.toFixed(2)}</strong></div>
+                </div>
+            `).join('')}
+            <div class="total">Saldo Final: Bs. ${saldoTotal.toFixed(2)}</div>
+            <script>
+                window.print();
+            </script>
+        </body>
+        </html>
+    `;
+    const ventana = window.open('', '_blank');
+    ventana.document.write(contenido);
+    ventana.document.close();
+    cerrarFormCategoria();
+}
+
+async function generarReportePorFecha() {
+    const desde = document.getElementById('fechaDesde').value;
+    const hasta = document.getElementById('fechaHasta').value;
+    if (!desde || !hasta) {
+        alert('Selecciona las fechas.');
+        return;
+    }
+    const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+    const movimientosFiltrados = movimientos.filter(m => {
+        const fechaMov = new Date(m.fecha);
+        const fechaDesde = new Date(desde);
+        const fechaHasta = new Date(hasta);
+        return fechaMov >= fechaDesde && fechaMov <= fechaHasta;
+    });
+    const saldoInicialArray = await getAllEntries(STORES.SALDO_INICIAL);
+    const saldoInicial = saldoInicialArray.length > 0 ? saldoInicialArray[0].monto : 0;
+    const totalComisiones = movimientosFiltrados
+        .filter(m => m.tipo === 'gasto')
+        .reduce((sum, m) => sum + (m.cantidad * 0.003), 0);
+    const saldoTotal = saldoInicial + movimientosFiltrados.reduce((sum, m) => sum + (m.tipo === 'ingreso' ? m.cantidad : -m.cantidad), 0) - totalComisiones;
+
+    // Crear contenido HTML para impresión
+    const contenido = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Reporte Financiero - SFP</title>
+            <style>
+                body { font-family: 'Roboto', sans-serif; padding: 2rem; }
+                h1 { text-align: center; color: #0b57d0; margin-bottom: 2rem; }
+                .resumen { background: #f5f7fa; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
+                th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd; }
+                th { background: #0b57d0; color: white; }
+                .movimiento { margin-bottom: 1rem; padding: 1rem; border-left: 4px solid #0b57d0; background: #f9f9f9; }
+                .fecha { color: #666; font-size: 0.9rem; }
+                .total { font-weight: bold; font-size: 1.2rem; color: #0b57d0; text-align: right; margin-top: 1rem; }
+                @media print {
+                    body { padding: 0; }
+                    button { display: none; }
+                }
+            </style>
+        </head>
+        <body>
+            <h1>Reporte Financiero - Sistema Financiero Personal</h1>
+            <div class="resumen">
+                <h3>Resumen General</h3>
+                <p><strong>Periodo:</strong> ${new Date(desde).toLocaleDateString()} a ${new Date(hasta).toLocaleDateString()}</p>
+                <p><strong>Saldo Inicial:</strong> Bs. ${saldoInicial.toFixed(2)}</p>
+                <p><strong>Total Comisiones:</strong> Bs. ${totalComisiones.toFixed(2)}</p>
+                <p><strong>Saldo Actual:</strong> Bs. ${saldoTotal.toFixed(2)}</p>
+            </div>
+            <h3>Movimientos del Periodo</h3>
+            ${movimientosFiltrados.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).map(m => `
+                <div class="movimiento">
+                    <div><strong>${m.concepto}</strong></div>
+                    <div class="fecha">${m.categoria || 'Sin categoría'} · ${m.banco || '(Sin banco)'} · ${new Date(m.fecha).toLocaleDateString()}</div>
+                    <div><strong>${m.tipo === 'ingreso' ? '+' : '-'} Bs. ${m.cantidad.toFixed(2)}</strong></div>
+                </div>
+            `).join('')}
+            <div class="total">Saldo Final: Bs. ${saldoTotal.toFixed(2)}</div>
+            <script>
+                window.print();
+            </script>
+        </body>
+        </html>
+    `;
+    const ventana = window.open('', '_blank');
+    ventana.document.write(contenido);
+    ventana.document.close();
+    cerrarFormFecha();
+}
+
+
+
 // ------------------------------------------------------------------------------------------------------------------------------------
 //                                 Inicialización y Event Listeners
 // ------------------------------------------------------------------------------------------------------------------------------------
