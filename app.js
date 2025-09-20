@@ -1200,8 +1200,9 @@ async function actualizarPresupuesto() {
     document.getElementById('metaTexto').textContent = `Bs. ${meta.toFixed(2)}`;
 
     // Calcular porcentaje
-    const porcentaje = Math.min(100, Math.max(0, (totalGastado / meta) * 100));
-    document.getElementById('progresoTexto').textContent = `${Math.round(porcentaje)}%`;
+    const porcentaje = meta > 0 ? Math.min(100, Math.max(0, (totalGastado / meta) * 100)) : 0;
+    const porcentajeTexto = Math.round(porcentaje);
+    document.getElementById('progresoTexto').textContent = `${porcentajeTexto}%`;
     document.getElementById('barraProgreso').style.width = `${porcentaje}%`;
 
     // Cambiar color de la barra según progreso
@@ -1266,10 +1267,39 @@ async function guardarMetaPresupuesto() {
 // Cargar la meta guardada al iniciar
 async function cargarMetaPresupuesto() {
     const metaGuardada = localStorage.getItem('metaPresupuesto');
+    const metaInput = document.getElementById('metaPresupuesto');
+    const metaTexto = document.getElementById('metaTexto');
+    const leyenda = document.getElementById('leyendaPresupuesto'); // ✅ Nueva referencia
+
     if (metaGuardada) {
-        document.getElementById('metaPresupuesto').value = parseFloat(metaGuardada).toFixed(2);
+        metaInput.value = parseFloat(metaGuardada).toFixed(2);
+        metaTexto.textContent = `Bs. ${parseFloat(metaGuardada).toFixed(2)}`;
+        if (leyenda) leyenda.style.display = 'none'; // Ocultar leyenda si hay meta
+    } else {
+        metaInput.value = '';
+        metaTexto.textContent = 'Bs. 0';
+        if (leyenda) leyenda.style.display = 'block'; // Mostrar leyenda si no hay meta
     }
-    await actualizarPresupuesto(); // Inicializar el gráfico
+
+    await actualizarPresupuesto(); // Inicializar el gráfico siempre
+}
+
+// ------------------------------------------------------------------------------------------------------------------------------------
+//                                 Funciones de Presupuesto (continuación)
+// ------------------------------------------------------------------------------------------------------------------------------------
+
+async function eliminarMetaPresupuesto() {
+    if (!confirm('¿Estás seguro de que quieres eliminar tu meta de presupuesto? Esto borrará tu objetivo mensual y la barra volverá a 0%.')) {
+        return;
+    }
+    localStorage.removeItem('metaPresupuesto');
+    document.getElementById('metaPresupuesto').value = '';
+    document.getElementById('metaTexto').textContent = 'Bs. 0';
+    document.getElementById('progresoTexto').textContent = '0%';
+    document.getElementById('barraProgreso').style.width = '0%';
+    document.getElementById('barraProgreso').style.background = 'linear-gradient(90deg, #018642, #0b57d0)'; // Volver a verde
+    alert('✅ Meta de presupuesto eliminada con éxito.');
+    await actualizarPresupuesto(); // Actualiza el gasto actual y el desglose
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------------
