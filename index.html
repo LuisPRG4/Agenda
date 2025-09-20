@@ -153,22 +153,26 @@
         <ul id="listaBancos"></ul>
       </section>
     </div>
+
     <div class="side-content" id="side-presupuesto">
       <section id="presupuestoMeta">
-        <h2>🎯 Meta de Presupuesto</h2>
-        <p style="margin-bottom: 1rem; color: var(--text-light);">Define tu meta mensual y tu progreso actual.</p>
-        <div style="display:flex; gap:1rem; margin-bottom:1.5rem;">
-          <div style="flex:1;">
-            <label for="metaPresupuesto">Meta mensual (Bs):</label>
-            <input type="number" id="metaPresupuesto" placeholder="Ej: 20000" step="100" min="0" />
-          </div>
-          <div style="flex:1;">
-            <label for="presupuestoActual">Gasto actual (Bs):</label>
-            <input type="number" id="presupuestoActual" placeholder="Automático" readonly style="background:var(--card-bg); color:var(--text-light); cursor:not-allowed;" />
-          </div>
-        </div>
-        <button onclick="guardarMetaPresupuesto()" style="width:100%;">Guardar Meta</button>
-      </section>
+  <h2>🎯 Meta de Presupuesto</h2>
+  <p style="margin-bottom: 1rem; color: var(--text-light);">Define tu meta mensual y tu progreso actual.</p>
+  <div style="display:flex; gap:1rem; margin-bottom:1.5rem;">
+    <div style="flex:1;">
+      <label for="metaPresupuesto">Meta mensual (Bs):</label>
+      <input type="number" id="metaPresupuesto" placeholder="Ej: 20000" step="100" min="0" />
+    </div>
+    <div style="flex:1;">
+      <label for="presupuestoActual">Gasto actual (Bs):</label>
+      <input type="number" id="presupuestoActual" placeholder="Automático" readonly style="background:var(--card-bg); color:var(--text-light); cursor:not-allowed;" />
+    </div>
+  </div>
+  <div style="display:flex; gap:0.75rem; margin-bottom:1.5rem;">
+    <button onclick="guardarMetaPresupuesto()" style="flex:1; background:#0b57d0; color:white; border:none; border-radius:8px; padding:0.75rem; font-size:0.9rem;">💾 Guardar Meta</button>
+    <button onclick="eliminarMetaPresupuesto()" style="flex:1; background:#b00020; color:white; border:none; border-radius:8px; padding:0.75rem; font-size:0.9rem; opacity:0.9; transition:opacity 0.2s;">🗑️ Eliminar Meta</button>
+  </div>
+</section>
 
       <section id="presupuestoGrafico">
         <h2>📊 Progreso del Presupuesto</h2>
@@ -188,12 +192,16 @@
       </section>
 
       <section id="presupuestoDetalles">
-        <h2>🔍 Desglose de Gastos (últimos 30 días)</h2>
-        <ul id="listaPresupuestoDetalles"></ul>
-        <div style="text-align:center; margin-top:1rem;">
-          <button onclick="actualizarPresupuesto()" style="background:#0b57d0; color:white; border:none; border-radius:8px; padding:0.5rem 1rem; font-size:0.9rem;">Actualizar</button>
-        </div>
-      </section>
+  <h2>🔍 Desglose de Gastos (últimos 30 días)</h2>
+  <ul id="listaPresupuestoDetalles"></ul>
+  <div style="text-align:center; margin-top:1rem;">
+    <button onclick="actualizarPresupuesto()" style="background:#0b57d0; color:white; border:none; border-radius:8px; padding:0.5rem 1rem; font-size:0.9rem;">Actualizar</button>
+  </div>
+  <p id="leyendaPresupuesto" style="margin-top:1.5rem; font-size:0.85rem; color:var(--text-light); text-align:center; font-style:italic; max-width:400px; margin-left:auto; margin-right:auto; display:none;">
+    📌 <strong>¿Sin meta?</strong> Esta pestaña muestra tu gasto real. Define una meta para ver tu progreso.
+  </p>
+</section>
+
     </div>
     <div class="side-content" id="side-config">
       <section id="panelReglas">
