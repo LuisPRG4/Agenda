@@ -4,20 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Sistema Financiero Personal (SFP)</title>
+
+  <link rel="icon" type="image/x-icon" href="recursos/ICONO.png">
+
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 
-  <!-- Título y botón de tema -->
   <div style="text-align:right; margin-bottom:.5rem;">
     <button id="btnTema" title="Cambiar tema">🌓</button>
   </div>
   <h1 style="text-align:center; margin-bottom:1rem;">Sistema Financiero Personal (SFP)</h1>
 
-  <!-- Contenedor lateral (pestañas + contenido) -->
   <div class="sidebar">
 
-    <!-- Pestañas laterales -->
     <nav class="side-tabs">
       <button class="side-tab active" onclick="mostrarSideTab('dashboard')">📊 Dashboard</button>
       <button class="side-tab" onclick="mostrarSideTab('movimientos')">💳 Movimientos</button>
@@ -25,9 +25,7 @@
       <button class="side-tab" onclick="mostrarSideTab('config')">⚙️ Config</button>
     </nav>
 
-    <!-- Contenido de cada pestaña lateral -->
     <div class="side-content active" id="side-dashboard">
-      <!-- Dashboard completo -->
       <section id="buscador">
         <input type="text" id="txtBuscar" placeholder="🔍 Buscar..." />
       </section>
@@ -37,26 +35,31 @@
         <p>Saldo actual: <strong id="saldo">Bs. 0,00</strong></p>
 
         <div style="margin-top: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
-  <label style="font-size: 0.875rem; color: var(--text-light);">
-    Convertir a:
-    <select id="monedaDestino">
-      <option value="USD">Dólar (USD)</option>
-      <option value="EUR">Euro (EUR)</option>
-      <option value="COP">Peso Colombiano (COP)</option>
-      <option value="ARS">Peso Argentino (ARS)</option>
-      <option value="MXN">Peso Mexicano (MXN)</option>
-    </select>
-  </label>
+          <label style="font-size: 0.875rem; color: var(--text-light);">
+            Convertir a:
+            <select id="monedaDestino">
+              <option value="USD">Dólar (USD)</option>
+              <option value="EUR">Euro (EUR)</option>
+              <option value="COP">Peso Colombiano (COP)</option>
+              <option value="ARS">Peso Argentino (ARS)</option>
+              <option value="MXN">Peso Mexicano (MXN)</option>
+            </select>
+          </label>
 
-  <label style="font-size: 0.875rem; color: var(--text-light);">
-    Tasa 1 Bs. =
-    <input type="number" id="tasaCambio" step="0.000001" value="0.00012" style="width: 80px;" />
-  </label>
+          <label style="font-size: 0.875rem; color: var(--text-light);">
+            Tasa del día (Bs). =
+            <input type="number" id="tasaCambio" step="0.01" value="8333.33" style="width: 80px;" placeholder="1 USD = ? Bs" title="Ej: 8333.33 significa que 1 USD = 8333.33 Bs" />
 
-  <div style="font-weight: 500; font-size: 1.1rem;">
-    Equivalente: <span id="equivalente">--</span>
-  </div>
-</div>
+            <div id="tasaActual" style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem;">
+              Tasa actual: 1 USD = 8.333,33 Bs
+            </div>
+
+          </label>
+
+          <div style="font-weight: 500; font-size: 1.1rem;">
+            Equivalente: <span id="equivalente">--</span>
+          </div>
+        </div>
 
       </section>
 
@@ -72,33 +75,30 @@
       </section>
 
       <section id="ingGastPorBanco">
-  <h2>Ingresos vs Gastos por banco</h2>
-  <table id="tablaBancos" style="width:100%; border-collapse:collapse;">
-    <thead>
-      <tr style="border-bottom:1px solid var(--text-light);">
-        <th style="text-align:left;">Banco</th>
-        <th style="text-align:right;">Ingresos</th>
-        <th style="text-align:right;">Gastos</th>
-        <th style="text-align:right;">Saldo</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-</section>
+        <h2>Ingresos vs Gastos por banco</h2>
+        <table id="tablaBancos" style="width:100%; border-collapse:collapse;">
+  <thead>
+    <tr style="border-bottom:1px solid var(--text-light);">
+      <th style="text-align:left;">Banco</th>
+      <th style="text-align:right;">Saldo inicial</th>
+      <th style="text-align:right;">Ingresos</th>
+      <th style="text-align:right;">Gastos</th>
+      <th style="text-align:right;">Saldo final</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+      </section>
     </div>
 
-    <!-- MOVIMIENTOS -->
     <div class="side-content" id="side-movimientos">
       <section>
         <h2>Agregar Movimiento</h2>
 
-        <!-- Campo de saldo inicial integrado -->
-<!-- Saldo Inicial (solo para establecer base contable, no genera movimiento) -->
-<label for="saldoInicial">Saldo Inicial (opcional, solo se aplica una vez):
-  <input type="number" id="saldoInicial" placeholder="Ej. 1000.00" step="0.01" />
-</label>
+        <label for="saldoInicial">Saldo Inicial (opcional, solo se aplica una vez):
+          <input type="number" id="saldoInicial" placeholder="Ej. 1000.00" step="0.01" />
+        </label>
 
-  
         <input type="text" id="concepto" placeholder="Concepto" />
         <input type="number" id="cantidad" placeholder="Cantidad" />
         <select id="tipo">
@@ -107,37 +107,51 @@
         </select>
 
         <label>Categoría:
-  <div style="display:flex; gap:.5rem;">
-    <select id="categoria">
-      <option value="">(automática)</option>
-     <option value="Otro">+ Nueva…</option>
-    </select>
-    <button onclick="agregarCategoria()" style="padding:.5rem; border:none; background:#0b57d0; color:white; border-radius:50%; width:2rem; height:2rem; font-size:1rem;">+</button>
-  </div>
-</label>
+          <div style="display:flex; gap:.5rem;">
+            <select id="categoria">
+              <option value="">(automática)</option>
+              <option value="Otro">+ Nueva…</option>
+            </select>
+            <button onclick="agregarCategoria()" style="padding:.5rem; border:none; background:#0b57d0; color:white; border-radius:50%; width:2rem; height:2rem; font-size:1rem;">+</button>
+          </div>
+        </label>
         <input type="text" id="nuevaCategoria" placeholder="Nombre nueva categoría" style="display:none;" />
 
         <label>Banco:
-  <div style="display:flex; gap:.5rem;">
-    <select id="banco">
-      <option value="">(Sin banco)</option>
-      <option value="Otro">+ Nuevo…</option>
-    </select>
-    <button onclick="agregarBanco()" style="padding:.5rem; border:none; background:#0b57d0; color:white; border-radius:50%; width:2rem; height:2rem; font-size:1rem;">+</button>
-  </div>
-</label>
+          <div style="display:flex; gap:.5rem;">
+            <select id="banco">
+              <option value="">(Sin banco)</option>
+              <option value="Otro">+ Nuevo…</option>
+            </select>
+            <button onclick="agregarBanco()" style="padding:.5rem; border:none; background:#0b57d0; color:white; border-radius:50%; width:2rem; height:2rem; font-size:1rem;">+</button>
+          </div>
+        </label>
         <input type="text" id="nuevoBanco" placeholder="Nombre del banco" style="display:none;" />
 
         <label>Fecha:
           <input type="date" id="fechaMov" />
         </label>
 
-        <button onclick="agregarMovimiento()">Agregar</button>
+        <div class="btn-group">
+            <button onclick="agregarMovimiento()" id="btnAgregar">Agregar</button>
+            <button onclick="actualizarMovimiento()" id="btnActualizar" style="display:none;">Guardar cambios</button>
+            <button onclick="cancelarEdicion()" id="btnCancelarEdicion" style="display:none;">Cancelar</button>
+        </div>
       </section>
 
       <section>
-        <h2>Movimientos</h2>
-        <ul id="lista"></ul>
+
+        <h2>
+        Movimientos
+        <button id="btnToggleLista" onclick="toggleLista()">
+            <span id="iconoFlecha">▼</span>
+        </button>
+    </h2>
+
+        <div id="listaContenedor" style="display: none;">
+        <ul id="listaMovimientos"></ul>
+        <div id="controlesPaginacion" style="margin-top: 1rem; text-align: center;"></div>
+    </div>
 
         <div id="controlesPaginacion" style="margin-top: 1rem; text-align: center;"></div>
       </section>
@@ -151,7 +165,6 @@
       </div>
     </div>
 
-    <!-- ANÁLISIS -->
     <div class="side-content" id="side-analisis">
       <section id="grafico">
         <h2>Gastos por categoría</h2>
@@ -172,7 +185,6 @@
       </section>
     </div>
 
-    <!-- CONFIG -->
     <div class="side-content" id="side-config">
       <section id="panelReglas">
         <h2>Reglas de automatización</h2>
@@ -204,7 +216,6 @@
           <input type="text" id="txtPalabra" placeholder="Palabra clave (ej. netflix)" />
           <input type="text" id="txtCat" placeholder="Categoría a asignar" />
 
-          <!-- Selector de banco dentro de reglas -->
           <label>Banco objetivo:
             <select id="txtBancoRegla">
               <option value="">Cualquier banco</option>
@@ -220,7 +231,6 @@
 
   </div>
 
-  <!-- Scripts -->
   <script src="chart.umd.min.js"></script>
   <script src="xlsx.full.min.js"></script>
   <script src="app.js"></script>
