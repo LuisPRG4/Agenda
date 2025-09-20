@@ -4,36 +4,29 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Sistema Financiero Personal (SFP)</title>
-
   <link rel="icon" type="image/x-icon" href="recursos/ICONO.png">
-
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-
   <div style="text-align:right; margin-bottom:.5rem;">
     <button id="btnTema" title="Cambiar tema">🌓</button>
   </div>
   <h1 style="text-align:center; margin-bottom:1rem;">Sistema Financiero Personal (SFP)</h1>
-
   <div class="sidebar">
-
     <nav class="side-tabs">
       <button class="side-tab active" onclick="mostrarSideTab('dashboard')">📊 Dashboard</button>
       <button class="side-tab" onclick="mostrarSideTab('movimientos')">💳 Movimientos</button>
       <button class="side-tab" onclick="mostrarSideTab('analisis')">📈 Análisis</button>
+      <button class="side-tab" onclick="mostrarSideTab('presupuesto')">💰 Presupuesto</button>
       <button class="side-tab" onclick="mostrarSideTab('config')">⚙️ Config</button>
     </nav>
-
     <div class="side-content active" id="side-dashboard">
       <section id="buscador">
         <input type="text" id="txtBuscar" placeholder="🔍 Buscar..." />
       </section>
-
       <section id="resumen">
         <h2>Resumen</h2>
         <p>Saldo actual: <strong id="saldo">Bs. 0,00</strong></p>
-
         <div style="margin-top: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
           <label style="font-size: 0.875rem; color: var(--text-light);">
             Convertir a:
@@ -45,35 +38,27 @@
               <option value="MXN">Peso Mexicano (MXN)</option>
             </select>
           </label>
-
           <label style="font-size: 0.875rem; color: var(--text-light);">
             Tasa del día (Bs). =
             <input type="number" id="tasaCambio" step="0.01" value="8333.33" style="width: 80px;" placeholder="1 USD = ? Bs" title="Ej: 8333.33 significa que 1 USD = 8333.33 Bs" />
-
             <div id="tasaActual" style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem;">
               Tasa actual: 1 USD = 8.333,33 Bs
             </div>
-
           </label>
-
           <div style="font-weight: 500; font-size: 1.1rem;">
             Equivalente: <span id="equivalente">--</span>
           </div>
         </div>
-
       </section>
-
       <section id="alertaSaldo" style="display:none;">
         <p style="color:var(--danger); font-weight:500;">
           ⚠️ Tu saldo está por debajo de Bs. <span id="umbralAlerta">500</span>
         </p>
       </section>
-
       <section id="disponibilidad">
         <h2>Disponibilidad total</h2>
         <p><strong>Bs. <span id="totalGeneral">0,00</span></strong> en todos los bancos</p>
       </section>
-
       <section id="ingGastPorBanco">
         <h2>Ingresos vs Gastos por banco</h2>
         <table id="tablaBancos" style="width:100%; border-collapse:collapse;">
@@ -90,22 +75,18 @@
 </table>
       </section>
     </div>
-
     <div class="side-content" id="side-movimientos">
       <section>
         <h2>Agregar Movimiento</h2>
-
         <label for="saldoInicial">Saldo Inicial (opcional, solo se aplica una vez):
           <input type="number" id="saldoInicial" placeholder="Ej. 1000.00" step="0.01" />
         </label>
-
         <input type="text" id="concepto" placeholder="Concepto" />
         <input type="number" id="cantidad" placeholder="Cantidad" />
         <select id="tipo">
           <option value="ingreso">Ingreso</option>
           <option value="gasto">Gasto</option>
         </select>
-
         <label>Categoría:
           <div style="display:flex; gap:.5rem;">
             <select id="categoria">
@@ -116,7 +97,6 @@
           </div>
         </label>
         <input type="text" id="nuevaCategoria" placeholder="Nombre nueva categoría" style="display:none;" />
-
         <label>Banco:
           <div style="display:flex; gap:.5rem;">
             <select id="banco">
@@ -127,55 +107,44 @@
           </div>
         </label>
         <input type="text" id="nuevoBanco" placeholder="Nombre del banco" style="display:none;" />
-
         <label>Fecha:
           <input type="date" id="fechaMov" />
         </label>
-
         <div class="btn-group">
             <button onclick="agregarMovimiento()" id="btnAgregar">Agregar</button>
             <button onclick="actualizarMovimiento()" id="btnActualizar" style="display:none;">Guardar cambios</button>
             <button onclick="cancelarEdicion()" id="btnCancelarEdicion" style="display:none;">Cancelar</button>
         </div>
       </section>
-
       <section>
-
         <h2>
         Movimientos
         <button id="btnToggleLista" onclick="toggleLista()">
             <span id="iconoFlecha">▼</span>
         </button>
     </h2>
-
         <div id="listaContenedor" style="display: none;">
         <ul id="listaMovimientos"></ul>
         <div id="controlesPaginacion" style="margin-top: 1rem; text-align: center;"></div>
     </div>
-
         <div id="controlesPaginacion" style="margin-top: 1rem; text-align: center;"></div>
       </section>
-
       <div class="button-center">
         <button id="botonReporte" onclick="generarReporteImprimible()" style="display:none;">📄 Generar Reporte</button>
       </div>
-
       <div class="button-center">
         <button onclick="exportarExcel()">📊 Exportar Excel</button>
       </div>
     </div>
-
     <div class="side-content" id="side-analisis">
       <section id="grafico">
         <h2>Gastos por categoría</h2>
         <canvas id="torta" style="max-width:100%; height:auto;"></canvas>
       </section>
-
       <section id="barras">
         <h2>Resumen mensual</h2>
         <canvas id="barChart" style="max-width:100%; height:auto;"></canvas>
       </section>
-
       <section id="resumenBancos">
         <h2>Resumen por banco</h2>
         <select id="filtroBanco">
@@ -184,38 +153,74 @@
         <ul id="listaBancos"></ul>
       </section>
     </div>
+    <div class="side-content" id="side-presupuesto">
+      <section id="presupuestoMeta">
+        <h2>🎯 Meta de Presupuesto</h2>
+        <p style="margin-bottom: 1rem; color: var(--text-light);">Define tu meta mensual y tu progreso actual.</p>
+        <div style="display:flex; gap:1rem; margin-bottom:1.5rem;">
+          <div style="flex:1;">
+            <label for="metaPresupuesto">Meta mensual (Bs):</label>
+            <input type="number" id="metaPresupuesto" placeholder="Ej: 20000" step="100" min="0" />
+          </div>
+          <div style="flex:1;">
+            <label for="presupuestoActual">Gasto actual (Bs):</label>
+            <input type="number" id="presupuestoActual" placeholder="Automático" readonly style="background:var(--card-bg); color:var(--text-light); cursor:not-allowed;" />
+          </div>
+        </div>
+        <button onclick="guardarMetaPresupuesto()" style="width:100%;">Guardar Meta</button>
+      </section>
 
+      <section id="presupuestoGrafico">
+        <h2>📊 Progreso del Presupuesto</h2>
+        <div style="background:var(--card-bg); border-radius:var(--radius); padding:1.5rem; box-shadow:var(--shadow-sm); margin-bottom:1.5rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <span style="font-weight:500;">Gasto actual</span>
+            <span id="progresoTexto" style="font-weight:700; color:var(--text);">0%</span>
+          </div>
+          <div style="height:20px; background:#e0e0e0; border-radius:10px; overflow:hidden; margin-bottom:1rem;">
+            <div id="barraProgreso" style="height:100%; width:0%; background:linear-gradient(90deg, #018642, #0b57d0); transition:width 0.5s ease;"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:0.875rem; color:var(--text-light);">
+            <span>Meta: <span id="metaTexto">Bs. 0</span></span>
+            <span>Gastado: <span id="gastadoTexto">Bs. 0</span></span>
+          </div>
+        </div>
+      </section>
+
+      <section id="presupuestoDetalles">
+        <h2>🔍 Desglose de Gastos (últimos 30 días)</h2>
+        <ul id="listaPresupuestoDetalles"></ul>
+        <div style="text-align:center; margin-top:1rem;">
+          <button onclick="actualizarPresupuesto()" style="background:#0b57d0; color:white; border:none; border-radius:8px; padding:0.5rem 1rem; font-size:0.9rem;">Actualizar</button>
+        </div>
+      </section>
+    </div>
     <div class="side-content" id="side-config">
       <section id="panelReglas">
         <h2>Reglas de automatización</h2>
         <ul id="listaReglas"></ul>
         <details>
-
-          <details>
-            <summary>🗑️ Eliminar categoría</summary>
-            <select id="selectEliminarCategoria">
-              <option value="">Selecciona una categoría</option>
-            </select>
-            <button onclick="eliminarCategoria()">Eliminar</button>
-          </details>
-
-          <details>
-            <summary>🗑️ Eliminar banco</summary>
-            <select id="selectEliminarBanco">
-              <option value="">Selecciona un banco</option>
-            </select>
-            <button onclick="eliminarBanco()">Eliminar</button>
-          </details>
-
-          <details>
-            <summary>🗑️ Eliminar saldo inicial</summary>
-            <button onclick="eliminarSaldoInicial()">Eliminar saldo inicial</button>
-          </details>
-
+          <summary>🗑️ Eliminar categoría</summary>
+          <select id="selectEliminarCategoria">
+            <option value="">Selecciona una categoría</option>
+          </select>
+          <button onclick="eliminarCategoria()">Eliminar</button>
+        </details>
+        <details>
+          <summary>🗑️ Eliminar banco</summary>
+          <select id="selectEliminarBanco">
+            <option value="">Selecciona un banco</option>
+          </select>
+          <button onclick="eliminarBanco()">Eliminar</button>
+        </details>
+        <details>
+          <summary>🗑️ Eliminar saldo inicial</summary>
+          <button onclick="eliminarSaldoInicial()">Eliminar saldo inicial</button>
+        </details>
+        <details>
           <summary>➕ Nueva regla</summary>
           <input type="text" id="txtPalabra" placeholder="Palabra clave (ej. netflix)" />
           <input type="text" id="txtCat" placeholder="Categoría a asignar" />
-
           <label>Banco objetivo:
             <select id="txtBancoRegla">
               <option value="">Cualquier banco</option>
@@ -223,17 +228,13 @@
             </select>
           </label>
           <input type="text" id="nuevoBancoRegla" placeholder="Nombre del banco" style="display:none;" />
-
           <button onclick="agregarRegla()">Guardar regla</button>
         </details>
       </section>
     </div>
-
   </div>
-
   <script src="chart.umd.min.js"></script>
   <script src="xlsx.full.min.js"></script>
   <script src="app.js"></script>
-
 </body>
 </html>
