@@ -251,24 +251,24 @@ async function eliminarMovimiento(id) {
 
 // Modificaciones en las funciones de tu app
 async function agregarMovimiento() {
-
-    // ✅ Si hay un movimiento en edición, llamar a la función de actualización
+    // Si hay un movimiento en edición, llamar a la función de actualización
     if (idMovimientoEditando) {
         await actualizarMovimiento();
         return;
     }
 
     const conceptoOriginal = document.getElementById('concepto').value.trim();
-    const cantidad = parseFloat(document.getElementById('cantidad').value);
+    const cantidadInput = document.getElementById('cantidad');
+    const saldoInicialInput = document.getElementById('saldoInicial');
+
+    const cantidad = parseFloat(cantidadInput.value);
+    const saldoInicial = parseFloat(saldoInicialInput.value);
+
     const tipo = document.getElementById('tipo').value;
     let categoria = document.getElementById('categoria').value;
-    
-    // ✅ Declarar saldo inicial, banco y fecha al inicio de la función
-    const saldoInicial = parseFloat(document.getElementById('saldoInicial').value);
     const bancoInput = document.getElementById('banco').value;
     const fechaInput = document.getElementById('fechaMov').value;
 
-    // ✅ La validación corregida ahora incluye el banco y la fecha
     if (!conceptoOriginal || (isNaN(cantidad) && isNaN(saldoInicial)) || !bancoInput || !fechaInput) {
         alert('Por favor, completa el concepto, la cantidad (o saldo inicial), el banco y la fecha.');
         return;
@@ -287,14 +287,14 @@ async function agregarMovimiento() {
 
     const fecha = new Date(fechaInput + 'T12:00:00');
 
-    let banco = (bancoInput === 'Otro') 
+    let banco = (bancoInput === 'Otro')
         ? document.getElementById('nuevoBanco').value.trim() || '(Sin banco)'
         : bancoInput || '(Sin banco)';
 
     if (bancoInput === 'Otro' && document.getElementById('nuevoBanco').value.trim()) {
         await agregarBanco(banco);
     }
-    
+
     // Aplicar regla si existe
     const reglas = await getAllEntries(STORES.REGLAS);
     const reglaAplicada = reglas.find(r => conceptoOriginal.toLowerCase().includes(r.palabra.toLowerCase()));
@@ -305,41 +305,30 @@ async function agregarMovimiento() {
         }
     }
 
-    // Procesar saldo inicial (solo si hay valor)
     let conceptoFinal = conceptoOriginal;
+    let cantidadFinal = isNaN(cantidad) ? 0 : cantidad;
+    let tipoFinal = tipo;
+
+    // Procesar saldo inicial (solo si hay valor)
     if (!isNaN(saldoInicial) && saldoInicial > 0) {
-        try {
-            // Guardar en saldo_inicial solo si no existe
-            const saldoExistente = await getAllEntries(STORES.SALDO_INICIAL);
-            if (saldoExistente.length === 0) {
-                await updateEntry(STORES.SALDO_INICIAL, { id: 'saldo', monto: saldoInicial });
-            }
-            // Integrar en el concepto del movimiento
-            conceptoFinal = `${conceptoOriginal} (Saldo inicial: Bs. ${saldoInicial.toFixed(2)})`;
-        } catch (error) {
-            console.error("Error al guardar saldo inicial:", error);
-        }
+        conceptoFinal = `Saldo inicial: ${conceptoOriginal}`;
+        cantidadFinal = saldoInicial;
+        tipoFinal = 'ingreso'; // Los saldos iniciales siempre son ingresos
     }
 
     // Crear movimiento único con concepto modificado
     const mov = {
         concepto: conceptoFinal,
-        cantidad: cantidad, // Usar la cantidad del formulario
-        tipo,
+        cantidad: cantidadFinal,
+        tipo: tipoFinal,
         categoria: categoria || 'Sin categoría',
         fecha: fecha.toISOString(),
         banco: banco
     };
 
-    // Si se ingresó un saldo inicial, el movimiento de cantidad debe ser el mismo que el saldo inicial
-    if (!isNaN(saldoInicial) && saldoInicial > 0) {
-        mov.cantidad = saldoInicial;
-    }
-
     try {
         await addEntry(STORES.MOVIMIENTOS, mov);
-        await renderizar();      // ← Renderiza la lista
-        await actualizarSaldo(); // ← Asegura que el saldo se actualice
+        await renderizar();
         limpiarForm();
     } catch (error) {
         console.error("Error al agregar el movimiento:", error);
