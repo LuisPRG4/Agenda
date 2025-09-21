@@ -1490,7 +1490,152 @@ async function generarReportePorFecha() {
     cerrarFormFecha();
 }
 
+// ------------------------------------------------------------------------------------------------------------------------------------
+//                                 Bloqueo de App (PIN Local)
+// ------------------------------------------------------------------------------------------------------------------------------------
 
+// Cargar configuración de bloqueo al iniciar
+async function cargarConfigBloqueo() {
+    const activado = localStorage.getItem('bloqueoActivo') === 'true';
+    const pinGuardado = localStorage.getItem('bloqueoPIN');
+    document.getElementById('bloqueoActivo').checked = activado;
+    document.getElementById('bloqueoPINContainer').style.display = activado ? 'block' : 'none';
+
+    // Si está activado, mostrar modal de bloqueo si no se ha desbloqueado aún
+    if (activado && !localStorage.getItem('bloqueoDesbloqueado')) {
+        mostrarModalBloqueo();
+    }
+}
+
+// Mostrar el modal de bloqueo
+function mostrarModalBloqueo() {
+    document.getElementById('modalBloqueo').style.display = 'flex';
+    document.getElementById('pinInput').value = '';
+}
+
+// Cerrar el modal de bloqueo
+function cerrarModalBloqueo() {
+    document.getElementById('modalBloqueo').style.display = 'none';
+}
+
+// Desbloquear la app con el PIN
+async function desbloquearApp() {
+    const pinIngresado = document.getElementById('pinInput').value.trim().toLowerCase(); // ✅ Convertimos a minúsculas
+    const pinGuardado = localStorage.getItem('bloqueoPIN');
+
+    // ✅ MODO DE EMERGENCIA: Si se ingresa "reset", desactiva el bloqueo
+    if (pinIngresado === 'reset') {
+        if (confirm('⚠️ ¿Estás seguro de que quieres desactivar el bloqueo de la app? \n\nEsto eliminará tu PIN y permitirá el acceso sin restricciones. \n\nSolo haz esto si olvidaste tu PIN y no tienes otra copia de seguridad.')) {
+            localStorage.removeItem('bloqueoPIN');
+            localStorage.removeItem('bloqueoActivo');
+            localStorage.removeItem('bloqueoDesbloqueado');
+            alert('🔒 Bloqueo desactivado con éxito. Ahora puedes acceder sin PIN.');
+            cerrarModalBloqueo();
+        }
+        return;
+    }
+
+    // Validación normal de PIN
+    if (!pinIngresado || pinIngresado.length !== 4) {
+        alert('Ingresa un PIN de 4 dígitos o escribe "reset" para desactivar el bloqueo.');
+        return;
+    }
+
+    if (pinIngresado === pinGuardado) {
+        localStorage.setItem('bloqueoDesbloqueado', 'true');
+        cerrarModalBloqueo();
+        const pestaña = localStorage.getItem('agendaPestañaActiva');
+        if (pestaña) mostrarSideTab(pestaña);
+    } else {
+        alert('PIN incorrecto. Intenta de nuevo.\n\n¿Olvidaste tu PIN? Escribe "reset" para desactivar el bloqueo.');
+        document.getElementById('pinInput').value = '';
+    }
+}
+
+// Guardar PIN
+async function guardarPIN() {
+    const pin = document.getElementById('bloqueoPIN').value.trim();
+    const pinConfirm = document.getElementById('bloqueoPINConfirmar').value.trim();
+
+    if (!pin || pin.length !== 4 || !pinConfirm || pinConfirm.length !== 4) {
+        alert('El PIN debe tener exactamente 4 dígitos.');
+        return;
+    }
+
+    if (pin !== pinConfirm) {
+        alert('Los PINs no coinciden. Vuelve a intentarlo.');
+        document.getElementById('bloqueoPIN').value = '';
+        document.getElementById('bloqueoPINConfirmar').value = '';
+        return;
+    }
+
+    localStorage.setItem('bloqueoPIN', pin);
+    alert('✅ PIN guardado con éxito.');
+    document.getElementById('bloqueoPIN').value = '';
+    document.getElementById('bloqueoPINConfirmar').value = '';
+}
+
+// Eliminar PIN
+async function eliminarPIN() {
+    if (!confirm('¿Estás seguro de que quieres eliminar tu PIN? Ya no podrás bloquear la app.')) return;
+    localStorage.removeItem('bloqueoPIN');
+    localStorage.removeItem('bloqueoDesbloqueado');
+    document.getElementById('bloqueoPIN').value = '';
+    document.getElementById('bloqueoPINConfirmar').value = '';
+    alert('PIN eliminado.');
+}
+
+// Controlar el checkbox de activación
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('bloqueoActivo').addEventListener('change', function() {
+        const container = document.getElementById('bloqueoPINContainer');
+        if (this.checked) {
+            container.style.display = 'block';
+            localStorage.setItem('bloqueoActivo', 'true');
+            // Si ya hay un PIN guardado, no pedirlo hasta que se cierre y vuelva a abrir
+            if (localStorage.getItem('bloqueoPIN')) {
+                localStorage.removeItem('bloqueoDesbloqueado'); // Forzar bloqueo en próxima apertura
+            }
+        } else {
+            container.style.display = 'none';
+            localStorage.setItem('bloqueoActivo', 'false');
+            localStorage.removeItem('bloqueoDesbloqueado'); // Limpiar estado
+        }
+    });
+});
+
+// Cargar configuración de bloqueo al inicio
+document.addEventListener('DOMContentLoaded', async function () {
+    try {
+        // ... (todo lo que ya tenías)
+
+        // ✅ AÑADIR ESTA LÍNEA AL FINAL DE LA FUNCIÓN, JUSTO ANTES DEL CIERRE DEL TRY
+        await cargarConfigBloqueo();
+
+        let inactividadTimer;
+
+function reiniciarTimer() {
+    clearTimeout(inactividadTimer);
+    inactividadTimer = setTimeout(() => {
+        if (localStorage.getItem('bloqueoActivo') === 'true') {
+            localStorage.removeItem('bloqueoDesbloqueado');
+            mostrarModalBloqueo();
+        }
+    }, 5 * 60 * 1000); // 5 minutos
+}
+
+// Iniciar el timer
+reiniciarTimer();
+
+// Reiniciar al interactuar
+document.addEventListener('mousemove', reiniciarTimer);
+document.addEventListener('keypress', reiniciarTimer);
+document.addEventListener('click', reiniciarTimer);
+
+    } catch (error) {
+        console.error("Error en la inicialización de la app:", error);
+    }
+});
 
 // ------------------------------------------------------------------------------------------------------------------------------------
 //                                 Inicialización y Event Listeners
