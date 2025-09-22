@@ -319,8 +319,8 @@
            title="Escribe 'reset' si olvidaste tu PIN (solo para recuperación)">
     <button onclick="desbloquearApp()" style="width:100%; padding:1rem; font-size:1rem; background:#0b57d0; color:white; border:none; border-radius:8px;">Desbloquear</button>
     <button onclick="cerrarModalBloqueo()" style="width:100%; padding:0.75rem; margin-top:1rem; background:var(--danger); color:white; border:none; border-radius:8px; font-size:0.9rem;">Cancelar</button>
-    <p style="font-size:0.75rem; color:var(--text-light); margin-top:1.5rem; font-style:italic;">
-      ¿Olvidaste tu PIN? Escribe <strong>"reset"</strong> para desactivar el bloqueo.
+    <p id="avisoPinOlvidado" style="font-size:0.75rem; color:var(--text-light); margin-top:1.5rem; font-style:italic; display:none;">
+      ⚠️ ¿Olvidaste tu PIN? Escribe <strong>"reset"</strong> para desactivar el bloqueo.
     </p>
   </div>
 </div>
