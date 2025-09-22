@@ -251,7 +251,6 @@ async function eliminarMovimiento(id) {
 
 // Modificaciones en las funciones de tu app
 async function agregarMovimiento() {
-
     // ✅ Si hay un movimiento en edición, llamar a la función de actualización
     if (idMovimientoEditando) {
         await actualizarMovimiento();
@@ -259,21 +258,32 @@ async function agregarMovimiento() {
     }
 
     const conceptoOriginal = document.getElementById('concepto').value.trim();
-    const cantidad = parseFloat(document.getElementById('cantidad').value);
-    const tipo = document.getElementById('tipo').value;
+    const tipo = document.getElementById('tipo').value; // Solo "ingreso" o "gasto"
     let categoria = document.getElementById('categoria').value;
-    
-    // ✅ Declarar saldo inicial, banco y fecha al inicio de la función
-    const saldoInicial = parseFloat(document.getElementById('saldoInicial').value);
     const bancoInput = document.getElementById('banco').value;
     const fechaInput = document.getElementById('fechaMov').value;
 
-    // ✅ La validación corregida ahora incluye el banco y la fecha
-    if (!conceptoOriginal || (isNaN(cantidad) && isNaN(saldoInicial)) || !bancoInput || !fechaInput) {
-        alert('Por favor, completa el concepto, la cantidad (o saldo inicial), el banco y la fecha.');
+    // ✅ Obtener los valores de los campos
+    const cantidad = parseFloat(document.getElementById('cantidad').value);
+    const saldoInicial = parseFloat(document.getElementById('saldoInicial').value);
+
+    // ✅ VALIDACIÓN CORREGIDA: Requiere concepto, banco, fecha, y O bien cantidad O saldoInicial
+    if (!conceptoOriginal || !bancoInput || !fechaInput) {
+        alert('Por favor, completa el concepto, el banco y la fecha.');
         return;
     }
 
+    // ✅ Solo uno de los dos: cantidad o saldoInicial debe tener valor
+    if (isNaN(cantidad) && isNaN(saldoInicial)) {
+        alert('Por favor, ingresa una cantidad o un saldo inicial.');
+        return;
+    }
+    if (!isNaN(cantidad) && !isNaN(saldoInicial)) {
+        alert('Por favor, ingresa solo una cantidad o un saldo inicial, no ambos.');
+        return;
+    }
+
+    // ✅ Si hay categoría "Otro", crearla
     if (categoria === 'Otro') {
         const nuevaCat = document.getElementById('nuevaCategoria').value.trim();
         if (nuevaCat) {
@@ -285,17 +295,16 @@ async function agregarMovimiento() {
         }
     }
 
+    // ✅ Normalizar fecha y banco
     const fecha = new Date(fechaInput + 'T12:00:00');
-
     let banco = (bancoInput === 'Otro') 
         ? document.getElementById('nuevoBanco').value.trim() || '(Sin banco)'
         : bancoInput || '(Sin banco)';
-
     if (bancoInput === 'Otro' && document.getElementById('nuevoBanco').value.trim()) {
         await agregarBanco(banco);
     }
-    
-    // Aplicar regla si existe
+
+    // ✅ Aplicar regla si existe
     const reglas = await getAllEntries(STORES.REGLAS);
     const reglaAplicada = reglas.find(r => conceptoOriginal.toLowerCase().includes(r.palabra.toLowerCase()));
     if (reglaAplicada) {
@@ -305,41 +314,34 @@ async function agregarMovimiento() {
         }
     }
 
-    // Procesar saldo inicial (solo si hay valor)
+    // ✅ LÓGICA CLAVE: ¿Estamos registrando un Saldo Inicial?
+    let monto;
     let conceptoFinal = conceptoOriginal;
+
     if (!isNaN(saldoInicial) && saldoInicial > 0) {
-        try {
-            // Guardar en saldo_inicial solo si no existe
-            const saldoExistente = await getAllEntries(STORES.SALDO_INICIAL);
-            if (saldoExistente.length === 0) {
-                await updateEntry(STORES.SALDO_INICIAL, { id: 'saldo', monto: saldoInicial });
-            }
-            // Integrar en el concepto del movimiento
-            conceptoFinal = `${conceptoOriginal} (Saldo inicial: Bs. ${saldoInicial.toFixed(2)})`;
-        } catch (error) {
-            console.error("Error al guardar saldo inicial:", error);
-        }
+        // Es un saldo inicial → usar el valor del campo "Saldo Inicial"
+        monto = saldoInicial;
+        // Marcarlo en el concepto para identificarlo después
+        conceptoFinal = `${conceptoOriginal} (Saldo inicial: ${banco})`;
+    } else {
+        // Es un ingreso/gasto normal → usar el campo "Cantidad"
+        monto = cantidad;
     }
 
-    // Crear movimiento único con concepto modificado
+    // ✅ Crear el movimiento
     const mov = {
         concepto: conceptoFinal,
-        cantidad: cantidad, // Usar la cantidad del formulario
-        tipo,
+        cantidad: monto, // El monto real que se registra
+        tipo: tipo, // "ingreso" o "gasto"
         categoria: categoria || 'Sin categoría',
         fecha: fecha.toISOString(),
         banco: banco
     };
 
-    // Si se ingresó un saldo inicial, el movimiento de cantidad debe ser el mismo que el saldo inicial
-    if (!isNaN(saldoInicial) && saldoInicial > 0) {
-        mov.cantidad = saldoInicial;
-    }
-
     try {
         await addEntry(STORES.MOVIMIENTOS, mov);
-        await renderizar();      // ← Renderiza la lista
-        await actualizarSaldo(); // ← Asegura que el saldo se actualice
+        await renderizar();
+        await actualizarSaldo();
         limpiarForm();
     } catch (error) {
         console.error("Error al agregar el movimiento:", error);
@@ -349,22 +351,21 @@ async function agregarMovimiento() {
 
 async function calcularSaldo() {
     const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
-    const saldoInicialArray = await getAllEntries(STORES.SALDO_INICIAL);
-    const saldoInicial = saldoInicialArray.length > 0 ? saldoInicialArray[0].monto : 0;
-
     let totalComisiones = 0;
 
-    const saldoMovimientos = movimientos.reduce((acc, m) => {
+    // ✅ Sumar todos los ingresos (incluyendo saldos iniciales)
+    // Restar todos los gastos y comisiones
+    const saldoTotal = movimientos.reduce((acc, m) => {
         if (m.tipo === 'gasto') {
             const comision = m.cantidad * 0.003; // 0.3%
             totalComisiones += comision;
-            return acc - m.cantidad; // Restar solo el monto original
+            return acc - m.cantidad;
+        } else {
+            return acc + m.cantidad; // Ingresos y saldos iniciales
         }
-        return acc + m.cantidad; // Sumar ingresos
     }, 0);
 
-    // El saldo final es: movimientos + saldo inicial - comisiones
-    return saldoMovimientos + saldoInicial - totalComisiones;
+    return saldoTotal - totalComisiones;
 }
 
 async function actualizarSaldo() {
@@ -659,44 +660,46 @@ async function actualizarResumenBancosCompleto() {
         const tbody = document.getElementById('tablaBancos').querySelector('tbody');
         tbody.innerHTML = '';
 
-        // ✅ PASO 1: Obtener el SALDO INICIAL GLOBAL (solo uno, desde el almacén)
-        const saldoInicialArray = await getAllEntries(STORES.SALDO_INICIAL);
-        const saldoInicialGlobal = saldoInicialArray.length > 0 ? saldoInicialArray[0].monto : 0;
-
-        // ✅ PASO 2: Agrupar movimientos REALES (excluyendo los de saldo inicial)
+        // ✅ PASO 1: Agrupar movimientos por banco
+        const bancos = [...new Set(movimientos.map(m => m.banco || '(Sin banco)'))];
         const resumenBancos = {};
-        for (const m of movimientos) {
-            // IGNORAR los movimientos que son "Saldo inicial"
-            if (m.concepto && m.concepto.includes('Saldo inicial')) {
-                continue; // ¡Esto es clave! No los contamos como ingresos/gastos
-            }
 
-            const banco = m.banco || '(Sin banco)';
-            if (!resumenBancos[banco]) {
-                resumenBancos[banco] = { ingresos: 0, gastos: 0 };
-            }
+        bancos.forEach(banco => {
+            // Filtrar movimientos de este banco
+            const movimientosBanco = movimientos.filter(m => m.banco === banco);
 
-            if (m.tipo === 'ingreso') {
-                resumenBancos[banco].ingresos += m.cantidad;
-            } else if (m.tipo === 'gasto') {
-                resumenBancos[banco].gastos += m.cantidad;
-            }
-        }
+            // ✅ Calcular saldo inicial: suma de movimientos con concepto que contiene "(Saldo inicial:"
+            const saldoInicial = movimientosBanco
+                .filter(m => m.concepto.includes('(Saldo inicial:'))
+                .reduce((sum, m) => sum + m.cantidad, 0);
 
-        let saldoGeneralTotal = saldoInicialGlobal; // El total comienza con el saldo inicial global
+            // ✅ Calcular ingresos: todos los movimientos de tipo "ingreso" que NO sean saldo inicial
+            const ingresos = movimientosBanco
+                .filter(m => m.tipo === 'ingreso' && !m.concepto.includes('(Saldo inicial:'))
+                .reduce((sum, m) => sum + m.cantidad, 0);
 
-        // ✅ PASO 3: Calcular saldo final por banco y sumar al total general
+            // ✅ Calcular gastos: todos los movimientos de tipo "gasto"
+            const gastos = movimientosBanco
+                .filter(m => m.tipo === 'gasto')
+                .reduce((sum, m) => sum + m.cantidad, 0);
+
+            // ✅ Calcular saldo final
+            const saldoFinal = saldoInicial + ingresos - gastos;
+
+            resumenBancos[banco] = { saldoInicial, ingresos, gastos, saldoFinal };
+        });
+
+        // ✅ PASO 2: Calcular el saldo general total
+        const saldoGeneralTotal = Object.values(resumenBancos).reduce((sum, banco) => sum + banco.saldoFinal, 0);
+
+        // ✅ PASO 3: Renderizar la tabla
         for (const banco in resumenBancos) {
             const data = resumenBancos[banco];
-            // Saldo final = saldo inicial global + ingresos reales - gastos reales
-            data.saldo_final = saldoInicialGlobal + data.ingresos - data.gastos;
-            saldoGeneralTotal += data.ingresos - data.gastos; // Solo sumamos los movimientos reales
-
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${banco}</td>
                 <td style="text-align:right; font-weight: 500;">
-                    ${saldoInicialGlobal.toFixed(2)} Bs
+                    ${data.saldoInicial.toFixed(2)} Bs
                 </td>
                 <td style="text-align:right; font-weight: 500; color: var(--success);">
                     +${data.ingresos.toFixed(2)} Bs
@@ -705,17 +708,17 @@ async function actualizarResumenBancosCompleto() {
                     -${data.gastos.toFixed(2)} Bs
                 </td>
                 <td style="text-align:right; font-weight: 700;">
-                    ${data.saldo_final.toFixed(2)} Bs
+                    ${data.saldoFinal.toFixed(2)} Bs
                 </td>
             `;
             tbody.appendChild(tr);
         }
 
-        // ✅ PASO 4: Actualizar el saldo global (es el mismo que saldoGeneralTotal)
+        // ✅ PASO 4: Actualizar el saldo global
         document.getElementById('saldo').textContent = `Bs. ${saldoGeneralTotal.toFixed(2)}`;
         document.getElementById('totalGeneral').textContent = saldoGeneralTotal.toFixed(2);
 
-        // Actualizar el equivalente en otra moneda (si aplica)
+        // Actualizar el equivalente en otra moneda
         const tasaCambio = parseFloat(document.getElementById('tasaCambio').value);
         if (!isNaN(tasaCambio) && tasaCambio > 0) {
             const equivalente = saldoGeneralTotal / tasaCambio;
@@ -1070,24 +1073,40 @@ async function eliminarSaldoInicial() {
 
 async function generarReporteImprimible() {
     const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
-    const saldoInicialArray = await getAllEntries(STORES.SALDO_INICIAL);
+    const tasaCambio = parseFloat(document.getElementById('tasaCambio').value) || 0;
 
-    // Calcular total de comisiones
+    // Calcular total de comisiones (solo gastos reales)
     const totalComisiones = movimientos
         .filter(m => m.tipo === 'gasto')
         .reduce((sum, m) => sum + (m.cantidad * 0.003), 0);
-
-    const saldoInicial = saldoInicialArray.length > 0 ? saldoInicialArray[0].monto : 0;
-    const saldoTotal = await calcularSaldo();
 
     // Agrupar movimientos por banco
     const bancos = [...new Set(movimientos.map(m => m.banco || '(Sin banco)'))];
     const resumenBancos = {};
     bancos.forEach(b => {
-        const ingresos = movimientos.filter(m => (m.banco || '(Sin banco)') === b && m.tipo === 'ingreso').reduce((sum, m) => sum + m.cantidad, 0);
-        const gastos = movimientos.filter(m => (m.banco || '(Sin banco)') === b && m.tipo === 'gasto').reduce((sum, m) => sum + m.cantidad, 0);
-        resumenBancos[b] = { ingresos, gastos, saldo: ingresos - gastos };
+        const movimientosBanco = movimientos.filter(m => m.banco === b);
+        // Saldo inicial: suma de movimientos con concepto que contiene "(Saldo inicial:"
+        const saldoInicial = movimientosBanco
+            .filter(m => m.concepto.includes('(Saldo inicial:'))
+            .reduce((sum, m) => sum + m.cantidad, 0);
+        // Ingresos: suma de movimientos de tipo "ingreso" que NO sean saldo inicial
+        const ingresos = movimientosBanco
+            .filter(m => m.tipo === 'ingreso' && !m.concepto.includes('(Saldo inicial:'))
+            .reduce((sum, m) => sum + m.cantidad, 0);
+        // Gastos: suma de movimientos de tipo "gasto"
+        const gastos = movimientosBanco
+            .filter(m => m.tipo === 'gasto')
+            .reduce((sum, m) => sum + m.cantidad, 0);
+        // Saldo final
+        const saldoFinal = saldoInicial + ingresos - gastos;
+        resumenBancos[b] = { saldoInicial, ingresos, gastos, saldoFinal };
     });
+
+    // Calcular la disponibilidad total (suma de todos los saldos finales)
+    const disponibilidadTotal = Object.values(resumenBancos).reduce((sum, banco) => sum + banco.saldoFinal, 0);
+
+    // Calcular equivalente en dólares
+    const equivalenteDolares = tasaCambio > 0 ? disponibilidadTotal / tasaCambio : 0;
 
     // Crear contenido HTML para impresión
     const contenido = `
@@ -1096,16 +1115,45 @@ async function generarReporteImprimible() {
         <head>
             <title>Reporte Financiero - SFP</title>
             <style>
-                body { font-family: 'Roboto', sans-serif; padding: 2rem; }
+                body { font-family: 'Roboto', sans-serif; padding: 2rem; color: var(--text); }
                 h1 { text-align: center; color: #0b57d0; margin-bottom: 2rem; }
-                .resumen { background: #f5f7fa; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; }
-
+                .resumen-general { background: #f5f7fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; }
+                .resumen-bancos { margin-bottom: 2rem; }
                 table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
-                th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd; }
-                th { background: #0b57d0; color: white; }
-                .movimiento { margin-bottom: 1rem; padding: 1rem; border-left: 4px solid #0b57d0; background: #f9f9f9; }
+                th, td { padding: 0.8rem; text-align: right; border-bottom: 1px solid #ddd; }
+                th { 
+                    background: #0b57d0; 
+                    color: white; 
+                    font-weight: 600;
+                    text-align: center;
+                }
+                tr:nth-child(even) { background-color: #f9f9f9; }
+                .total { 
+                    font-weight: bold; 
+                    font-size: 1.4rem; 
+                    color: #0b57d0; 
+                    text-align: right; 
+                    margin-top: 1.5rem; 
+                    padding-top: 1rem;
+                    border-top: 2px solid #0b57d0;
+                }
+                .equivalente { 
+                    font-weight: bold; 
+                    font-size: 1.2rem; 
+                    color: #0b57d0; 
+                    text-align: right; 
+                    margin-top: 0.5rem;
+                }
+                .movimiento { 
+                    margin-bottom: 1rem; 
+                    padding: 1rem; 
+                    border-left: 4px solid #0b57d0; 
+                    background: #f9f9f9; 
+                    border-radius: 0 8px 8px 0;
+                }
                 .fecha { color: #666; font-size: 0.9rem; }
-                .total { font-weight: bold; font-size: 1.2rem; color: #0b57d0; text-align: right; margin-top: 1rem; }
+                .concepto { font-weight: 500; }
+                .cantidad { font-weight: 600; }
                 @media print {
                     body { padding: 0; }
                     button { display: none; }
@@ -1115,46 +1163,60 @@ async function generarReporteImprimible() {
         <body>
             <h1>Reporte Financiero - Sistema Financiero Personal</h1>
             
-            <div class="resumen">
+            <!-- Resumen General -->
+            <div class="resumen-general">
                 <h3>Resumen General</h3>
-                <p><strong>Saldo Inicial:</strong> Bs. ${saldoInicial.toFixed(2)}</p>
-                <p><strong>Total Comisiones:</strong> Bs. ${totalComisiones.toFixed(2)}</p>
-                <p><strong>Saldo Actual:</strong> Bs. ${saldoTotal.toFixed(2)}</p>
+                <p><strong>Total Comisiones (0.3%):</strong> Bs. ${totalComisiones.toFixed(2)}</p>
+                <p><strong>Disponibilidad Total:</strong> Bs. ${disponibilidadTotal.toFixed(2)}</p>
             </div>
 
-            <h3>Disponibilidad por Banco</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Banco</th>
-                        <th>Ingresos</th>
-                        <th>Gastos</th>
-                        <th>Saldo</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${Object.entries(resumenBancos).map(([banco, datos]) => `
+            <!-- Resumen por Banco -->
+            <div class="resumen-bancos">
+                <h3>Resumen por Banco</h3>
+                <table>
+                    <thead>
                         <tr>
-                            <td>${banco}</td>
-                            <td>Bs. ${datos.ingresos.toFixed(2)}</td>
-                            <td>Bs. ${datos.gastos.toFixed(2)}</td>
-                            <td>Bs. ${datos.saldo.toFixed(2)}</td>
+                            <th style="text-align: left;">Banco</th>
+                            <th>Saldo Inicial</th>
+                            <th>Ingresos</th>
+                            <th>Gastos</th>
+                            <th>Saldo Final</th>
                         </tr>
-                    `).join('')}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        ${Object.entries(resumenBancos).map(([banco, datos]) => `
+                            <tr>
+                                <td style="text-align: left;">${banco}</td>
+                                <td>Bs. ${datos.saldoInicial.toFixed(2)}</td>
+                                <td>Bs. ${datos.ingresos.toFixed(2)}</td>
+                                <td>Bs. ${datos.gastos.toFixed(2)}</td>
+                                <td><strong>Bs. ${datos.saldoFinal.toFixed(2)}</strong></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
 
+            <!-- Disponibilidad Total -->
+            <div class="total">
+                <strong>Disponibilidad Total (Suma de todos los bancos):</strong> Bs. ${disponibilidadTotal.toFixed(2)}
+            </div>
+
+            <!-- Equivalente en Dólares -->
+            <div class="equivalente">
+                <strong>Equivalente en USD (Tasa: 1 USD = ${tasaCambio.toLocaleString('es-VE')} Bs):</strong> $ ${equivalenteDolares.toFixed(2)}
+            </div>
+
+            <!-- Detalle de Movimientos -->
             <h3>Movimientos Registrados</h3>
             ${movimientos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).map(m => `
                 <div class="movimiento">
-                    <div><strong>${m.concepto}</strong></div>
+                    <div class="concepto"><strong>${m.concepto}</strong></div>
                     <div class="fecha">${m.categoria || 'Sin categoría'} · ${m.banco || '(Sin banco)'} · ${new Date(m.fecha).toLocaleDateString()}</div>
-                    <div><strong>${m.tipo === 'ingreso' ? '+' : '-'} Bs. ${m.cantidad.toFixed(2)}</strong></div>
+                    <div class="cantidad"><strong>${m.tipo === 'ingreso' ? '+' : '-'} Bs. ${m.cantidad.toFixed(2)}</strong></div>
                 </div>
             `).join('')}
-
-            <div class="total">Saldo Final: Bs. ${saldoTotal.toFixed(2)}</div>
-
+            
             <script>
                 window.print();
             </script>
@@ -1664,6 +1726,25 @@ document.addEventListener('click', reiniciarTimer);
         console.error("Error en la inicialización de la app:", error);
     }
 });
+
+// ✅ OCULTAR/MOSTRAR CAMPOS DINÁMICAMENTE
+document.addEventListener('DOMContentLoaded', function() {
+    const saldoInicialInput = document.getElementById('saldoInicial');
+    const cantidadInput = document.getElementById('cantidad');
+
+    function toggleInputs() {
+        if (saldoInicialInput.value.trim() !== '') {
+            cantidadInput.style.display = 'none';
+            cantidadInput.value = ''; // Limpiar si se oculta
+        } else {
+            cantidadInput.style.display = 'block';
+        }
+    }
+
+    saldoInicialInput.addEventListener('input', toggleInputs);
+    toggleInputs(); // Ejecutar al cargar
+});
+
 
 // ------------------------------------------------------------------------------------------------------------------------------------
 //                                 Inicialización y Event Listeners
