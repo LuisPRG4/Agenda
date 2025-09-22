@@ -659,37 +659,44 @@ async function actualizarResumenBancosCompleto() {
         const tbody = document.getElementById('tablaBancos').querySelector('tbody');
         tbody.innerHTML = '';
 
-        // Paso 1: Agrupar movimientos por banco y calcular ingresos, gastos y saldo inicial
-        const resumenBancos = {};
+        // ✅ PASO 1: Obtener el SALDO INICIAL GLOBAL (solo uno, desde el almacén)
+        const saldoInicialArray = await getAllEntries(STORES.SALDO_INICIAL);
+        const saldoInicialGlobal = saldoInicialArray.length > 0 ? saldoInicialArray[0].monto : 0;
 
+        // ✅ PASO 2: Agrupar movimientos REALES (excluyendo los de saldo inicial)
+        const resumenBancos = {};
         for (const m of movimientos) {
-            const banco = m.banco || '(Sin banco)';
-            if (!resumenBancos[banco]) {
-                resumenBancos[banco] = { ingresos: 0, gastos: 0, saldo_inicial: 0 };
+            // IGNORAR los movimientos que son "Saldo inicial"
+            if (m.concepto && m.concepto.includes('Saldo inicial')) {
+                continue; // ¡Esto es clave! No los contamos como ingresos/gastos
             }
 
-            if (m.concepto && m.concepto.includes('Saldo inicial')) {
-                resumenBancos[banco].saldo_inicial = m.cantidad;
-            } else if (m.tipo === 'ingreso') {
+            const banco = m.banco || '(Sin banco)';
+            if (!resumenBancos[banco]) {
+                resumenBancos[banco] = { ingresos: 0, gastos: 0 };
+            }
+
+            if (m.tipo === 'ingreso') {
                 resumenBancos[banco].ingresos += m.cantidad;
             } else if (m.tipo === 'gasto') {
                 resumenBancos[banco].gastos += m.cantidad;
             }
         }
 
-        let saldoGeneralTotal = 0;
+        let saldoGeneralTotal = saldoInicialGlobal; // El total comienza con el saldo inicial global
 
-        // Paso 2: Calcular el saldo final, renderizar la tabla y sumar al total
+        // ✅ PASO 3: Calcular saldo final por banco y sumar al total general
         for (const banco in resumenBancos) {
             const data = resumenBancos[banco];
-            data.saldo_final = data.saldo_inicial + data.ingresos - data.gastos;
-            saldoGeneralTotal += data.saldo_final; // ✅ Suma los saldos finales
+            // Saldo final = saldo inicial global + ingresos reales - gastos reales
+            data.saldo_final = saldoInicialGlobal + data.ingresos - data.gastos;
+            saldoGeneralTotal += data.ingresos - data.gastos; // Solo sumamos los movimientos reales
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${banco}</td>
                 <td style="text-align:right; font-weight: 500;">
-                    ${data.saldo_inicial.toFixed(2)} Bs
+                    ${saldoInicialGlobal.toFixed(2)} Bs
                 </td>
                 <td style="text-align:right; font-weight: 500; color: var(--success);">
                     +${data.ingresos.toFixed(2)} Bs
@@ -704,17 +711,16 @@ async function actualizarResumenBancosCompleto() {
             tbody.appendChild(tr);
         }
 
-        // ✅ Paso 3: Actualizar el saldo global con la suma de los saldos finales
+        // ✅ PASO 4: Actualizar el saldo global (es el mismo que saldoGeneralTotal)
         document.getElementById('saldo').textContent = `Bs. ${saldoGeneralTotal.toFixed(2)}`;
         document.getElementById('totalGeneral').textContent = saldoGeneralTotal.toFixed(2);
-        
+
         // Actualizar el equivalente en otra moneda (si aplica)
         const tasaCambio = parseFloat(document.getElementById('tasaCambio').value);
         if (!isNaN(tasaCambio) && tasaCambio > 0) {
             const equivalente = saldoGeneralTotal / tasaCambio;
             document.getElementById('equivalente').textContent = equivalente.toFixed(2);
         }
-
     } catch (error) {
         console.error("Error al actualizar el resumen por banco:", error);
     }
@@ -1516,12 +1522,22 @@ function mostrarModalBloqueo() {
 // Cerrar el modal de bloqueo
 function cerrarModalBloqueo() {
     document.getElementById('modalBloqueo').style.display = 'none';
+    document.getElementById('pinInput').value = '';
+    document.getElementById('avisoPinOlvidado').style.display = 'none'; // ✅ REINICIAR AVISO
+    localStorage.setItem('intentosFallidos', '0'); // ✅ REINICIAR CONTADOR
 }
 
 // Desbloquear la app con el PIN
 async function desbloquearApp() {
-    const pinIngresado = document.getElementById('pinInput').value.trim().toLowerCase(); // ✅ Convertimos a minúsculas
+    const pinIngresado = document.getElementById('pinInput').value.trim().toLowerCase();
     const pinGuardado = localStorage.getItem('bloqueoPIN');
+    const aviso = document.getElementById('avisoPinOlvidado');
+
+    // ✅ Reiniciar contador si se ingresa algo válido
+    if (pinIngresado === 'reset' || (pinIngresado.length === 4 && pinIngresado === pinGuardado)) {
+        localStorage.setItem('intentosFallidos', '0'); // Reiniciar contador
+        aviso.style.display = 'none';
+    }
 
     // ✅ MODO DE EMERGENCIA: Si se ingresa "reset", desactiva el bloqueo
     if (pinIngresado === 'reset') {
@@ -1543,10 +1559,22 @@ async function desbloquearApp() {
 
     if (pinIngresado === pinGuardado) {
         localStorage.setItem('bloqueoDesbloqueado', 'true');
+        localStorage.setItem('intentosFallidos', '0'); // Reiniciar contador
+        aviso.style.display = 'none';
         cerrarModalBloqueo();
         const pestaña = localStorage.getItem('agendaPestañaActiva');
         if (pestaña) mostrarSideTab(pestaña);
     } else {
+        // Contar intentos fallidos
+        let intentos = parseInt(localStorage.getItem('intentosFallidos')) || 0;
+        intentos++;
+        localStorage.setItem('intentosFallidos', intentos.toString());
+
+        // Mostrar aviso después de 2 intentos fallidos
+        if (intentos >= 2) {
+            aviso.style.display = 'block';
+        }
+
         alert('PIN incorrecto. Intenta de nuevo.\n\n¿Olvidaste tu PIN? Escribe "reset" para desactivar el bloqueo.');
         document.getElementById('pinInput').value = '';
     }
