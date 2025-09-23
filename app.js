@@ -13,6 +13,22 @@ const STORES = {
     SALDO_INICIAL: 'saldo_inicial'
 };
 
+// ✅ FUNCIONES PARA FORMATO VENEZOLANO (punto mil, coma decimal)
+function formatNumberVE(num) {
+    if (typeof num !== 'number' || isNaN(num)) return '0,00';
+    const parts = num.toFixed(2).split('.');
+    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return `${integerPart},${parts[1]}`;
+}
+
+function parseNumberVE(str) {
+    if (!str || typeof str !== 'string') return 0;
+    // Eliminar puntos (separadores de miles) y reemplazar coma por punto
+    const cleaned = str.replace(/\./g, '').replace(',', '.');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
+}
+
 // Configuración de paginación
 const MOVIMIENTOS_POR_PAGINA = 10;
 let paginaActual = 1;
@@ -202,14 +218,16 @@ async function actualizarMovimiento() {
     const banco = document.getElementById('banco').value;
 
     const movimientoActualizado = {
-        id: idMovimientoEditando,
-        concepto: concepto,
-        cantidad: cantidad,
-        tipo: tipo,
-        categoria: categoria,
-        fecha: fecha.toISOString(),
-        banco: banco
-    };
+    id: idMovimientoEditando,
+    concepto: concepto,
+    cantidad: cantidad,
+    tipo: tipo,
+    categoria: categoria,
+    fecha: fecha.toISOString(),
+    banco: banco,
+    // ✅ Recalcular comisión si es gasto, o poner 0 si no lo es
+    comision: tipo === 'gasto' ? (cantidad * 0.003) : 0
+};
 
     try {
         await updateEntry(STORES.MOVIMIENTOS, movimientoActualizado);
@@ -291,11 +309,13 @@ async function agregarMovimiento() {
       ? `${concepto} (Saldo inicial: ${banco})`
       : concepto,
     cantidad: monto,
-    tipo: tipo === 'saldo_inicial' ? 'ingreso' : tipo, // el saldo inicial es un ingreso técnico
+    tipo: tipo === 'saldo_inicial' ? 'ingreso' : tipo,
     categoria: categoria || 'Sin categoría',
     fecha: new Date(fechaInput + 'T12:00:00').toISOString(),
-    banco: banco
-  };
+    banco: banco,
+    // ✅ NUEVO: Calcular y guardar la comisión solo una vez
+    comision: tipo === 'gasto' ? (monto * 0.003) : 0
+};
 
   try {
     await addEntry(STORES.MOVIMIENTOS, movimiento);
@@ -311,26 +331,34 @@ async function agregarMovimiento() {
 
 async function calcularSaldo() {
     const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
-    let totalComisiones = 0;
+    // ✅ Sumar solo las comisiones ya guardadas
+    const totalComisiones = movimientos
+        .filter(m => m.tipo === 'gasto')
+        .reduce((sum, m) => sum + m.comision, 0);
 
-    // ✅ Sumar todos los ingresos (incluyendo saldos iniciales)
-    // Restar todos los gastos y comisiones
-    const saldoTotal = movimientos.reduce((acc, m) => {
+    // ✅ Calcular saldo base: ingresos - gastos (sin volver a calcular comisión)
+    const saldoBase = movimientos.reduce((acc, m) => {
         if (m.tipo === 'gasto') {
-            const comision = m.cantidad * 0.003; // 0.3%
-            totalComisiones += comision;
-            return acc - m.cantidad;
+            return acc - m.cantidad; // Solo el gasto real
         } else {
             return acc + m.cantidad; // Ingresos y saldos iniciales
         }
     }, 0);
 
-    return saldoTotal - totalComisiones;
+    // ✅ Restar solo las comisiones ya guardadas
+    return saldoBase - totalComisiones;
 }
 
 async function actualizarSaldo() {
     const saldoBs = await calcularSaldo();
-    document.getElementById('saldo').textContent = 'Bs. ' + saldoBs.toFixed(2);
+    document.getElementById('saldo').textContent = 'Bs. ' + formatNumberVE(saldoBs);
+
+    // ✅ NUEVO: Mostrar o ocultar aviso de comisión
+    const aviso = document.getElementById('saldoAviso');
+    if (aviso) {
+        aviso.style.display = 'block'; // Siempre visible, ya que la comisión siempre se aplica
+    }
+
     const umbral = 500;
     const alerta = document.getElementById('alertaSaldo');
     document.getElementById('umbralAlerta').textContent = umbral;
@@ -339,6 +367,7 @@ async function actualizarSaldo() {
     } else {
         alerta.style.display = 'none';
     }
+
     actualizarEquivalente();
 }
 
@@ -382,7 +411,7 @@ async function renderizar() {
 
         // Calcular comisión si es gasto
         const esGasto = m.tipo === 'gasto';
-        const comision = esGasto ? (m.cantidad * 0.003).toFixed(2) : null;
+        const comision = esGasto ? m.comision.toFixed(2) : null; // ✅ Usar la comisión guardada
 
         li.innerHTML = `
     <div style="display:flex; flex-direction:column; gap:.25rem; flex:1; margin-bottom: .5rem; min-width:0;">
@@ -402,7 +431,7 @@ async function renderizar() {
         ${comision ? `<div style="font-size:.8rem; color:#b00020; margin-top:0.25rem;">Comisión: ${comision} Bs</div>` : ''}
     </div>
     <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">
-        <span style="font-weight:500; color:var(--text); font-size:1rem;">${m.cantidad.toFixed(2)} Bs</span>
+        <span style="font-weight:500; color:var(--text); font-size:1rem;">${formatNumberVE(m.cantidad)} Bs</span>
         <button class="btn-editar" data-id="${m.id}" style="padding:.25rem; font-size:.8rem; background:#0b57d0; color:white; border-radius:50%; border:none; cursor:pointer; width:auto;">✏️</button>
         <button class="btn-eliminar" data-id="${m.id}" style="padding:.25rem; font-size:.8rem; background:#b00020; color:white; border-radius:50%; border:none; cursor:pointer; width:auto;">🗑️</button>
     </div>
@@ -559,7 +588,7 @@ async function actualizarGrafico() {
         totales[cat] = (totales[cat] || 0) + m.cantidad;
     });
     const labels = Object.keys(totales);
-    const data = Object.values(totales);
+    const data = Object.values(totales).map(n => n); // No cambiamos el array, solo lo usamos para el gráfico
     if (window.miGrafico) window.miGrafico.destroy();
     window.miGrafico = new Chart(document.getElementById('torta'), {
         type: 'pie',
@@ -659,16 +688,16 @@ async function actualizarResumenBancosCompleto() {
             tr.innerHTML = `
                 <td>${banco}</td>
                 <td style="text-align:right; font-weight: 500;">
-                    ${data.saldoInicial.toFixed(2)} Bs
+                    ${formatNumberVE(data.saldoInicial)} Bs
                 </td>
                 <td style="text-align:right; font-weight: 500; color: var(--success);">
-                    +${data.ingresos.toFixed(2)} Bs
+                    +${formatNumberVE(data.ingresos)} Bs
                 </td>
                 <td style="text-align:right; font-weight: 500; color: var(--danger);">
-                    -${data.gastos.toFixed(2)} Bs
+                    -${formatNumberVE(data.gastos)} Bs
                 </td>
                 <td style="text-align:right; font-weight: 700;">
-                    ${data.saldoFinal.toFixed(2)} Bs
+                    ${formatNumberVE(data.saldoFinal)} Bs
                 </td>
             `;
             tbody.appendChild(tr);
@@ -676,13 +705,13 @@ async function actualizarResumenBancosCompleto() {
 
         // ✅ PASO 4: Actualizar el saldo global
         document.getElementById('saldo').textContent = `Bs. ${saldoGeneralTotal.toFixed(2)}`;
-        document.getElementById('totalGeneral').textContent = saldoGeneralTotal.toFixed(2);
+        document.getElementById('totalGeneral').textContent = formatNumberVE(saldoGeneralTotal);
 
         // Actualizar el equivalente en otra moneda
         const tasaCambio = parseFloat(document.getElementById('tasaCambio').value);
         if (!isNaN(tasaCambio) && tasaCambio > 0) {
             const equivalente = saldoGeneralTotal / tasaCambio;
-            document.getElementById('equivalente').textContent = equivalente.toFixed(2);
+            document.getElementById('equivalente').textContent = formatNumberVE(equivalente);
         }
     } catch (error) {
         console.error("Error al actualizar el resumen por banco:", error);
@@ -777,16 +806,13 @@ function actualizarEquivalente() {
     if (monedaDestino === 'MXN') { simbolo = 'MX$'; nombreMoneda = 'MXN'; }
 
     const tieneDecimales = equivalente % 1 !== 0;
-    const formato = new Intl.NumberFormat('es-VE', {
-        minimumFractionDigits: tieneDecimales ? 2 : 0,
-        maximumFractionDigits: 2
-    }).format(equivalente);
+    const formato = formatNumberVE(equivalente);
 
     document.getElementById('equivalente').textContent = `${simbolo} ${formato}`;
     localStorage.setItem('tasaCambio', tasa.toString());
 
     // ✅ Actualizar texto de tasa actual
-    document.getElementById('tasaActual').textContent = `Tasa actual: 1 ${nombreMoneda} = ${tasa.toLocaleString('es-VE')} Bs`;
+    document.getElementById('tasaActual').textContent = `Tasa actual: 1 ${nombreMoneda} = ${formatNumberVE(tasa)} Bs`;
 }
 
 function aplicarTemaInicial() {
@@ -1126,8 +1152,8 @@ async function generarReporteImprimible() {
             <!-- Resumen General -->
             <div class="resumen-general">
                 <h3>Resumen General</h3>
-                <p><strong>Total Comisiones (0.3%):</strong> Bs. ${totalComisiones.toFixed(2)}</p>
-                <p><strong>Disponibilidad Total:</strong> Bs. ${disponibilidadTotal.toFixed(2)}</p>
+                <p><strong>Total Comisiones (0.3%):</strong> Bs. ${formatNumberVE(totalComisiones)}</p>
+                <p><strong>Disponibilidad Total:</strong> Bs. ${formatNumberVE(disponibilidadTotal)}</p>
             </div>
 
             <!-- Resumen por Banco -->
@@ -1147,10 +1173,10 @@ async function generarReporteImprimible() {
                         ${Object.entries(resumenBancos).map(([banco, datos]) => `
                             <tr>
                                 <td style="text-align: left;">${banco}</td>
-                                <td>Bs. ${datos.saldoInicial.toFixed(2)}</td>
-                                <td>Bs. ${datos.ingresos.toFixed(2)}</td>
-                                <td>Bs. ${datos.gastos.toFixed(2)}</td>
-                                <td><strong>Bs. ${datos.saldoFinal.toFixed(2)}</strong></td>
+                                <td>Bs. ${formatNumberVE(datos.saldoInicial)}</td>
+                                <td>Bs. ${formatNumberVE(datos.ingresos)}</td>
+                                <td>Bs. ${formatNumberVE(datos.gastos)}</td>
+                                <td><strong>Bs. ${formatNumberVE(datos.saldoFinal)}</strong></td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -1173,7 +1199,7 @@ async function generarReporteImprimible() {
                 <div class="movimiento">
                     <div class="concepto"><strong>${m.concepto}</strong></div>
                     <div class="fecha">${m.categoria || 'Sin categoría'} · ${m.banco || '(Sin banco)'} · ${new Date(m.fecha).toLocaleDateString()}</div>
-                    <div class="cantidad"><strong>${m.tipo === 'ingreso' ? '+' : '-'} Bs. ${m.cantidad.toFixed(2)}</strong></div>
+                    <div class="cantidad"><strong>${m.tipo === 'ingreso' ? '+' : '-'} Bs. ${formatNumberVE(m.cantidad)}</strong></div>
                 </div>
             `).join('')}
             
@@ -1223,9 +1249,9 @@ async function actualizarPresupuesto() {
     const meta = parseFloat(localStorage.getItem('metaPresupuesto')) || 0;
 
     // Actualizar elementos de la UI
-    document.getElementById('presupuestoActual').value = totalGastado.toFixed(2);
-    document.getElementById('gastadoTexto').textContent = `Bs. ${totalGastado.toFixed(2)}`;
-    document.getElementById('metaTexto').textContent = `Bs. ${meta.toFixed(2)}`;
+    document.getElementById('presupuestoActual').value = formatNumberVE(totalGastado);
+    document.getElementById('gastadoTexto').textContent = `Bs. ${formatNumberVE(totalGastado)}`;
+    document.getElementById('metaTexto').textContent = `Bs. ${formatNumberVE(meta)}`;
 
     // Calcular porcentaje
     const porcentaje = meta > 0 ? Math.min(100, Math.max(0, (totalGastado / meta) * 100)) : 0;
@@ -1271,7 +1297,7 @@ function renderizarDetallesPresupuesto(gastos) {
         li.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
                 <span style="font-weight:500;">${categoria}</span>
-                <span style="font-weight:600; color:var(--danger);">Bs. ${monto.toFixed(2)}</span>
+                <span style="font-weight:600; color:var(--danger);">Bs. ${formatNumberVE(monto)}</span>
             </div>
         `;
         ul.appendChild(li);
@@ -1420,19 +1446,19 @@ async function generarReportePorCategoria() {
             <h1>Reporte Financiero - Sistema Financiero Personal</h1>
             <div class="resumen">
                 <h3>Resumen General</h3>
-                <p><strong>Saldo Inicial:</strong> Bs. ${saldoInicial.toFixed(2)}</p>
-                <p><strong>Total Comisiones:</strong> Bs. ${totalComisiones.toFixed(2)}</p>
-                <p><strong>Saldo Actual:</strong> Bs. ${saldoTotal.toFixed(2)}</p>
+                <p><strong>Saldo Inicial:</strong> Bs. ${formatNumberVE(saldoInicial)}</p>
+                <p><strong>Total Comisiones:</strong> Bs. ${formatNumberVE(totalComisiones)}</p>
+                <p><strong>Saldo Actual:</strong> Bs. ${formatNumberVE(saldoTotal)}</p>
             </div>
             <h3>Movimientos por Categoría: "${categoria}"</h3>
             ${movimientosFiltrados.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).map(m => `
                 <div class="movimiento">
                     <div><strong>${m.concepto}</strong></div>
                     <div class="fecha">${m.banco || '(Sin banco)'} · ${new Date(m.fecha).toLocaleDateString()}</div>
-                    <div><strong>${m.tipo === 'ingreso' ? '+' : '-'} Bs. ${m.cantidad.toFixed(2)}</strong></div>
+                    <div><strong>${m.tipo === 'ingreso' ? '+' : '-'} Bs. ${formatNumberVE(m.cantidad)}</strong></div>
                 </div>
             `).join('')}
-            <div class="total">Saldo Final: Bs. ${saldoTotal.toFixed(2)}</div>
+            <div class="total">Saldo Final: Bs. ${formatNumberVE(saldoTotal)}</div>
             <script>
                 window.print();
             </script>
@@ -1493,19 +1519,19 @@ async function generarReportePorFecha() {
             <div class="resumen">
                 <h3>Resumen General</h3>
                 <p><strong>Periodo:</strong> ${new Date(desde).toLocaleDateString()} a ${new Date(hasta).toLocaleDateString()}</p>
-                <p><strong>Saldo Inicial:</strong> Bs. ${saldoInicial.toFixed(2)}</p>
-                <p><strong>Total Comisiones:</strong> Bs. ${totalComisiones.toFixed(2)}</p>
-                <p><strong>Saldo Actual:</strong> Bs. ${saldoTotal.toFixed(2)}</p>
+                <p><strong>Saldo Inicial:</strong> Bs. ${formatNumberVE(saldoInicial)}</p>
+                <p><strong>Total Comisiones:</strong> Bs. ${formatNumberVE(totalComisiones)}</p>
+                <p><strong>Saldo Actual:</strong> Bs. ${formatNumberVE(saldoTotal)}</p>
             </div>
             <h3>Movimientos del Periodo</h3>
             ${movimientosFiltrados.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).map(m => `
                 <div class="movimiento">
                     <div><strong>${m.concepto}</strong></div>
                     <div class="fecha">${m.categoria || 'Sin categoría'} · ${m.banco || '(Sin banco)'} · ${new Date(m.fecha).toLocaleDateString()}</div>
-                    <div><strong>${m.tipo === 'ingreso' ? '+' : '-'} Bs. ${m.cantidad.toFixed(2)}</strong></div>
+                    <div><strong>${m.tipo === 'ingreso' ? '+' : '-'} Bs. ${formatNumberVE(m.cantidad)}</strong></div>
                 </div>
             `).join('')}
-            <div class="total">Saldo Final: Bs. ${saldoTotal.toFixed(2)}</div>
+            <div class="total">Saldo Final: Bs. ${formatNumberVE(saldoTotal)}</div>
             <script>
                 window.print();
             </script>
