@@ -251,102 +251,62 @@ async function eliminarMovimiento(id) {
 
 // Modificaciones en las funciones de tu app
 async function agregarMovimiento() {
-    // ✅ Si hay un movimiento en edición, llamar a la función de actualización
-    if (idMovimientoEditando) {
-        await actualizarMovimiento();
-        return;
-    }
+  if (idMovimientoEditando) {
+    await actualizarMovimiento();
+    return;
+  }
 
-    const conceptoOriginal = document.getElementById('concepto').value.trim();
-    const tipo = document.getElementById('tipo').value; // Solo "ingreso" o "gasto"
-    let categoria = document.getElementById('categoria').value;
-    const bancoInput = document.getElementById('banco').value;
-    const fechaInput = document.getElementById('fechaMov').value;
+  const concepto = document.getElementById('concepto').value.trim();
+  const tipo = document.getElementById('tipo').value; // puede ser 'ingreso', 'gasto', 'saldo_inicial'
+  const categoria = document.getElementById('categoria').value;
+  const banco = document.getElementById('banco').value;
+  const fechaInput = document.getElementById('fechaMov').value;
 
-    // ✅ Obtener los valores de los campos
-    const cantidad = parseFloat(document.getElementById('cantidad').value);
+  // Validación básica
+  if (!concepto || !banco || !fechaInput) {
+    alert('Por favor, completa el concepto, el banco y la fecha.');
+    return;
+  }
+
+  let monto;
+  if (tipo === 'saldo_inicial') {
     const saldoInicial = parseFloat(document.getElementById('saldoInicial').value);
-
-    // ✅ VALIDACIÓN CORREGIDA: Requiere concepto, banco, fecha, y O bien cantidad O saldoInicial
-    if (!conceptoOriginal || !bancoInput || !fechaInput) {
-        alert('Por favor, completa el concepto, el banco y la fecha.');
-        return;
+    if (isNaN(saldoInicial) || saldoInicial <= 0) {
+      alert('Ingresa un saldo inicial válido mayor a 0.');
+      return;
     }
-
-    // ✅ Solo uno de los dos: cantidad o saldoInicial debe tener valor
-    if (isNaN(cantidad) && isNaN(saldoInicial)) {
-        alert('Por favor, ingresa una cantidad o un saldo inicial.');
-        return;
+    monto = saldoInicial;
+  } else {
+    const cantidad = parseFloat(document.getElementById('cantidad').value);
+    if (isNaN(cantidad) || cantidad <= 0) {
+      alert('Ingresa una cantidad válida mayor a 0.');
+      return;
     }
-    if (!isNaN(cantidad) && !isNaN(saldoInicial)) {
-        alert('Por favor, ingresa solo una cantidad o un saldo inicial, no ambos.');
-        return;
-    }
+    monto = cantidad;
+  }
 
-    // ✅ Si hay categoría "Otro", crearla
-    if (categoria === 'Otro') {
-        const nuevaCat = document.getElementById('nuevaCategoria').value.trim();
-        if (nuevaCat) {
-            await agregarCategoria(nuevaCat);
-            categoria = nuevaCat;
-            document.getElementById('categoria').value = categoria;
-        } else {
-            categoria = 'Sin categoría';
-        }
-    }
+  // Crear movimiento
+  const movimiento = {
+    concepto: tipo === 'saldo_inicial'
+      ? `${concepto} (Saldo inicial: ${banco})`
+      : concepto,
+    cantidad: monto,
+    tipo: tipo === 'saldo_inicial' ? 'ingreso' : tipo, // el saldo inicial es un ingreso técnico
+    categoria: categoria || 'Sin categoría',
+    fecha: new Date(fechaInput + 'T12:00:00').toISOString(),
+    banco: banco
+  };
 
-    // ✅ Normalizar fecha y banco
-    const fecha = new Date(fechaInput + 'T12:00:00');
-    let banco = (bancoInput === 'Otro') 
-        ? document.getElementById('nuevoBanco').value.trim() || '(Sin banco)'
-        : bancoInput || '(Sin banco)';
-    if (bancoInput === 'Otro' && document.getElementById('nuevoBanco').value.trim()) {
-        await agregarBanco(banco);
-    }
-
-    // ✅ Aplicar regla si existe
-    const reglas = await getAllEntries(STORES.REGLAS);
-    const reglaAplicada = reglas.find(r => conceptoOriginal.toLowerCase().includes(r.palabra.toLowerCase()));
-    if (reglaAplicada) {
-        categoria = reglaAplicada.categoria;
-        if (reglaAplicada.banco) {
-            banco = reglaAplicada.banco;
-        }
-    }
-
-    // ✅ LÓGICA CLAVE: ¿Estamos registrando un Saldo Inicial?
-    let monto;
-    let conceptoFinal = conceptoOriginal;
-
-    if (!isNaN(saldoInicial) && saldoInicial > 0) {
-        // Es un saldo inicial → usar el valor del campo "Saldo Inicial"
-        monto = saldoInicial;
-        // Marcarlo en el concepto para identificarlo después
-        conceptoFinal = `${conceptoOriginal} (Saldo inicial: ${banco})`;
-    } else {
-        // Es un ingreso/gasto normal → usar el campo "Cantidad"
-        monto = cantidad;
-    }
-
-    // ✅ Crear el movimiento
-    const mov = {
-        concepto: conceptoFinal,
-        cantidad: monto, // El monto real que se registra
-        tipo: tipo, // "ingreso" o "gasto"
-        categoria: categoria || 'Sin categoría',
-        fecha: fecha.toISOString(),
-        banco: banco
-    };
-
-    try {
-        await addEntry(STORES.MOVIMIENTOS, mov);
-        await renderizar();
-        await actualizarSaldo();
-        limpiarForm();
-    } catch (error) {
-        console.error("Error al agregar el movimiento:", error);
-        alert("Error al agregar el movimiento. Intenta de nuevo.");
-    }
+  try {
+    await addEntry(STORES.MOVIMIENTOS, movimiento);
+    await renderizar();
+    await actualizarSaldo();
+    limpiarForm();
+    alert("✅ Movimiento agregado con éxito.");
+  } catch (error) {
+    console.error("Error al agregar movimiento:", error);
+    alert("Error al guardar el movimiento.");
+  }
 }
 
 async function calcularSaldo() {
@@ -1727,22 +1687,35 @@ document.addEventListener('click', reiniciarTimer);
     }
 });
 
-// ✅ OCULTAR/MOSTRAR CAMPOS DINÁMICAMENTE
-document.addEventListener('DOMContentLoaded', function() {
-    const saldoInicialInput = document.getElementById('saldoInicial');
-    const cantidadInput = document.getElementById('cantidad');
+// ✅ OCULTAR/MOSTRAR CAMPOS DINÁMICAMENTE SEGÚN EL TIPO DE MOVIMIENTO
+document.addEventListener('DOMContentLoaded', function () {
+  const tipoSelect = document.getElementById('tipo');
+  const saldoInicialInput = document.getElementById('saldoInicial');
+  const cantidadInput = document.getElementById('cantidad');
 
-    function toggleInputs() {
-        if (saldoInicialInput.value.trim() !== '') {
-            cantidadInput.style.display = 'none';
-            cantidadInput.value = ''; // Limpiar si se oculta
-        } else {
-            cantidadInput.style.display = 'block';
-        }
+  function actualizarCampos() {
+    const tipo = tipoSelect.value;
+
+    if (tipo === 'saldo_inicial') {
+      // Mostrar solo saldoInicial, ocultar cantidad
+      cantidadInput.style.display = 'none';
+      cantidadInput.value = ''; // Limpiar para evitar errores
+      saldoInicialInput.style.display = 'block';
+      saldoInicialInput.setAttribute('placeholder', 'Saldo inicial del banco');
+    } else {
+      // Mostrar solo cantidad, ocultar saldoInicial
+      saldoInicialInput.style.display = 'none';
+      saldoInicialInput.value = '';
+      cantidadInput.style.display = 'block';
+      cantidadInput.setAttribute('placeholder', 'Cantidad');
     }
+  }
 
-    saldoInicialInput.addEventListener('input', toggleInputs);
-    toggleInputs(); // Ejecutar al cargar
+  // Escuchar cambios en el tipo
+  tipoSelect.addEventListener('change', actualizarCampos);
+
+  // Ejecutar al cargar para aplicar estado inicial
+  actualizarCampos();
 });
 
 
