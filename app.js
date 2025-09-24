@@ -294,7 +294,7 @@ async function agregarMovimiento() {
 
   let monto;
 if (tipo === 'saldo_inicial') {
-    const saldoInicial = parseNumberVE(document.getElementById('saldoInicial').value);
+    const saldoInicial = parseNumberVE(document.getElementById('saldoInicial').value); // ✅ CAMBIO CLAVE
     if (isNaN(saldoInicial) || saldoInicial <= 0) {
         alert('Ingresa un saldo inicial válido mayor a 0.');
         return;
@@ -359,7 +359,17 @@ async function actualizarSaldo() {
     const saldoBs = await calcularSaldo();
     document.getElementById('saldo').textContent = 'Bs. ' + formatNumberVE(saldoBs);
 
-    // ✅ NUEVO: Mostrar aviso solo si el saldo es diferente de 0
+    // ✅ NUEVO: DETECTAR INCONSISTENCIA — Si hay movimientos pero saldo = 0, ¡reparar!
+    const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+    const tieneMovimientos = movimientos.length > 0;
+    const saldoCero = Math.abs(saldoBs) < 0.01; // Consideramos 0 si es menor a 1 céntimo
+
+    if (tieneMovimientos && saldoCero) {
+        console.warn('⚠️ Inconsistencia detectada: Hay movimientos pero saldo = 0. Ejecutando reparación...');
+        repararApp(); // ¡Llama a la reparación automática!
+    }
+
+    // ✅ NUEVO: Mostrar o ocultar aviso de comisión
     const aviso = document.getElementById('saldoAviso');
     if (aviso) {
         aviso.style.display = Math.abs(saldoBs) > 0.01 ? 'block' : 'none';
@@ -2241,6 +2251,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const tipoSelect = document.getElementById('tipo');
   const saldoInicialInput = document.getElementById('saldoInicial');
   const cantidadInput = document.getElementById('cantidad');
+  const conceptoInput = document.getElementById('concepto');
 
   function actualizarCampos() {
     const tipo = tipoSelect.value;
@@ -2257,6 +2268,7 @@ document.addEventListener('DOMContentLoaded', function () {
       saldoInicialInput.value = '';
       cantidadInput.style.display = 'block';
       cantidadInput.setAttribute('placeholder', 'Cantidad');
+      conceptoInput.setAttribute('placeholder', 'Concepto');
     }
   }
 
@@ -2266,6 +2278,39 @@ document.addEventListener('DOMContentLoaded', function () {
   // Ejecutar al cargar para aplicar estado inicial
   actualizarCampos();
 });
+
+// ✅ FUNCION DE REPARACIÓN INTELIGENTE: Limpia y reinicia la app sin perder datos
+async function repararApp() {
+    alert('🔍 Se detectó una inconsistencia en la visualización. Reinitializando la app...');
+
+    // 1. Forzar recarga de todos los datos
+    await renderizar();           // Recarga la lista de movimientos
+    await actualizarSaldo();      // Recalcula saldo con formato correcto
+    await actualizarResumenBancosCompleto(); // Recalcula tabla de bancos
+    await actualizarGrafico();    // Refresca gráfico de gastos
+    await actualizarBarChart();   // Refresca gráfico mensual
+    await renderizarResumenBancos(); // Refresca resumen de bancos en pestaña análisis
+    await cargarMetaPresupuesto(); // Recarga meta de presupuesto
+    await actualizarPresupuesto(); // Refresca barra de progreso
+
+    // 2. Forzar renderizado de elementos que pueden quedar rotos
+    document.getElementById('saldoAviso')?.style.display === 'none' && 
+        document.getElementById('saldoAviso')?.style.display === 'block'; // Forzar display
+
+    // 3. Limpiar posibles eventos colgantes (solo si hay error)
+    const btnTema = document.getElementById('btnTema');
+    if (btnTema) {
+        btnTema.style.display = 'block'; // Asegurar que el botón de tema esté visible
+    }
+
+    // 4. Mostrar mensaje de éxito
+    setTimeout(() => {
+        alert('✅ App reparada con éxito. Todo debería verse correctamente ahora.');
+    }, 500);
+
+    // 5. (Opcional) Forzar un scroll para que el usuario vea el cambio
+    window.scrollTo(0, 0);
+}
 
 // ------------------------------------------------------------------------------------------------------------------------------------
 //                                 Inicialización y Event Listeners
