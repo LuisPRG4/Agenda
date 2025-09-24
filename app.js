@@ -211,11 +211,17 @@ async function actualizarMovimiento() {
     }
 
     const concepto = document.getElementById('concepto').value.trim();
-    const cantidad = parseFloat(document.getElementById('cantidad').value);
+    const cantidad = parseNumberVE(document.getElementById('cantidad').value); // ✅ CAMBIO CLAVE
     const tipo = document.getElementById('tipo').value;
     const categoria = document.getElementById('categoria').value;
     const fecha = new Date(document.getElementById('fechaMov').value + 'T12:00:00');
     const banco = document.getElementById('banco').value;
+
+    // ✅ AÑADE ESTA VALIDACIÓN JUSTO ABAJO
+    if (isNaN(cantidad) || cantidad <= 0) {
+    alert('Ingresa una cantidad válida mayor a 0.');
+    return;
+    }
 
     const movimientoActualizado = {
     id: idMovimientoEditando,
@@ -287,21 +293,21 @@ async function agregarMovimiento() {
   }
 
   let monto;
-  if (tipo === 'saldo_inicial') {
-    const saldoInicial = parseFloat(document.getElementById('saldoInicial').value);
+if (tipo === 'saldo_inicial') {
+    const saldoInicial = parseNumberVE(document.getElementById('saldoInicial').value);
     if (isNaN(saldoInicial) || saldoInicial <= 0) {
-      alert('Ingresa un saldo inicial válido mayor a 0.');
-      return;
+        alert('Ingresa un saldo inicial válido mayor a 0.');
+        return;
     }
     monto = saldoInicial;
-  } else {
-    const cantidad = parseFloat(document.getElementById('cantidad').value);
+} else {
+    const cantidad = parseNumberVE(document.getElementById('cantidad').value);
     if (isNaN(cantidad) || cantidad <= 0) {
-      alert('Ingresa una cantidad válida mayor a 0.');
-      return;
+        alert('Ingresa una cantidad válida mayor a 0.');
+        return;
     }
     monto = cantidad;
-  }
+}
 
   // Crear movimiento
   const movimiento = {
@@ -353,10 +359,10 @@ async function actualizarSaldo() {
     const saldoBs = await calcularSaldo();
     document.getElementById('saldo').textContent = 'Bs. ' + formatNumberVE(saldoBs);
 
-    // ✅ NUEVO: Mostrar o ocultar aviso de comisión
+    // ✅ NUEVO: Mostrar aviso solo si el saldo es diferente de 0
     const aviso = document.getElementById('saldoAviso');
     if (aviso) {
-        aviso.style.display = 'block'; // Siempre visible, ya que la comisión siempre se aplica
+        aviso.style.display = Math.abs(saldoBs) > 0.01 ? 'block' : 'none';
     }
 
     const umbral = 500;
@@ -704,7 +710,7 @@ async function actualizarResumenBancosCompleto() {
         }
 
         // ✅ PASO 4: Actualizar el saldo global
-        document.getElementById('saldo').textContent = `Bs. ${saldoGeneralTotal.toFixed(2)}`;
+        document.getElementById('saldo').textContent = `Bs. ${formatNumberVE(saldoGeneralTotal)}`;
         document.getElementById('totalGeneral').textContent = formatNumberVE(saldoGeneralTotal);
 
         // Actualizar el equivalente en otra moneda
@@ -787,7 +793,7 @@ function mostrarSideTab(id) {
 function actualizarEquivalente() {
     const saldoBsText = document.getElementById('saldo').textContent.replace('Bs. ', '').replace(',', '');
     const saldoBs = parseFloat(saldoBsText);
-    const tasa = parseFloat(document.getElementById('tasaCambio').value);
+    const tasa = parseNumberVE(document.getElementById('tasaCambio').value);
     const monedaDestino = document.getElementById('monedaDestino').value;
 
     if (isNaN(tasa) || tasa <= 0) {
@@ -1680,6 +1686,523 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// ✅ Renderiza la lista de categorías editables (con clic para editar)
+async function renderizarCategoriasEditables() {
+    const ul = document.getElementById('listaCategoriasEditables');
+    ul.innerHTML = '';
+    const categorias = await getAllEntries(STORES.CATEGORIAS);
+    if (categorias.length === 0) {
+        ul.innerHTML = '<li style="color: var(--text-light); padding: 0.75rem;">No hay categorías aún.</li>';
+        return;
+    }
+    categorias.forEach(cat => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <span class="categoria-nombre" style="font-weight:500; cursor:pointer; padding:0.5rem; border-radius:6px; display:inline-block; margin-right:0.5rem;"
+                  data-nombre="${cat.nombre}" 
+                  ondblclick="editarCategoria('${cat.nombre}')">
+                ${cat.nombre}
+            </span>
+            <button onclick="eliminarCategoriaPorNombre('${cat.nombre}')" style="padding:0.3rem 0.6rem; font-size:0.8rem; background:#b00020; color:white; border:none; border-radius:4px; cursor:pointer;">
+                ❌
+            </button>
+        `;
+        ul.appendChild(li);
+    });
+}
+
+// ✅ Renderiza la lista de bancos editables (con clic para editar)
+async function renderizarBancosEditables() {
+    const ul = document.getElementById('listaBancosEditables');
+    ul.innerHTML = '';
+    const bancos = await getAllEntries(STORES.BANCOS);
+    if (bancos.length === 0) {
+        ul.innerHTML = '<li style="color: var(--text-light); padding: 0.75rem;">No hay bancos aún.</li>';
+        return;
+    }
+    bancos.forEach(banco => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <span class="banco-nombre" style="font-weight:500; cursor:pointer; padding:0.5rem; border-radius:6px; display:inline-block; margin-right:0.5rem;"
+                  data-nombre="${banco.nombre}" 
+                  ondblclick="editarBanco('${banco.nombre}')">
+                ${banco.nombre}
+            </span>
+            <button onclick="eliminarBancoPorNombre('${banco.nombre}')" style="padding:0.3rem 0.6rem; font-size:0.8rem; background:#b00020; color:white; border:none; border-radius:4px; cursor:pointer;">
+                ❌
+            </button>
+        `;
+        ul.appendChild(li);
+    });
+}
+
+// ✅ Función para editar una categoría (doble clic → transforma en input)
+function editarCategoria(nombreActual) {
+    const spans = document.querySelectorAll('.categoria-nombre');
+    const span = Array.from(spans).find(s => s.getAttribute('data-nombre') === nombreActual);
+    if (!span) return;
+
+    // ✅ OCULTAR EL SPAN ORIGINAL (esto es clave para que guardarBanco lo encuentre)
+    span.style.display = 'none';
+
+    // Crear input
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = nombreActual;
+    input.style.width = '100%';
+    input.style.padding = '0.5rem';
+    input.style.border = '1px solid #ccc';
+    input.style.borderRadius = '6px';
+    input.style.marginRight = '0.5rem';
+    input.style.fontWeight = '500';
+    input.style.backgroundColor = 'var(--card-bg)';
+    input.style.color = 'var(--text)';
+
+    // Reemplazar span por input
+    span.parentNode.replaceChild(input, span);
+
+    // Enfocar y seleccionar texto
+    input.focus();
+    input.select();
+
+    // Guardar al presionar Enter o al perder foco
+    input.addEventListener('blur', guardarCategoria);
+    input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            guardarCategoria();
+        }
+    });
+}
+
+// ✅ Función para guardar la categoría editada
+// ✅ Función para guardar la categoría editada
+async function guardarCategoria() {
+    const input = event.target;
+    const nuevoNombre = input.value.trim();
+    
+    // Buscar el span original que fue reemplazado
+    // ✅ Guardamos el nombre anterior ANTES de que se reemplace
+    const spanOriginal = document.querySelector('.categoria-nombre[style*="display: none"]');
+    if (!spanOriginal) {
+        // Si no se encuentra el span oculto, buscar por el atributo data-nombre que estaba antes
+        const spans = document.querySelectorAll('.categoria-nombre');
+        const spanAnterior = Array.from(spans).find(s => s.style.display === 'none');
+        if (spanAnterior) {
+            const nombreAnterior = spanAnterior.getAttribute('data-nombre');
+            if (nombreAnterior === nuevoNombre) {
+                input.parentNode.replaceChild(spanAnterior, input);
+                return;
+            }
+            // Si el nombre anterior es diferente, lo usamos
+            if (nombreAnterior) {
+                // Verificar duplicados
+                const categorias = await getAllEntries(STORES.CATEGORIAS);
+                if (categorias.some(c => c.nombre === nuevoNombre && c.nombre !== nombreAnterior)) {
+                    alert(`Ya existe una categoría llamada "${nuevoNombre}".`);
+                    input.parentNode.replaceChild(spanAnterior, input);
+                    return;
+                }
+                // Actualizar en DB
+                await deleteEntry(STORES.CATEGORIAS, nombreAnterior);
+                await addEntry(STORES.CATEGORIAS, { nombre: nuevoNombre });
+                // Actualizar movimientos
+                const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+                const transaction = db.transaction([STORES.MOVIMIENTOS], 'readwrite');
+                const store = transaction.objectStore(STORES.MOVIMIENTOS);
+                movimientos.forEach(m => {
+                    if (m.categoria === nombreAnterior) {
+                        m.categoria = nuevoNombre;
+                        store.put(m);
+                    }
+                });
+                // Refrescar
+                renderizarCategoriasEditables();
+                actualizarSelectCategorias();
+                cargarSelectEliminarCategorias();
+                alert(`✅ Categoría "${nombreAnterior}" renombrada como "${nuevoNombre}".`);
+                return;
+            }
+        }
+        // Si no encontramos el span anterior, es un error
+        alert("Error al identificar la categoría original.");
+        input.parentNode.replaceChild(input.previousElementSibling, input);
+        return;
+    }
+
+    const nombreAnterior = spanOriginal.getAttribute('data-nombre');
+
+    // Validar
+    if (!nuevoNombre) {
+        alert('El nombre de la categoría no puede estar vacío.');
+        input.parentNode.replaceChild(spanOriginal, input);
+        return;
+    }
+
+    if (nuevoNombre === nombreAnterior) {
+        input.parentNode.replaceChild(spanOriginal, input);
+        return;
+    }
+
+    // Verificar duplicados
+    const categorias = await getAllEntries(STORES.CATEGORIAS);
+    if (categorias.some(c => c.nombre === nuevoNombre && c.nombre !== nombreAnterior)) {
+        alert(`Ya existe una categoría llamada "${nuevoNombre}".`);
+        input.parentNode.replaceChild(spanOriginal, input);
+        return;
+    }
+
+    // Actualizar en la base de datos
+    try {
+        await deleteEntry(STORES.CATEGORIAS, nombreAnterior);
+        await addEntry(STORES.CATEGORIAS, { nombre: nuevoNombre });
+
+        // Actualizar todos los movimientos con esta categoría
+        const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+        const transaction = db.transaction([STORES.MOVIMIENTOS], 'readwrite');
+        const store = transaction.objectStore(STORES.MOVIMIENTOS);
+        movimientos.forEach(m => {
+            if (m.categoria === nombreAnterior) {
+                m.categoria = nuevoNombre;
+                store.put(m);
+            }
+        });
+
+        // Refrescar interfaces
+        renderizarCategoriasEditables();
+        actualizarSelectCategorias();
+        cargarSelectEliminarCategorias();
+        alert(`✅ Categoría "${nombreAnterior}" renombrada como "${nuevoNombre}".`);
+    } catch (error) {
+        console.error("Error al actualizar categoría:", error);
+        alert("Error al renombrar la categoría.");
+    }
+}
+
+// ✅ Función para editar un banco (doble clic → transforma en input)
+function editarBanco(nombreActual) {
+    const spans = document.querySelectorAll('.banco-nombre');
+    const span = Array.from(spans).find(s => s.getAttribute('data-nombre') === nombreActual);
+    if (!span) return;
+
+    // ✅ OCULTAR EL SPAN ORIGINAL (esto es clave para que guardarBanco lo encuentre)
+    span.style.display = 'none';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = nombreActual;
+    input.style.width = '100%';
+    input.style.padding = '0.5rem';
+    input.style.border = '1px solid #ccc';
+    input.style.borderRadius = '6px';
+    input.style.marginRight = '0.5rem';
+    input.style.fontWeight = '500';
+    input.style.backgroundColor = 'var(--card-bg)';
+    input.style.color = 'var(--text)';
+
+    span.parentNode.replaceChild(input, span);
+
+    input.focus();
+    input.select();
+
+    input.addEventListener('blur', guardarBanco);
+    input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            guardarBanco();
+        }
+    });
+}
+
+// ✅ Función para guardar el banco editado
+async function guardarBanco() {
+    const input = event.target;
+    const nuevoNombre = input.value.trim();
+    
+    // Buscar el span original que fue reemplazado
+    const spanOriginal = document.querySelector('.banco-nombre[style*="display: none"]');
+    if (!spanOriginal) {
+        const spans = document.querySelectorAll('.banco-nombre');
+        const spanAnterior = Array.from(spans).find(s => s.style.display === 'none');
+        if (spanAnterior) {
+            const nombreAnterior = spanAnterior.getAttribute('data-nombre');
+            if (nombreAnterior === nuevoNombre) {
+                input.parentNode.replaceChild(spanAnterior, input);
+                return;
+            }
+            if (nombreAnterior) {
+                const bancos = await getAllEntries(STORES.BANCOS);
+                if (bancos.some(b => b.nombre === nuevoNombre && b.nombre !== nombreAnterior)) {
+                    alert(`Ya existe un banco llamado "${nuevoNombre}".`);
+                    input.parentNode.replaceChild(spanAnterior, input);
+                    return;
+                }
+                await deleteEntry(STORES.BANCOS, nombreAnterior);
+                await addEntry(STORES.BANCOS, { nombre: nuevoNombre });
+                const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+                const transaction = db.transaction([STORES.MOVIMIENTOS], 'readwrite');
+                const store = transaction.objectStore(STORES.MOVIMIENTOS);
+                movimientos.forEach(m => {
+                    if (m.banco === nombreAnterior) {
+                        m.banco = nuevoNombre;
+                        store.put(m);
+                    }
+                });
+                renderizarBancosEditables();
+                cargarSelectBancos();
+                cargarSelectBancoRegla();
+                cargarSelectEliminarBancos();
+                alert(`✅ Banco "${nombreAnterior}" renombrado como "${nuevoNombre}".`);
+                return;
+            }
+        }
+        alert("Error al identificar el banco original.");
+        input.parentNode.replaceChild(input.previousElementSibling, input);
+        return;
+    }
+
+    const nombreAnterior = spanOriginal.getAttribute('data-nombre');
+
+    if (!nuevoNombre) {
+        alert('El nombre del banco no puede estar vacío.');
+        input.parentNode.replaceChild(spanOriginal, input);
+        return;
+    }
+
+    if (nuevoNombre === nombreAnterior) {
+        input.parentNode.replaceChild(spanOriginal, input);
+        return;
+    }
+
+    const bancos = await getAllEntries(STORES.BANCOS);
+    if (bancos.some(b => b.nombre === nuevoNombre && b.nombre !== nombreAnterior)) {
+        alert(`Ya existe un banco llamado "${nuevoNombre}".`);
+        input.parentNode.replaceChild(spanOriginal, input);
+        return;
+    }
+
+    try {
+        await deleteEntry(STORES.BANCOS, nombreAnterior);
+        await addEntry(STORES.BANCOS, { nombre: nuevoNombre });
+
+        const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+        const transaction = db.transaction([STORES.MOVIMIENTOS], 'readwrite');
+        const store = transaction.objectStore(STORES.MOVIMIENTOS);
+        movimientos.forEach(m => {
+            if (m.banco === nombreAnterior) {
+                m.banco = nuevoNombre;
+                store.put(m);
+            }
+        });
+
+        renderizarBancosEditables();
+        cargarSelectBancos();
+        cargarSelectBancoRegla();
+        cargarSelectEliminarBancos();
+        alert(`✅ Banco "${nombreAnterior}" renombrado como "${nuevoNombre}".`);
+    } catch (error) {
+        console.error("Error al actualizar banco:", error);
+        alert("Error al renombrar el banco.");
+    }
+}
+
+// ✅ Funciones auxiliares para eliminar por nombre (para los botones de eliminar en las listas editables)
+async function eliminarCategoriaPorNombre(nombre) {
+    if (!confirm(`¿Estás seguro de que quieres eliminar la categoría "${nombre}"? Los movimientos quedarán sin categoría.`)) return;
+    try {
+        await deleteEntry(STORES.CATEGORIAS, nombre);
+        const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+        const transaction = db.transaction([STORES.MOVIMIENTOS], 'readwrite');
+        const store = transaction.objectStore(STORES.MOVIMIENTOS);
+        movimientos.forEach(m => {
+            if (m.categoria === nombre) {
+                m.categoria = 'Sin categoría';
+                store.put(m);
+            }
+        });
+        renderizarCategoriasEditables();
+        actualizarSelectCategorias();
+        cargarSelectEliminarCategorias();
+        alert(`Categoría "${nombre}" eliminada.`);
+    } catch (error) {
+        console.error("Error al eliminar categoría:", error);
+    }
+}
+
+async function eliminarBancoPorNombre(nombre) {
+    const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+    const afectados = movimientos.filter(m => m.banco === nombre).length;
+    if (!confirm(`¿Seguro que quieres eliminar el banco "${nombre}"? 
+Se quitará de ${afectados} movimiento${afectados !== 1 ? 's' : ''}.`)) return;
+
+    try {
+        await deleteEntry(STORES.BANCOS, nombre);
+        const transaction = db.transaction([STORES.MOVIMIENTOS], 'readwrite');
+        const store = transaction.objectStore(STORES.MOVIMIENTOS);
+        movimientos.forEach(m => {
+            if (m.banco === nombre) {
+                m.banco = '(Sin banco)';
+                store.put(m);
+            }
+        });
+        renderizarBancosEditables();
+        cargarSelectBancos();
+        cargarSelectBancoRegla();
+        cargarSelectEliminarBancos();
+        alert(`✅ Banco "${nombre}" eliminado.
+Se actualizó${afectados !== 1 ? 'ron' : ''} ${afectados} movimiento${afectados !== 1 ? 's' : ''}.`);
+    } catch (error) {
+        console.error("Error al eliminar banco:", error);
+    }
+}
+
+// ✅ EXPORTAR BACKUP COMPLETO (todo el estado de la app)
+async function exportarBackup() {
+    try {
+        // Recopilar todos los datos
+        const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+        const categorias = await getAllEntries(STORES.CATEGORIAS);
+        const bancos = await getAllEntries(STORES.BANCOS);
+        const reglas = await getAllEntries(STORES.REGLAS);
+        const saldoInicial = await getAllEntries(STORES.SALDO_INICIAL);
+        const metaPresupuesto = localStorage.getItem('metaPresupuesto');
+        const tasaCambio = localStorage.getItem('tasaCambio');
+        const bloqueoActivo = localStorage.getItem('bloqueoActivo') === 'true';
+        const bloqueoPIN = localStorage.getItem('bloqueoPIN');
+        const tema = localStorage.getItem('agendaTema');
+
+        // Crear objeto de backup
+        const backup = {
+            version: '1.0',
+            fecha: new Date().toISOString(),
+            movimientos: movimientos,
+            categorias: categorias,
+            bancos: bancos,
+            reglas: reglas,
+            saldoInicial: saldoInicial.length > 0 ? saldoInicial[0] : null,
+            metaPresupuesto: metaPresupuesto,
+            tasaCambio: tasaCambio,
+            bloqueoActivo: bloqueoActivo,
+            bloqueoPIN: bloqueoPIN,
+            tema: tema
+        };
+
+        // Convertir a JSON y descargar
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backup, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", `SFP_Backup_${new Date().toISOString().split('T')[0]}.json`);
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+
+        alert("✅ Backup exportado con éxito. Archivo guardado como 'SFP_Backup_YYYY-MM-DD.json'");
+    } catch (error) {
+        console.error("Error al exportar backup:", error);
+        alert("❌ Error al exportar el backup. Revisa la consola.");
+    }
+}
+
+// ✅ IMPORTAR BACKUP COMPLETO (restaura todo)
+async function importarBackup() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const backup = JSON.parse(event.target.result);
+
+                // Validar versión
+                if (backup.version !== '1.0') {
+                    alert("⚠️ Este archivo de backup no es compatible con esta versión de la app.");
+                    return;
+                }
+
+                // Confirmar antes de sobrescribir
+                if (!confirm("⚠️ ¡ADVERTENCIA! Esto borrará todos tus datos actuales y los reemplazará con los del backup. ¿Continuar?")) {
+                    return;
+                }
+
+                // 1. Borrar todo lo existente
+                const transaction = db.transaction([STORES.MOVIMIENTOS, STORES.CATEGORIAS, STORES.BANCOS, STORES.REGLAS, STORES.SALDO_INICIAL], 'readwrite');
+                const movStore = transaction.objectStore(STORES.MOVIMIENTOS);
+                const catStore = transaction.objectStore(STORES.CATEGORIAS);
+                const banStore = transaction.objectStore(STORES.BANCOS);
+                const regStore = transaction.objectStore(STORES.REGLAS);
+                const salStore = transaction.objectStore(STORES.SALDO_INICIAL);
+
+                // Limpiar almacenes
+                movStore.clear();
+                catStore.clear();
+                banStore.clear();
+                regStore.clear();
+                salStore.clear();
+
+                // 2. Restaurar categorías
+                if (backup.categorias && backup.categorias.length > 0) {
+                    for (const cat of backup.categorias) {
+                        await addEntry(STORES.CATEGORIAS, cat);
+                    }
+                }
+
+                // 3. Restaurar bancos
+                if (backup.bancos && backup.bancos.length > 0) {
+                    for (const ban of backup.bancos) {
+                        await addEntry(STORES.BANCOS, ban);
+                    }
+                }
+
+                // 4. Restaurar reglas
+                if (backup.reglas && backup.reglas.length > 0) {
+                    for (const reg of backup.reglas) {
+                        await addEntry(STORES.REGLAS, reg);
+                    }
+                }
+
+                // 5. Restaurar saldo inicial
+                if (backup.saldoInicial) {
+                    await addEntry(STORES.SALDO_INICIAL, backup.saldoInicial);
+                }
+
+                // 6. Restaurar movimientos
+                if (backup.movimientos && backup.movimientos.length > 0) {
+                    for (const mov of backup.movimientos) {
+                        await addEntry(STORES.MOVIMIENTOS, mov);
+                    }
+                }
+
+                // 7. Restaurar localStorage
+                localStorage.setItem('metaPresupuesto', backup.metaPresupuesto || '');
+                localStorage.setItem('tasaCambio', backup.tasaCambio || '');
+                localStorage.setItem('bloqueoActivo', backup.bloqueoActivo ? 'true' : 'false');
+                localStorage.setItem('bloqueoPIN', backup.bloqueoPIN || '');
+                localStorage.setItem('agendaTema', backup.tema || '');
+
+                // 8. Limpiar input y refrescar app
+                input.remove();
+                alert("✅ Backup importado con éxito. Recargando la app...");
+
+                // Recargar la app para reflejar cambios
+                location.reload();
+
+            } catch (error) {
+                console.error("Error al importar backup:", error);
+                alert("❌ Error al importar el backup. El archivo puede estar corrupto o no compatible.");
+                input.remove();
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    input.click();
+}
+
 // Cargar configuración de bloqueo al inicio
 document.addEventListener('DOMContentLoaded', async function () {
     try {
@@ -1743,7 +2266,6 @@ document.addEventListener('DOMContentLoaded', function () {
   // Ejecutar al cargar para aplicar estado inicial
   actualizarCampos();
 });
-
 
 // ------------------------------------------------------------------------------------------------------------------------------------
 //                                 Inicialización y Event Listeners
@@ -1817,6 +2339,10 @@ document.addEventListener('DOMContentLoaded', async function () {
             input.style.display = e.target.value === 'Otro' ? 'block' : 'none';
             if (input.style.display === 'block') input.focus();
         });
+
+        // ✅ Renderizar listas editables al cargar
+        await renderizarCategoriasEditables();
+        await renderizarBancosEditables();
 
         // Cargar la pestaña guardada, si existe
         const pestañaGuardada = localStorage.getItem('agendaPestañaActiva');
