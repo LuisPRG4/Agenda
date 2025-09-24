@@ -21,6 +21,60 @@ function formatNumberVE(num) {
     return `${integerPart},${parts[1]}`;
 }
 
+// ✅ FUNCIONES PARA LA HERRAMIENTA DE FORMATO DE NÚMEROS
+function formatearNumero(input) {
+    const valor = input.value.trim();
+    if (!valor) {
+        document.getElementById('numeroFormateado').textContent = '0,00';
+        return;
+    }
+    // Limpiar: eliminar puntos y reemplazar coma por punto
+    const cleaned = valor.replace(/\./g, '').replace(',', '.');
+    const num = parseFloat(cleaned);
+    if (isNaN(num)) {
+        document.getElementById('numeroFormateado').textContent = 'Formato inválido';
+        return;
+    }
+    // Formatear en venezolano
+    document.getElementById('numeroFormateado').textContent = formatNumberVE(num);
+}
+function copiarFormateado() {
+    const texto = document.getElementById('numeroFormateado').textContent;
+    if (texto === 'Formato inválido' || texto === '0,00') return;
+    navigator.clipboard.writeText(texto).then(() => {
+        alert('✅ Copiado al portapapeles: ' + texto);
+    }).catch(() => {
+        alert('❌ No se pudo copiar. Usa Ctrl+C.');
+    });
+}
+function usarEnCantidad() {
+    const formateado = document.getElementById('numeroFormateado').textContent;
+    if (formateado === 'Formato inválido' || formateado === '0,00') return;
+    // Convertir de "1.111.783,99" a "1111783.99" para que parseNumberVE lo entienda
+    const limpio = formateado.replace(/\./g, '').replace(',', '.');
+    document.getElementById('cantidad').value = limpio;
+    alert('✅ Valor aplicado al campo "Cantidad".');
+    mostrarSideTab('movimientos');
+    document.getElementById('cantidad').focus();
+}
+function usarEnSaldoInicial() {
+    const formateado = document.getElementById('numeroFormateado').textContent;
+    if (formateado === 'Formato inválido' || formateado === '0,00') return;
+    // Convertir de "1.111.783,99" a "1111783.99" para que parseNumberVE lo entienda
+    const limpio = formateado.replace(/\./g, '').replace(',', '.');
+    document.getElementById('saldoInicial').value = limpio;
+    alert('✅ Valor aplicado al campo "Saldo Inicial".');
+    mostrarSideTab('movimientos');
+    document.getElementById('saldoInicial').focus();
+}
+// ✅ Escuchar cambios en el input de herramientas
+document.addEventListener('DOMContentLoaded', function() {
+    const input = document.getElementById('inputNumero');
+    if (input) {
+        input.addEventListener('input', () => formatearNumero(input));
+    }
+});
+
 function parseNumberVE(str) {
     if (!str || typeof str !== 'string') return 0;
     // Eliminar puntos (separadores de miles) y reemplazar coma por punto
@@ -782,7 +836,9 @@ function limpiarForm() {
     document.getElementById('banco').value = '';
     document.getElementById('nuevoBanco').value = '';
     document.getElementById('nuevoBanco').style.display = 'none';
-    document.getElementById('fechaMov').value = '';
+    // ✅ MANTENER LA FECHA ACTUAL EN EL CAMPO, NUNCA VACÍO
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('fechaMov').value = today;
     document.getElementById('concepto').focus();
 
     // ✅ Restaurar los botones del formulario y la variable global
@@ -801,19 +857,35 @@ function mostrarSideTab(id) {
 }
 
 function actualizarEquivalente() {
-    const saldoBsText = document.getElementById('saldo').textContent.replace('Bs. ', '').replace(',', '');
+    // 1. Obtener saldo actual (ya formateado en Bs.)
+    const saldoBsText = document.getElementById('saldo').textContent.replace('Bs. ', '').replace('.', '').replace(',', '.');
     const saldoBs = parseFloat(saldoBsText);
-    const tasa = parseNumberVE(document.getElementById('tasaCambio').value);
-    const monedaDestino = document.getElementById('monedaDestino').value;
+    if (isNaN(saldoBs)) return;
 
+    // 2. Obtener tasa del input (tal cual, sin tocar nada)
+    const inputTasa = document.getElementById('tasaCambio').value.trim();
+    let tasa;
+
+    if (!inputTasa) {
+        tasa = 0;
+    } else {
+        // Limpiar: eliminar puntos (miles) y reemplazar coma por punto
+        const cleaned = inputTasa.replace(/\./g, '').replace(',', '.');
+        tasa = parseFloat(cleaned);
+    }
+
+    // 3. Validar y calcular
     if (isNaN(tasa) || tasa <= 0) {
         document.getElementById('equivalente').textContent = 'Tasa inválida';
+        document.getElementById('tasaActual').textContent = 'Tasa actual: 1 USD = 0,00 Bs';
         return;
     }
 
-    // ✅ Convertir Bs a moneda destino: dividir por la tasa
+    // 4. Calcular equivalente
     const equivalente = saldoBs / tasa;
 
+    // 5. Determinar moneda y símbolo
+    const monedaDestino = document.getElementById('monedaDestino').value;
     let simbolo = '$';
     let nombreMoneda = 'USD';
     if (monedaDestino === 'EUR') { simbolo = '€'; nombreMoneda = 'EUR'; }
@@ -821,14 +893,15 @@ function actualizarEquivalente() {
     if (monedaDestino === 'ARS') { simbolo = 'ARS$'; nombreMoneda = 'ARS'; }
     if (monedaDestino === 'MXN') { simbolo = 'MX$'; nombreMoneda = 'MXN'; }
 
-    const tieneDecimales = equivalente % 1 !== 0;
-    const formato = formatNumberVE(equivalente);
+    // 6. Formatear equivalente en formato venezolano
+    const formatoEquivalente = formatNumberVE(equivalente);
 
-    document.getElementById('equivalente').textContent = `${simbolo} ${formato}`;
-    localStorage.setItem('tasaCambio', tasa.toString());
-
-    // ✅ Actualizar texto de tasa actual
+    // 7. Mostrar resultados
+    document.getElementById('equivalente').textContent = `${simbolo} ${formatoEquivalente}`;
     document.getElementById('tasaActual').textContent = `Tasa actual: 1 ${nombreMoneda} = ${formatNumberVE(tasa)} Bs`;
+
+    // ✅ GUARDAR LA TASA EN localStorage PARA QUE NO SE PIERDA
+    localStorage.setItem('tasaCambio', inputTasa); // ✅ Guardamos el TEXTO ORIGINAL
 }
 
 function aplicarTemaInicial() {
@@ -1073,165 +1146,6 @@ async function eliminarSaldoInicial() {
     }
 }
 
-async function generarReporteImprimible() {
-    const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
-    const tasaCambio = parseFloat(document.getElementById('tasaCambio').value) || 0;
-
-    // Calcular total de comisiones (solo gastos reales)
-    const totalComisiones = movimientos
-        .filter(m => m.tipo === 'gasto')
-        .reduce((sum, m) => sum + (m.cantidad * 0.003), 0);
-
-    // Agrupar movimientos por banco
-    const bancos = [...new Set(movimientos.map(m => m.banco || '(Sin banco)'))];
-    const resumenBancos = {};
-    bancos.forEach(b => {
-        const movimientosBanco = movimientos.filter(m => m.banco === b);
-        // Saldo inicial: suma de movimientos con concepto que contiene "(Saldo inicial:"
-        const saldoInicial = movimientosBanco
-            .filter(m => m.concepto.includes('(Saldo inicial:'))
-            .reduce((sum, m) => sum + m.cantidad, 0);
-        // Ingresos: suma de movimientos de tipo "ingreso" que NO sean saldo inicial
-        const ingresos = movimientosBanco
-            .filter(m => m.tipo === 'ingreso' && !m.concepto.includes('(Saldo inicial:'))
-            .reduce((sum, m) => sum + m.cantidad, 0);
-        // Gastos: suma de movimientos de tipo "gasto"
-        const gastos = movimientosBanco
-            .filter(m => m.tipo === 'gasto')
-            .reduce((sum, m) => sum + m.cantidad, 0);
-        // Saldo final
-        const saldoFinal = saldoInicial + ingresos - gastos;
-        resumenBancos[b] = { saldoInicial, ingresos, gastos, saldoFinal };
-    });
-
-    // Calcular la disponibilidad total (suma de todos los saldos finales)
-    const disponibilidadTotal = Object.values(resumenBancos).reduce((sum, banco) => sum + banco.saldoFinal, 0);
-
-    // Calcular equivalente en dólares
-    const equivalenteDolares = tasaCambio > 0 ? disponibilidadTotal / tasaCambio : 0;
-
-    // Crear contenido HTML para impresión
-    const contenido = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Reporte Financiero - SFP</title>
-            <style>
-                body { font-family: 'Roboto', sans-serif; padding: 2rem; color: var(--text); }
-                h1 { text-align: center; color: #0b57d0; margin-bottom: 2rem; }
-                .resumen-general { background: #f5f7fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; }
-                .resumen-bancos { margin-bottom: 2rem; }
-                table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
-                th, td { padding: 0.8rem; text-align: right; border-bottom: 1px solid #ddd; }
-                th { 
-                    background: #0b57d0; 
-                    color: white; 
-                    font-weight: 600;
-                    text-align: center;
-                }
-                tr:nth-child(even) { background-color: #f9f9f9; }
-                .total { 
-                    font-weight: bold; 
-                    font-size: 1.4rem; 
-                    color: #0b57d0; 
-                    text-align: right; 
-                    margin-top: 1.5rem; 
-                    padding-top: 1rem;
-                    border-top: 2px solid #0b57d0;
-                }
-                .equivalente { 
-                    font-weight: bold; 
-                    font-size: 1.2rem; 
-                    color: #0b57d0; 
-                    text-align: right; 
-                    margin-top: 0.5rem;
-                }
-                .movimiento { 
-                    margin-bottom: 1rem; 
-                    padding: 1rem; 
-                    border-left: 4px solid #0b57d0; 
-                    background: #f9f9f9; 
-                    border-radius: 0 8px 8px 0;
-                }
-                .fecha { color: #666; font-size: 0.9rem; }
-                .concepto { font-weight: 500; }
-                .cantidad { font-weight: 600; }
-                @media print {
-                    body { padding: 0; }
-                    button { display: none; }
-                }
-            </style>
-        </head>
-        <body>
-            <h1>Reporte Financiero - Sistema Financiero Personal</h1>
-            
-            <!-- Resumen General -->
-            <div class="resumen-general">
-                <h3>Resumen General</h3>
-                <p><strong>Total Comisiones (0.3%):</strong> Bs. ${formatNumberVE(totalComisiones)}</p>
-                <p><strong>Disponibilidad Total:</strong> Bs. ${formatNumberVE(disponibilidadTotal)}</p>
-            </div>
-
-            <!-- Resumen por Banco -->
-            <div class="resumen-bancos">
-                <h3>Resumen por Banco</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="text-align: left;">Banco</th>
-                            <th>Saldo Inicial</th>
-                            <th>Ingresos</th>
-                            <th>Gastos</th>
-                            <th>Saldo Final</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${Object.entries(resumenBancos).map(([banco, datos]) => `
-                            <tr>
-                                <td style="text-align: left;">${banco}</td>
-                                <td>Bs. ${formatNumberVE(datos.saldoInicial)}</td>
-                                <td>Bs. ${formatNumberVE(datos.ingresos)}</td>
-                                <td>Bs. ${formatNumberVE(datos.gastos)}</td>
-                                <td><strong>Bs. ${formatNumberVE(datos.saldoFinal)}</strong></td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Disponibilidad Total -->
-            <div class="total">
-                <strong>Disponibilidad Total (Suma de todos los bancos):</strong> Bs. ${disponibilidadTotal.toFixed(2)}
-            </div>
-
-            <!-- Equivalente en Dólares -->
-            <div class="equivalente">
-                <strong>Equivalente en USD (Tasa: 1 USD = ${tasaCambio.toLocaleString('es-VE')} Bs):</strong> $ ${equivalenteDolares.toFixed(2)}
-            </div>
-
-            <!-- Detalle de Movimientos -->
-            <h3>Movimientos Registrados</h3>
-            ${movimientos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).map(m => `
-                <div class="movimiento">
-                    <div class="concepto"><strong>${m.concepto}</strong></div>
-                    <div class="fecha">${m.categoria || 'Sin categoría'} · ${m.banco || '(Sin banco)'} · ${new Date(m.fecha).toLocaleDateString()}</div>
-                    <div class="cantidad"><strong>${m.tipo === 'ingreso' ? '+' : '-'} Bs. ${formatNumberVE(m.cantidad)}</strong></div>
-                </div>
-            `).join('')}
-            
-            <script>
-                window.print();
-            </script>
-        </body>
-        </html>
-    `;
-
-    // Abrir en nueva ventana para imprimir
-    const ventana = window.open('', '_blank');
-    ventana.document.write(contenido);
-    ventana.document.close();
-}
-
 function toggleLista() {
     const contenedor = document.getElementById('listaContenedor');
     const icono = document.getElementById('iconoFlecha');
@@ -1420,110 +1334,189 @@ function cerrarFormFecha() {
     document.getElementById('modalReporte').style.display = 'flex';
 }
 
-async function generarReportePorCategoria() {
+function generarReporteGeneral() {
+    generarReporteBase(null, null, "Reporte Financiero General");
+}
+
+// ✅ Función para Reporte por Categoría
+function generarReportePorCategoria() {
     const categoria = document.getElementById('selectCategoriaReporte').value;
     if (!categoria) {
         alert('Selecciona una categoría.');
         return;
     }
-    const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
-    const movimientosFiltrados = movimientos.filter(m => m.categoria === categoria);
-    // Adaptar la función existente para usar solo estos movimientos
-    const saldoInicialArray = await getAllEntries(STORES.SALDO_INICIAL);
-    const saldoInicial = saldoInicialArray.length > 0 ? saldoInicialArray[0].monto : 0;
-    const totalComisiones = movimientosFiltrados
-        .filter(m => m.tipo === 'gasto')
-        .reduce((sum, m) => sum + (m.cantidad * 0.003), 0);
-    const saldoTotal = saldoInicial + movimientosFiltrados.reduce((sum, m) => sum + (m.tipo === 'ingreso' ? m.cantidad : -m.cantidad), 0) - totalComisiones;
-
-    // Crear contenido HTML para impresión
-    const contenido = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Reporte Financiero - SFP</title>
-            <style>
-                body { font-family: 'Roboto', sans-serif; padding: 2rem; }
-                h1 { text-align: center; color: #0b57d0; margin-bottom: 2rem; }
-                .resumen { background: #f5f7fa; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; }
-                table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
-                th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd; }
-                th { background: #0b57d0; color: white; }
-                .movimiento { margin-bottom: 1rem; padding: 1rem; border-left: 4px solid #0b57d0; background: #f9f9f9; }
-                .fecha { color: #666; font-size: 0.9rem; }
-                .total { font-weight: bold; font-size: 1.2rem; color: #0b57d0; text-align: right; margin-top: 1rem; }
-                @media print {
-                    body { padding: 0; }
-                    button { display: none; }
-                }
-            </style>
-        </head>
-        <body>
-            <h1>Reporte Financiero - Sistema Financiero Personal</h1>
-            <div class="resumen">
-                <h3>Resumen General</h3>
-                <p><strong>Saldo Inicial:</strong> Bs. ${formatNumberVE(saldoInicial)}</p>
-                <p><strong>Total Comisiones:</strong> Bs. ${formatNumberVE(totalComisiones)}</p>
-                <p><strong>Saldo Actual:</strong> Bs. ${formatNumberVE(saldoTotal)}</p>
-            </div>
-            <h3>Movimientos por Categoría: "${categoria}"</h3>
-            ${movimientosFiltrados.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).map(m => `
-                <div class="movimiento">
-                    <div><strong>${m.concepto}</strong></div>
-                    <div class="fecha">${m.banco || '(Sin banco)'} · ${new Date(m.fecha).toLocaleDateString()}</div>
-                    <div><strong>${m.tipo === 'ingreso' ? '+' : '-'} Bs. ${formatNumberVE(m.cantidad)}</strong></div>
-                </div>
-            `).join('')}
-            <div class="total">Saldo Final: Bs. ${formatNumberVE(saldoTotal)}</div>
-            <script>
-                window.print();
-            </script>
-        </body>
-        </html>
-    `;
-    const ventana = window.open('', '_blank');
-    ventana.document.write(contenido);
-    ventana.document.close();
-    cerrarFormCategoria();
+    generarReporteBase(categoria, null, `Reporte por Categoría: "${categoria}"`);
 }
 
-async function generarReportePorFecha() {
+// ✅ Función para Reporte por Fecha
+function generarReportePorFecha() {
     const desde = document.getElementById('fechaDesde').value;
     const hasta = document.getElementById('fechaHasta').value;
     if (!desde || !hasta) {
         alert('Selecciona las fechas.');
         return;
     }
+    generarReporteBase(null, { desde, hasta }, `Reporte por Fecha: ${new Date(desde).toLocaleDateString()} a ${new Date(hasta).toLocaleDateString()}`);
+}
+
+// ✅ FUNCIÓN UNIFICADA PARA GENERAR CUALQUIER TIPO DE REPORTE (General, por Categoría, por Fecha)
+async function generarReporteBase(categoriaFiltrada, rangoFechas, titulo) {
     const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
-    const movimientosFiltrados = movimientos.filter(m => {
-        const fechaMov = new Date(m.fecha);
-        const fechaDesde = new Date(desde);
-        const fechaHasta = new Date(hasta);
-        return fechaMov >= fechaDesde && fechaMov <= fechaHasta;
+    const tasaCambio = parseFloat(document.getElementById('tasaCambio').value) || 0;
+
+    // Filtrar movimientos según categoría y/o rango de fechas
+    let movimientosFiltrados = movimientos.filter(m => {
+        let cumple = true;
+
+        // Filtrar por categoría
+        if (categoriaFiltrada && m.categoria !== categoriaFiltrada) {
+            cumple = false;
+        }
+
+        // Filtrar por rango de fechas
+        if (rangoFechas) {
+            const fechaMov = new Date(m.fecha);
+            if (fechaMov < new Date(rangoFechas.desde) || fechaMov > new Date(rangoFechas.hasta)) {
+                cumple = false;
+            }
+        }
+
+        return cumple;
     });
-    const saldoInicialArray = await getAllEntries(STORES.SALDO_INICIAL);
-    const saldoInicial = saldoInicialArray.length > 0 ? saldoInicialArray[0].monto : 0;
-    const totalComisiones = movimientosFiltrados
-        .filter(m => m.tipo === 'gasto')
-        .reduce((sum, m) => sum + (m.cantidad * 0.003), 0);
-    const saldoTotal = saldoInicial + movimientosFiltrados.reduce((sum, m) => sum + (m.tipo === 'ingreso' ? m.cantidad : -m.cantidad), 0) - totalComisiones;
+
+    // Agrupar movimientos por banco
+    const bancos = [...new Set(movimientosFiltrados.map(m => m.banco || '(Sin banco)'))];
+    const resumenBancos = {};
+
+    bancos.forEach(banco => {
+        const movimientosBanco = movimientosFiltrados.filter(m => m.banco === banco);
+
+        // Saldo inicial: suma de movimientos con concepto que contiene "(Saldo inicial:"
+        const saldoInicial = movimientosBanco
+            .filter(m => m.concepto.includes('(Saldo inicial:'))
+            .reduce((sum, m) => sum + m.cantidad, 0);
+
+        // Ingresos: suma de movimientos de tipo "ingreso" que NO sean saldo inicial
+        const ingresos = movimientosBanco
+            .filter(m => m.tipo === 'ingreso' && !m.concepto.includes('(Saldo inicial:'))
+            .reduce((sum, m) => sum + m.cantidad, 0);
+
+        // Gastos: suma de movimientos de tipo "gasto"
+        const gastos = movimientosBanco
+            .filter(m => m.tipo === 'gasto')
+            .reduce((sum, m) => sum + m.cantidad, 0);
+
+        // Saldo final
+        const saldoFinal = saldoInicial + ingresos - gastos;
+
+        resumenBancos[banco] = { saldoInicial, ingresos, gastos, saldoFinal };
+    });
+
+    // Calcular la disponibilidad total (suma de todos los saldos finales)
+    const disponibilidadTotal = Object.values(resumenBancos).reduce((sum, banco) => sum + banco.saldoFinal, 0);
+
+    // Calcular equivalente en dólares
+    const equivalenteDolares = tasaCambio > 0 ? disponibilidadTotal / tasaCambio : 0;
 
     // Crear contenido HTML para impresión
     const contenido = `
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Reporte Financiero - SFP</title>
+            <title>${titulo} - SFP</title>
             <style>
-                body { font-family: 'Roboto', sans-serif; padding: 2rem; }
-                h1 { text-align: center; color: #0b57d0; margin-bottom: 2rem; }
-                .resumen { background: #f5f7fa; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; }
-                table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
-                th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd; }
-                th { background: #0b57d0; color: white; }
-                .movimiento { margin-bottom: 1rem; padding: 1rem; border-left: 4px solid #0b57d0; background: #f9f9f9; }
-                .fecha { color: #666; font-size: 0.9rem; }
-                .total { font-weight: bold; font-size: 1.2rem; color: #0b57d0; text-align: right; margin-top: 1rem; }
+                body { 
+                    font-family: 'Roboto', sans-serif; 
+                    padding: 2rem; 
+                    color: var(--text); 
+                    background: var(--bg); /* Usa el fondo de tu app */
+                    line-height: 1.6;
+                }
+                h1 { 
+                    text-align: center; 
+                    color: #0b57d0; 
+                    margin-bottom: 1rem; 
+                    font-size: 1.5rem;
+                }
+                h2 { 
+                    margin-top: 2rem; 
+                    margin-bottom: 1rem; 
+                    color: #0b57d0; 
+                    font-weight: 600;
+                }
+                .resumen-bancos {
+                    margin-bottom: 2rem;
+                }
+                table { 
+                    width: 100%; 
+                    border-collapse: collapse; 
+                    margin-bottom: 2rem;
+                    table-layout: fixed; /* ✅ Fija el ancho de las columnas */
+                    font-size: 0.9rem;
+                }
+                th, td { 
+                    padding: 0.75rem; 
+                    border-bottom: 1px solid #ddd;
+                    word-break: break-all; /* ✅ Rompe palabras largas */
+                    white-space: normal; /* ✅ Permite saltos de línea */
+                    overflow-wrap: break-word; /* ✅ Evita desbordamientos */
+                    overflow: hidden; /* ✅ Oculta lo que se sale */
+                    text-overflow: ellipsis; /* ✅ Añade "..." si se corta demasiado */
+                }
+                th { 
+                    background: #0b57d0; 
+                    color: white; 
+                    font-weight: 600;
+                    text-align: center;
+                    padding: 0.75rem;
+                }
+                tr:nth-child(even) { 
+                    background-color: #f9f9f9; 
+                }
+                /* ✅ ALINEACIÓN ESPECÍFICA POR COLUMNA */
+                th:first-child, td:first-child {
+                    width: 28%; /* Ancho fijo para el nombre del banco */
+                    text-align: left; /* Alinear a la izquierda */
+                    font-weight: 500;
+                    word-break: break-all;
+                    white-space: normal;
+                    overflow-wrap: break-word;
+                    max-width: 250px;
+                }
+                th:nth-child(2),
+                td:nth-child(2),
+                th:nth-child(3),
+                td:nth-child(3),
+                th:nth-child(4),
+                td:nth-child(4),
+                th:nth-child(5),
+                td:nth-child(5) {
+                    width: 18%; /* Ancho fijo para cada columna de monto */
+                    text-align: right; /* Alinear a la derecha */
+                    font-family: 'Space Mono', monospace; /* Fuente monoespaciada para números */
+                    letter-spacing: -0.2px;
+                }
+                /* ✅ Asegurar que el último td (saldo final) no se vea más ancho */
+                td:last-child {
+                    font-weight: 700;
+                    text-align: right;
+                }
+                .total { 
+                    font-weight: bold; 
+                    font-size: 1.2rem; 
+                    color: #0b57d0; 
+                    text-align: right; 
+                    margin-top: 1.5rem; 
+                    padding-top: 1rem;
+                    border-top: 2px solid #0b57d0;
+                }
+                .equivalente { 
+                    font-weight: bold; 
+                    font-size: 1.1rem; 
+                    color: #0b57d0; 
+                    text-align: right; 
+                    margin-top: 0.5rem;
+                }
                 @media print {
                     body { padding: 0; }
                     button { display: none; }
@@ -1531,33 +1524,61 @@ async function generarReportePorFecha() {
             </style>
         </head>
         <body>
-            <h1>Reporte Financiero - Sistema Financiero Personal</h1>
-            <div class="resumen">
-                <h3>Resumen General</h3>
-                <p><strong>Periodo:</strong> ${new Date(desde).toLocaleDateString()} a ${new Date(hasta).toLocaleDateString()}</p>
-                <p><strong>Saldo Inicial:</strong> Bs. ${formatNumberVE(saldoInicial)}</p>
-                <p><strong>Total Comisiones:</strong> Bs. ${formatNumberVE(totalComisiones)}</p>
-                <p><strong>Saldo Actual:</strong> Bs. ${formatNumberVE(saldoTotal)}</p>
+            <h1>${titulo}</h1>
+            <h2>Resumen por Banco</h2>
+            <div class="resumen-bancos">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="text-align: left;">Banco</th>
+                            <th style="text-align: right;">Saldo Inicial</th>
+                            <th style="text-align: right;">Ingresos</th>
+                            <th style="text-align: right;">Gastos</th>
+                            <th style="text-align: right;">Saldo Final</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${Object.entries(resumenBancos).map(([banco, datos]) => `
+                            <tr>
+                                <td style="text-align: left; font-weight: 500;">
+                                    ${banco}
+                                </td>
+                                <td style="text-align: right; font-weight: 500;">
+                                    Bs. ${formatNumberVE(datos.saldoInicial)}
+                                </td>
+                                <td style="text-align: right; font-weight: 500; color: var(--success);">
+                                    Bs. ${formatNumberVE(datos.ingresos)}
+                                </td>
+                                <td style="text-align: right; font-weight: 500; color: var(--danger);">
+                                    Bs. ${formatNumberVE(datos.gastos)}
+                                </td>
+                                <td style="text-align: right; font-weight: 700;">
+                                    Bs. ${formatNumberVE(datos.saldoFinal)}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
             </div>
-            <h3>Movimientos del Periodo</h3>
-            ${movimientosFiltrados.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).map(m => `
-                <div class="movimiento">
-                    <div><strong>${m.concepto}</strong></div>
-                    <div class="fecha">${m.categoria || 'Sin categoría'} · ${m.banco || '(Sin banco)'} · ${new Date(m.fecha).toLocaleDateString()}</div>
-                    <div><strong>${m.tipo === 'ingreso' ? '+' : '-'} Bs. ${formatNumberVE(m.cantidad)}</strong></div>
-                </div>
-            `).join('')}
-            <div class="total">Saldo Final: Bs. ${formatNumberVE(saldoTotal)}</div>
+            <!-- Disponibilidad Total -->
+            <div class="total">
+                <strong>Disponibilidad Total (Suma de todos los bancos):</strong> Bs. ${formatNumberVE(disponibilidadTotal)}
+            </div>
+            <!-- Equivalente en Dólares -->
+            <div class="equivalente">
+                <strong>Equivalente en USD (Tasa: 1 USD = ${tasaCambio.toLocaleString('es-VE')} Bs):</strong> $ ${equivalenteDolares.toFixed(2)}
+            </div>
             <script>
                 window.print();
             </script>
         </body>
         </html>
     `;
+
+    // Abrir en nueva ventana para imprimir
     const ventana = window.open('', '_blank');
     ventana.document.write(contenido);
     ventana.document.close();
-    cerrarFormFecha();
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------------
@@ -2350,6 +2371,19 @@ document.addEventListener('DOMContentLoaded', async function () {
         // Asignar Event Listeners
         document.getElementById('tasaCambio').addEventListener('input', actualizarEquivalente);
         document.getElementById('monedaDestino').addEventListener('change', actualizarEquivalente);
+
+                // ✅ CARGAR TASA GUARDADA AL INICIAR (sin formatearla)
+        const tasaGuardada = localStorage.getItem('tasaCambio');
+        if (tasaGuardada) {
+            document.getElementById('tasaCambio').value = tasaGuardada; // ✅ Pone el texto exacto que guardaste
+        } else {
+            document.getElementById('tasaCambio').value = ''; // Vacío por defecto
+        }
+
+        // ✅ Inicializar equivalente al cargar
+        actualizarEquivalente();
+
+
         document.getElementById('filtroBanco').addEventListener('change', renderizar);
         document.getElementById('btnTema').addEventListener('click', () => {
             const body = document.body;
@@ -2402,4 +2436,5 @@ document.addEventListener('DOMContentLoaded', async function () {
     } catch (error) {
         console.error("Error en la inicialización de la app:", error);
     }
+
 });
