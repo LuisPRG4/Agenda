@@ -27,8 +27,12 @@
       <section id="resumen">
         <h2>Resumen</h2>
         <p>Saldo actual: <strong id="saldo">Bs. 0,00</strong></p>
-<p id="saldoAviso" style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem; font-style: italic;">
+<p id="saldoAviso" style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem; display: none;">
   💡 Este saldo incluye una comisión del 0.3% aplicada automáticamente a cada gasto.
+</p>
+
+<p style="font-size:0.85rem; color:var(--text-light); margin-top:0.5rem;">
+  📁 <strong>¿Cuidas tus datos?</strong> Haz un backup: <a href="#" onclick="exportarBackup()" style="color:var(--primary); text-decoration:underline;">Exportar</a>
 </p>
         <div style="margin-top: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
           <label style="font-size: 0.875rem; color: var(--text-light);">
@@ -85,7 +89,7 @@
           <input type="number" id="saldoInicial" placeholder="Ej. 1000.00" step="0.01" />
         </label>
         <input type="text" id="concepto" placeholder="Concepto" />
-        <input type="number" id="cantidad" placeholder="Cantidad" />
+        <input type="text" id="cantidad" placeholder="Ej: 3.000,77" />
         <select id="tipo">
           <option value="ingreso">Ingreso</option>
           <option value="gasto">Gasto</option>
@@ -249,6 +253,21 @@
       <section id="panelReglas">
         <h2>Reglas de automatización</h2>
         <ul id="listaReglas"></ul>
+
+        <!-- ✅ NUEVA SECCIÓN: Editar Categorías -->
+  <details>
+    <summary>✏️ Editar categoría</summary>
+    <ul id="listaCategoriasEditables" style="margin: 0.5rem 0; padding-left: 1rem;"></ul>
+    <button onclick="agregarCategoria()" style="margin-top: 0.5rem; width:100%;">➕ Nueva categoría</button>
+  </details>
+
+  <!-- ✅ NUEVA SECCIÓN: Editar Bancos -->
+  <details>
+    <summary>✏️ Editar banco</summary>
+    <ul id="listaBancosEditables" style="margin: 0.5rem 0; padding-left: 1rem;"></ul>
+    <button onclick="agregarBanco()" style="margin-top: 0.5rem; width:100%;">➕ Nuevo banco</button>
+  </details>
+
         <details>
           <summary>🗑️ Eliminar categoría</summary>
           <select id="selectEliminarCategoria">
@@ -305,6 +324,19 @@
           ¡Guarda tu PIN en un lugar seguro!
         </p>
       </details>
+
+      <details style="margin-top: 1.5rem;">
+  <summary>💾 Copia de Seguridad</summary>
+  <p style="color: var(--text-light); margin-bottom: 1rem;">
+    Exporta o importa tu historial completo. Ideal para cambiar de dispositivo o recuperar datos.
+  </p>
+  <button onclick="exportarBackup()" style="width:100%; padding:1rem; margin-bottom:0.75rem; background:#0b57d0; color:white; border:none; border-radius:8px; font-size:1rem;">
+    📤 Exportar Backup
+  </button>
+  <button onclick="importarBackup()" style="width:100%; padding:1rem; background:#018642; color:white; border:none; border-radius:8px; font-size:1rem;">
+    📥 Importar Backup
+  </button>
+</details>
 
       </section>
     </div>
