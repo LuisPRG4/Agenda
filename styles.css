@@ -74,9 +74,11 @@ h1 {
   color: var(--primary);
 }
 
+/* Sección base - Aumentar ancho mínimo */
 section {
   width: 100%;
-  max-width: 480px;
+  min-width: 600px; /* ✅ Mínimo 600px para evitar que se rompa el diseño */
+  max-width: 1200px; /* ✅ Máximo 1200px para no ser demasiado ancho */
   background: var(--card-bg);
   border-radius: var(--radius);
   box-shadow: var(--shadow-md);
@@ -235,17 +237,20 @@ li .btn-eliminar:hover {
   transform: rotate(30deg);
 }
 
-/* Contenedor lateral */
+/* Contenedor lateral - Aumentado y más flexible */
 .sidebar {
   display: flex;
   gap: 2rem;
   align-items: flex-start;
-  max-width: 900px;
+  max-width: 1200px;
+  min-width: 600px; /* ✅ Mínimo 600px para evitar que se rompa el diseño */
+  width: 100%;
   margin: 0 auto;
   background: var(--card-bg);
   box-shadow: var(--shadow-lg);
   border-radius: 20px;
   padding: 2rem;
+  overflow-x: auto;
 }
 
 /* Pestañas laterales */
@@ -370,3 +375,160 @@ input, select, button { touch-action: manipulation; }
 
 /* Evitar desbordamiento de texto */
 body { overflow-wrap: break-word; hyphens: auto; }
+
+/* Animación suave para el aviso */
+#avisoPinOlvidado {
+    animation: pulse 1.5s infinite alternate;
+}
+
+@keyframes pulse {
+    from { opacity: 0.6; }
+    to { opacity: 1; }
+}
+
+/* ✅ CONTROL DE TEXTO EN TABLA DE BANCOS */
+/* Tabla de resumen por banco - Diseño flexible */
+#tablaBancos {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  margin-bottom: 1.5rem;
+  table-layout: fixed; /* ✅ Fija el ancho de las columnas */
+}
+
+#tablaBancos th,
+#tablaBancos td {
+  padding: 0.75rem;
+  text-align: right;
+  border-bottom: 1px solid #ddd;
+  word-break: break-all; /* ✅ Rompe palabras largas */
+  white-space: normal; /* ✅ Permite saltos de línea naturales */
+  overflow-wrap: break-word; /* ✅ Evita desbordamientos */
+  overflow: hidden; /* ✅ Oculta lo que se sale */
+  text-overflow: ellipsis; /* ✅ Añade "..." si se corta demasiado */
+}
+
+/* Columna de Banco — ancho fijo para nombres largos */
+#tablaBancos th:first-child,
+#tablaBancos td:first-child {
+  width: 28%; /* ✅ 28% del ancho total para el nombre del banco */
+  text-align: left; /* ✅ Alinear a la izquierda para mejor lectura */
+  font-weight: 500;
+  word-break: break-all;
+  white-space: normal;
+  overflow-wrap: break-word;
+  max-width: 250px; /* ✅ Límite máximo de ancho */
+}
+
+/* Columnas de cantidades — ancho fijo y alineación derecha */
+#tablaBancos th:nth-child(2),
+#tablaBancos td:nth-child(2),
+#tablaBancos th:nth-child(3),
+#tablaBancos td:nth-child(3),
+#tablaBancos th:nth-child(4),
+#tablaBancos td:nth-child(4),
+#tablaBancos th:nth-child(5),
+#tablaBancos td:nth-child(5) {
+  width: 18%; /* ✅ 18% para cada columna de monto */
+  text-align: right;
+  font-family: 'Space Mono', monospace; /* ✅ Fuente monoespaciada para números */
+  letter-spacing: -0.2px;
+}
+
+/* Asegurar que el último td (saldo final) no se vea más ancho */
+#tablaBancos td:last-child {
+  font-weight: 700;
+  text-align: right;
+}
+
+#tablaBancos th,
+#tablaBancos td {
+  padding: 0.75rem;
+  text-align: right;
+  border-bottom: 1px solid #ddd;
+  word-break: break-all; /* ✅ Rompe palabras largas */
+  white-space: normal; /* ✅ Permite saltos de línea */
+  overflow-wrap: break-word; /* ✅ Evita desbordamientos */
+  overflow: hidden; /* ✅ Oculta lo que se sale */
+  text-overflow: ellipsis; /* ✅ Añade "..." si se corta demasiado */
+}
+
+/* ✅ Columna de Banco — ancho fijo para nombres largos */
+#tablaBancos th:first-child,
+#tablaBancos td:first-child {
+  width: 28%;
+  text-align: left;
+  font-weight: 500;
+  word-break: break-all;
+  white-space: normal;
+  overflow-wrap: break-word;
+  max-width: 250px;
+}
+
+/* ✅ Columnas de cantidades — ancho fijo y alineación derecha */
+#tablaBancos th:nth-child(2),
+#tablaBancos td:nth-child(2),
+#tablaBancos th:nth-child(3),
+#tablaBancos td:nth-child(3),
+#tablaBancos th:nth-child(4),
+#tablaBancos td:nth-child(4),
+#tablaBancos th:nth-child(5),
+#tablaBancos td:nth-child(5) {
+  width: 18%;
+  text-align: right;
+  font-family: 'Space Mono', monospace; /* ✅ Fuente monoespaciada para números */
+  letter-spacing: -0.2px;
+}
+
+/* ✅ Asegurar que el último td (saldo final) no se vea más ancho */
+#tablaBancos td:last-child {
+  font-weight: 700;
+  text-align: right;
+}
+
+/* ✅ CONTROL DE TEXTO EN LA LISTA DE MOVIMIENTOS */
+li > div:first-child {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+/* ✅ Evitar que el concepto se salga del contenedor */
+li input[type="text"] {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  word-break: break-all;
+  white-space: normal;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
+/* ✅ Evitar que el banco y categoría se salgan */
+li div:nth-child(3) {
+  font-size: 0.75rem;
+  color: var(--text-light);
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  word-break: break-all;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* ✅ Asegurar que los números en el dashboard no se desborden */
+#saldo,
+#totalGeneral,
+#equivalente {
+  font-family: 'Space Mono', monospace;
+  word-break: break-all;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
