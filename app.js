@@ -28,16 +28,42 @@ function formatearNumero(input) {
         document.getElementById('numeroFormateado').textContent = '0,00';
         return;
     }
-    // Limpiar: eliminar puntos y reemplazar coma por punto
-    const cleaned = valor.replace(/\./g, '').replace(',', '.');
-    const num = parseFloat(cleaned);
+
+    // ✅ PASO 1: Detectar si el punto es separador de miles o decimal
+    // Si hay coma, asumimos que es decimal (formato venezolano válido)
+    if (valor.includes(',')) {
+        // Ej: "1.111.783,99" → limpiamos puntos (miles), dejamos coma (decimal)
+        const cleaned = valor.replace(/\./g, ''); // Elimina puntos (miles)
+        const num = parseFloat(cleaned); // Convierte a número: 1111783.99
+        if (isNaN(num)) {
+            document.getElementById('numeroFormateado').textContent = 'Formato inválido';
+            return;
+        }
+        document.getElementById('numeroFormateado').textContent = formatNumberVE(num);
+        return;
+    }
+
+    // ✅ PASO 2: Si NO hay coma, pero sí hay punto, asumimos que es decimal (formato internacional)
+    // Ej: "1111783.99" → asumimos que el punto es decimal → 1111783.99
+    if (valor.includes('.')) {
+        const num = parseFloat(valor); // 1111783.99
+        if (isNaN(num)) {
+            document.getElementById('numeroFormateado').textContent = 'Formato inválido';
+            return;
+        }
+        document.getElementById('numeroFormateado').textContent = formatNumberVE(num);
+        return;
+    }
+
+    // ✅ PASO 3: Si no hay ni punto ni coma, es un entero
+    const num = parseFloat(valor);
     if (isNaN(num)) {
         document.getElementById('numeroFormateado').textContent = 'Formato inválido';
         return;
     }
-    // Formatear en venezolano
     document.getElementById('numeroFormateado').textContent = formatNumberVE(num);
 }
+
 function copiarFormateado() {
     const texto = document.getElementById('numeroFormateado').textContent;
     if (texto === 'Formato inválido' || texto === '0,00') return;
@@ -75,8 +101,25 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// ✅ FUNCIONES PARA LA HERRAMIENTA DE FORMATO DE NÚMEROS
 function parseNumberVE(str) {
     if (!str || typeof str !== 'string') return 0;
+
+    // ✅ OBTENER EL MODO DE ENTRADA GUARDADO
+    const modo = localStorage.getItem('numeroModo') || 'automatico';
+
+    // ✅ MODO LITERAL: Guardar tal cual, sin transformación
+    if (modo === 'literal') {
+        // Solo limpiar espacios y validar que sea un número válido
+        const cleaned = str.trim().replace(/ /g, '');
+        // Permitir solo dígitos, punto decimal, y signo negativo
+        if (!/^-?\d*\.?\d*$/.test(cleaned)) {
+            return 0; // Si no es un número válido, devolver 0
+        }
+        return parseFloat(cleaned) || 0;
+    }
+
+    // ✅ MODO AUTOMÁTICO: Comportamiento original
     // Eliminar puntos (separadores de miles) y reemplazar coma por punto
     const cleaned = str.replace(/\./g, '').replace(',', '.');
     const num = parseFloat(cleaned);
@@ -347,21 +390,21 @@ async function agregarMovimiento() {
   }
 
   let monto;
-if (tipo === 'saldo_inicial') {
+ if (tipo === 'saldo_inicial') {
     const saldoInicial = parseNumberVE(document.getElementById('saldoInicial').value); // ✅ CAMBIO CLAVE
     if (isNaN(saldoInicial) || saldoInicial <= 0) {
         alert('Ingresa un saldo inicial válido mayor a 0.');
         return;
     }
     monto = saldoInicial;
-} else {
+ } else {
     const cantidad = parseNumberVE(document.getElementById('cantidad').value);
     if (isNaN(cantidad) || cantidad <= 0) {
         alert('Ingresa una cantidad válida mayor a 0.');
         return;
     }
     monto = cantidad;
-}
+ }
 
   // Crear movimiento
   const movimiento = {
@@ -375,14 +418,55 @@ if (tipo === 'saldo_inicial') {
     banco: banco,
     // ✅ NUEVO: Calcular y guardar la comisión solo una vez
     comision: tipo === 'gasto' ? (monto * 0.003) : 0
-};
+ };
+
+     // ✅ CAPTURAR RECIBO (si se subió)
+    const fileInput = document.getElementById('recibo');
+    const file = fileInput.files[0];
+    let reciboBase64 = null;
+    
+    if (file) {
+        const reader = new FileReader();
+        // ⚠️ ¡IMPORTANTE! Debemos usar una función asíncrona para esperar la lectura
+        // Por eso, vamos a usar una función interna y retornar una promesa
+        return new Promise((resolve, reject) => {
+            reader.onload = function(e) {
+                movimiento.recibo = e.target.result; // base64
+                // Limpiar el input para la próxima vez
+                fileInput.value = '';
+                // Continuar con la inserción normal
+                addEntry(STORES.MOVIMIENTOS, movimiento)
+                    .then(() => {
+                        renderizar();
+                        actualizarSaldo();
+                        limpiarForm();
+                        alert("✅ Movimiento agregado con éxito.");
+                        resolve();
+                    })
+                    .catch(error => {
+                        console.error("Error al agregar movimiento:", error);
+                        alert("Error al guardar el movimiento.");
+                        reject(error);
+                    });
+            };
+            reader.onerror = () => {
+                alert("❌ Error al leer el archivo.");
+                reject(new Error("Error al leer el archivo"));
+            };
+            reader.readAsDataURL(file); // Convierte a base64
+        });
+    }
 
   try {
-    await addEntry(STORES.MOVIMIENTOS, movimiento);
-    await renderizar();
-    await actualizarSaldo();
-    limpiarForm();
-    alert("✅ Movimiento agregado con éxito.");
+    // Si hay un recibo, ya estamos dentro de una promesa → no hacemos nada aquí
+    // Si no hay recibo, ejecutamos normalmente
+    if (!document.getElementById('recibo').files[0]) {
+        await addEntry(STORES.MOVIMIENTOS, movimiento);
+        await renderizar();
+        await actualizarSaldo();
+        limpiarForm();
+        alert("✅ Movimiento agregado con éxito.");
+    }
   } catch (error) {
     console.error("Error al agregar movimiento:", error);
     alert("Error al guardar el movimiento.");
@@ -481,7 +565,7 @@ async function renderizar() {
 
         // Calcular comisión si es gasto
         const esGasto = m.tipo === 'gasto';
-        const comision = esGasto ? m.comision.toFixed(2) : null; // ✅ Usar la comisión guardada
+        const comision = esGasto && m.comision !== undefined && !isNaN(m.comision) ? m.comision.toFixed(2) : null;
 
         li.innerHTML = `
     <div style="display:flex; flex-direction:column; gap:.25rem; flex:1; margin-bottom: .5rem; min-width:0;">
@@ -503,6 +587,15 @@ async function renderizar() {
     <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">
         <span style="font-weight:500; color:var(--text); font-size:1rem;">${formatNumberVE(m.cantidad)} Bs</span>
         <button class="btn-editar" data-id="${m.id}" style="padding:.25rem; font-size:.8rem; background:#0b57d0; color:white; border-radius:50%; border:none; cursor:pointer; width:auto;">✏️</button>
+
+                ${m.recibo ? `
+            <div style="display:flex; justify-content:center; margin-top:0.5rem;">
+                <button onclick="verRecibo('${m.recibo}')" style="background:#0b57d0; color:white; border:none; border-radius:8px; padding:0.4rem 0.75rem; font-size:0.8rem; cursor:pointer; display:flex; align-items:center; gap:0.3rem;">
+                    📎 Ver recibo
+                </button>
+            </div>
+        ` : ''}
+
         <button class="btn-eliminar" data-id="${m.id}" style="padding:.25rem; font-size:.8rem; background:#b00020; color:white; border-radius:50%; border:none; cursor:pointer; width:auto;">🗑️</button>
     </div>
 `;
@@ -836,9 +929,12 @@ function limpiarForm() {
     document.getElementById('banco').value = '';
     document.getElementById('nuevoBanco').value = '';
     document.getElementById('nuevoBanco').style.display = 'none';
+    
+
     // ✅ MANTENER LA FECHA ACTUAL EN EL CAMPO, NUNCA VACÍO
-const today = new Date().toISOString().split('T')[0];
-document.getElementById('fechaMov').value = today;
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('fechaMov').value = today;
+    document.getElementById('recibo').value = ''; // ✅ LIMPIAR RECIBO AL CERRAR
     document.getElementById('concepto').focus();
 
     // ✅ Restaurar los botones del formulario y la variable global
@@ -854,24 +950,53 @@ function mostrarSideTab(id) {
     document.getElementById('side-' + id).classList.add('active');
     document.querySelector(`[onclick="mostrarSideTab('${id}')"]`).classList.add('active');
     localStorage.setItem('agendaPestañaActiva', id);
+
+    // ✅ ACTUALIZAR DINÁMICAMENTE LA PESTAÑA ACTIVA
+    switch(id) {
+        case 'dashboard':
+            actualizarDashboard();
+            break;
+        case 'calendario':
+            renderizarCalendario();
+            break;
+        case 'analisis':
+            actualizarGrafico();
+            actualizarBarChart();
+            renderizarResumenBancos();
+            break;
+        case 'presupuesto':
+            actualizarPresupuesto();
+            break;
+        case 'ahorro':
+            calcularAhorroMensual();
+            break;
+        case 'comparacion':
+            renderizarComparacionBancos();
+            break;
+    }
 }
 
 function actualizarEquivalente() {
     // 1. Obtener saldo actual (ya formateado en Bs.)
-    const saldoBsText = document.getElementById('saldo').textContent.replace('Bs. ', '').replace('.', '').replace(',', '.');
-    const saldoBs = parseFloat(saldoBsText);
-    if (isNaN(saldoBs)) return;
+    const saldoBsText = document.getElementById('saldo').textContent.replace('Bs. ', '');
+    // Limpiar: eliminar puntos (miles) y reemplazar coma por punto
+    const cleaned = saldoBsText.replace(/\./g, '').replace(',', '.');
+    const saldoBs = parseFloat(cleaned);
+    if (isNaN(saldoBs)) {
+        document.getElementById('equivalente').textContent = 'Tasa inválida';
+        document.getElementById('tasaActual').textContent = 'Tasa actual: 1 USD = 0,00 Bs';
+        return;
+    }
 
     // 2. Obtener tasa del input (tal cual, sin tocar nada)
     const inputTasa = document.getElementById('tasaCambio').value.trim();
     let tasa;
-
     if (!inputTasa) {
         tasa = 0;
     } else {
         // Limpiar: eliminar puntos (miles) y reemplazar coma por punto
-        const cleaned = inputTasa.replace(/\./g, '').replace(',', '.');
-        tasa = parseFloat(cleaned);
+        const cleanedTasa = inputTasa.replace(/\./g, '').replace(',', '.');
+        tasa = parseFloat(cleanedTasa);
     }
 
     // 3. Validar y calcular
@@ -893,8 +1018,13 @@ function actualizarEquivalente() {
     if (monedaDestino === 'ARS') { simbolo = 'ARS$'; nombreMoneda = 'ARS'; }
     if (monedaDestino === 'MXN') { simbolo = 'MX$'; nombreMoneda = 'MXN'; }
 
-    // 6. Formatear equivalente en formato venezolano
-    const formatoEquivalente = formatNumberVE(equivalente);
+    // ✅ 6. FORMATEAR EL EQUIVALENTE COMO QUIERES: 5.030,01
+    // Convertir a string con 2 decimales
+    const equivalenteStr = equivalente.toFixed(2); // "5030.01"
+    const partes = equivalenteStr.split('.');
+    const entera = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.'); // "5.030"
+    const decimal = partes[1] ? ',' + partes[1] : ''; // ",01"
+    const formatoEquivalente = entera + decimal; // "5.030,01"
 
     // 7. Mostrar resultados
     document.getElementById('equivalente').textContent = `${simbolo} ${formatoEquivalente}`;
@@ -1427,48 +1557,64 @@ async function generarReporteBase(categoriaFiltrada, rangoFechas, titulo) {
             <style>
                 body { 
                     font-family: 'Roboto', sans-serif; 
-                    padding: 2rem; 
+                    padding: 1.5rem; 
                     color: var(--text); 
-                    background: var(--bg); /* Usa el fondo de tu app */
-                    line-height: 1.6;
+                    background: white; /* Fondo blanco para impresión */
+                    line-height: 1.5;
+                    font-size: 10pt;
+                    margin: 0;
                 }
                 h1 { 
                     text-align: center; 
                     color: #0b57d0; 
-                    margin-bottom: 1rem; 
-                    font-size: 1.5rem;
+                    margin-bottom: 0.5rem; 
+                    font-size: 1.4rem;
+                    font-weight: 500;
+                    page-break-after: avoid;
+                }
+                .fecha-generacion {
+                    text-align: center;
+                    font-size: 0.85rem;
+                    color: var(--text-light);
+                    margin-bottom: 1.5rem;
+                    page-break-after: avoid;
                 }
                 h2 { 
-                    margin-top: 2rem; 
-                    margin-bottom: 1rem; 
+                    text-align: center; 
                     color: #0b57d0; 
+                    margin: 1.5rem 0 1rem 0; 
                     font-weight: 600;
+                    font-size: 1.1rem;
+                    page-break-after: avoid;
                 }
                 .resumen-bancos {
                     margin-bottom: 2rem;
+                    break-inside: avoid;
                 }
                 table { 
                     width: 100%; 
                     border-collapse: collapse; 
                     margin-bottom: 2rem;
-                    table-layout: fixed; /* ✅ Fija el ancho de las columnas */
-                    font-size: 0.9rem;
+                    table-layout: fixed;
+                    font-size: 9pt;
+                    break-inside: avoid;
                 }
                 th, td { 
-                    padding: 0.75rem; 
+                    padding: 0.6rem; 
                     border-bottom: 1px solid #ddd;
-                    word-break: break-all; /* ✅ Rompe palabras largas */
-                    white-space: normal; /* ✅ Permite saltos de línea */
-                    overflow-wrap: break-word; /* ✅ Evita desbordamientos */
+                    word-break: keep-all; /* ✅ ¡CLAVE! Evita romper palabras */
+                    white-space: nowrap; /* ✅ ¡CLAVE! Evita saltos de línea */
                     overflow: hidden; /* ✅ Oculta lo que se sale */
                     text-overflow: ellipsis; /* ✅ Añade "..." si se corta demasiado */
+                    break-inside: avoid;
                 }
                 th { 
                     background: #0b57d0; 
                     color: white; 
                     font-weight: 600;
                     text-align: center;
-                    padding: 0.75rem;
+                    font-size: 9pt;
+                    padding: 0.6rem;
                 }
                 tr:nth-child(even) { 
                     background-color: #f9f9f9; 
@@ -1478,10 +1624,12 @@ async function generarReporteBase(categoriaFiltrada, rangoFechas, titulo) {
                     width: 28%; /* Ancho fijo para el nombre del banco */
                     text-align: left; /* Alinear a la izquierda */
                     font-weight: 500;
-                    word-break: break-all;
-                    white-space: normal;
-                    overflow-wrap: break-word;
+                    word-break: keep-all;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                     max-width: 250px;
+                    font-family: 'Roboto', sans-serif;
                 }
                 th:nth-child(2),
                 td:nth-child(2),
@@ -1494,7 +1642,11 @@ async function generarReporteBase(categoriaFiltrada, rangoFechas, titulo) {
                     width: 18%; /* Ancho fijo para cada columna de monto */
                     text-align: right; /* Alinear a la derecha */
                     font-family: 'Space Mono', monospace; /* Fuente monoespaciada para números */
-                    letter-spacing: -0.2px;
+                    letter-spacing: -0.1px;
+                    word-break: keep-all;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
                 }
                 /* ✅ Asegurar que el último td (saldo final) no se vea más ancho */
                 td:last-child {
@@ -1503,29 +1655,47 @@ async function generarReporteBase(categoriaFiltrada, rangoFechas, titulo) {
                 }
                 .total { 
                     font-weight: bold; 
-                    font-size: 1.2rem; 
+                    font-size: 1rem; 
                     color: #0b57d0; 
                     text-align: right; 
                     margin-top: 1.5rem; 
                     padding-top: 1rem;
                     border-top: 2px solid #0b57d0;
+                    break-inside: avoid;
                 }
                 .equivalente { 
                     font-weight: bold; 
-                    font-size: 1.1rem; 
+                    font-size: 1rem; 
                     color: #0b57d0; 
                     text-align: right; 
                     margin-top: 0.5rem;
+                    break-inside: avoid;
                 }
                 @media print {
-                    body { padding: 0; }
-                    button { display: none; }
+                    body { padding: 0; margin: 0; }
+                    button, .btn, .side-tab { display: none !important; }
+                    * {
+                        box-shadow: none !important;
+                        text-shadow: none !important;
+                        background: white !important;
+                        color: black !important;
+                    }
+                    .resumen-bancos, table, th, td, tr, h1, h2, .total, .equivalente {
+                        break-inside: avoid !important;
+                        page-break-inside: avoid !important;
+                    }
                 }
             </style>
         </head>
         <body>
             <h1>${titulo}</h1>
-            <h2>Resumen por Banco</h2>
+            
+            <div class="fecha-generacion">
+                Generado el: ${new Date().toLocaleDateString('es-VE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} a las ${new Date().toLocaleTimeString('es-VE')}
+            </div>
+
+            <h2 style="text-align: center; margin-bottom: 1rem;">Resumen por Banco</h2>
+            
             <div class="resumen-bancos">
                 <table>
                     <thead>
@@ -1560,14 +1730,17 @@ async function generarReporteBase(categoriaFiltrada, rangoFechas, titulo) {
                     </tbody>
                 </table>
             </div>
+
             <!-- Disponibilidad Total -->
             <div class="total">
                 <strong>Disponibilidad Total (Suma de todos los bancos):</strong> Bs. ${formatNumberVE(disponibilidadTotal)}
             </div>
+
             <!-- Equivalente en Dólares -->
             <div class="equivalente">
-                <strong>Equivalente en USD (Tasa: 1 USD = ${tasaCambio.toLocaleString('es-VE')} Bs):</strong> $ ${equivalenteDolares.toFixed(2)}
+                <strong>Equivalente en USD (Tasa: 1 USD = ${tasaCambio.toLocaleString('es-VE')} Bs):</strong> $ ${formatNumberVE(equivalenteDolares)}
             </div>
+
             <script>
                 window.print();
             </script>
@@ -2333,6 +2506,572 @@ async function repararApp() {
     window.scrollTo(0, 0);
 }
 
+function verRecibo(base64Data) {
+    // Abrir en nueva pestaña
+    const ventana = window.open('', '_blank');
+    ventana.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Recibo Adjunto</title>
+            <style>
+                body { margin: 0; padding: 2rem; background: #f5f7fa; display:flex; justify-content:center; align-items:center; min-height:100vh; }
+                img, embed { max-width: 100%; max-height: 90vh; object-fit: contain; }
+                .cerrar { position: absolute; top: 1rem; right: 1rem; background:#b00020; color:white; border:none; border-radius:50%; width:3rem; height:3rem; font-size:1.5rem; cursor:pointer; display:flex; justify-content:center; align-items:center; }
+            </style>
+        </head>
+        <body>
+            <button class="cerrar" onclick="window.close()">✕</button>
+            ${base64Data.startsWith('data:application/pdf') ? 
+                `<embed src="${base64Data}" type="application/pdf" width="100%" height="90vh" />` : 
+                `<img src="${base64Data}" alt="Recibo" />`}
+        </body>
+        </html>
+    `);
+    ventana.document.close();
+}
+
+// ✅ CALENDARIO VISUAL DE MOVIMIENTOS
+let fechaActual = new Date(); // Fecha inicial: hoy
+
+// Renderiza el calendario completo
+async function renderizarCalendario() {
+    const calendario = document.getElementById('calendario');
+    calendario.innerHTML = '';
+
+    // Establecer el mes y año actual
+    const mes = fechaActual.getMonth();
+    const anio = fechaActual.getFullYear();
+    const primerDia = new Date(anio, mes, 1);
+    const ultimoDia = new Date(anio, mes + 1, 0);
+    const diasDelMes = ultimoDia.getDate();
+    const diaSemanaInicio = primerDia.getDay(); // 0 = domingo, 6 = sábado
+
+    // Mostrar el mes y año en el título
+    const meses = [
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    document.getElementById('mesActual').textContent = `${meses[mes]} ${anio}`;
+
+    // Días del mes anterior (para llenar el inicio)
+    const diasMesAnterior = new Date(anio, mes, 0).getDate();
+    for (let i = 0; i < diaSemanaInicio; i++) {
+        const dia = diasMesAnterior - diaSemanaInicio + i + 1;
+        const div = document.createElement('div');
+        div.className = 'dia-otro';
+        div.textContent = dia;
+        calendario.appendChild(div);
+    }
+
+    // Días del mes actual
+    const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+    const movimientosPorDia = {};
+
+    // Agrupar movimientos por día (YYYY-MM-DD)
+    movimientos.forEach(m => {
+        const dia = new Date(m.fecha).toISOString().split('T')[0];
+        if (!movimientosPorDia[dia]) movimientosPorDia[dia] = [];
+        movimientosPorDia[dia].push(m);
+    });
+
+    // Generar celdas de cada día
+    for (let dia = 1; dia <= diasDelMes; dia++) {
+        const fechaDia = new Date(anio, mes, dia);
+        const fechaStr = fechaDia.toISOString().split('T')[0]; // "2025-04-15"
+        const div = document.createElement('div');
+        div.textContent = dia;
+
+        // Clase para día actual
+        const hoy = new Date().toISOString().split('T')[0];
+        if (fechaStr === hoy) {
+            div.classList.add('dia-hoy');
+        }
+
+        // Clase para días con movimientos
+        if (movimientosPorDia[fechaStr]) {
+            div.classList.add('dia-con-movimiento');
+            div.addEventListener('click', () => mostrarMovimientosDia(fechaStr));
+        } else {
+            div.addEventListener('click', () => {
+                document.getElementById('detallesDia').style.display = 'none';
+                document.getElementById('diaSeleccionado').textContent = `${dia} de ${meses[mes]} ${anio}`;
+            });
+        }
+
+        calendario.appendChild(div);
+    }
+
+    // Días del mes siguiente (para llenar el final)
+    const diasRestantes = 7 - (diaSemanaInicio + diasDelMes) % 7;
+    if (diasRestantes < 7) {
+        for (let i = 1; i <= diasRestantes; i++) {
+            const div = document.createElement('div');
+            div.className = 'dia-otro';
+            div.textContent = i;
+            calendario.appendChild(div);
+        }
+    }
+}
+
+// Mostrar movimientos de un día específico
+async function mostrarMovimientosDia(fechaStr) {
+    const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+    const movimientosDia = movimientos.filter(m => {
+        const mFecha = new Date(m.fecha).toISOString().split('T')[0];
+        return mFecha === fechaStr;
+    });
+    const lista = document.getElementById('listaMovimientosDia');
+    lista.innerHTML = '';
+    if (movimientosDia.length === 0) {
+        lista.innerHTML = '<li style="color:var(--text-light); padding:0.75rem;">No hay movimientos este día.</li>';
+    } else {
+        movimientosDia.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).forEach(m => {
+            const li = document.createElement('li');
+            const tipo = m.tipo === 'ingreso' ? '+' : '-';
+            const color = m.tipo === 'ingreso' ? 'var(--success)' : 'var(--danger)';
+            li.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; border-bottom:1px solid #eee;">
+                    <div style="flex:1;">
+                        <strong>${m.concepto}</strong><br>
+                        <small style="color:var(--text-light);">${m.categoria || 'Sin categoría'} • ${m.banco || '(Sin banco)'}</small>
+                    </div>
+                    <div style="font-weight:600; color:${color};">
+                        ${tipo} Bs. ${formatNumberVE(m.cantidad)}
+                    </div>
+                </div>
+            `;
+            lista.appendChild(li);
+        });
+    }
+    // ✅ Eliminar el título de fecha completa
+    // document.getElementById('diaSeleccionado').textContent = `${diaNombre}, ${diaNumero} de ${mesNombre} ${anio}`;
+    // ✅ No mostramos el título de fecha, solo la lista
+    document.getElementById('detallesDia').style.display = 'block';
+}
+
+// Cambiar de mes
+function cambiarMes(diferencia) {
+    fechaActual.setMonth(fechaActual.getMonth() + diferencia);
+    renderizarCalendario();
+}
+
+// ✅ CALCULADORA DE AHORRO MENSUAL
+async function calcularAhorroMensual() {
+    const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+    
+    // Filtrar movimientos de los últimos 3 meses
+    const hoy = new Date();
+    const tresMesesAtras = new Date(hoy.getFullYear(), hoy.getMonth() - 3, 1);
+    
+    const movimientosFiltrados = movimientos.filter(m => {
+        const fechaMov = new Date(m.fecha);
+        return fechaMov >= tresMesesAtras && fechaMov <= hoy;
+    });
+    
+    if (movimientosFiltrados.length === 0) {
+        alert('No hay suficientes movimientos en los últimos 3 meses para calcular.');
+        return;
+    }
+    
+    // Agrupar por mes (YYYY-MM)
+    const porMes = {};
+    movimientosFiltrados.forEach(m => {
+        const mes = new Date(m.fecha).toISOString().slice(0, 7); // "2025-04"
+        if (!porMes[mes]) porMes[mes] = { ingresos: 0, gastos: 0 };
+        if (m.tipo === 'ingreso') porMes[mes].ingresos += m.cantidad;
+        else porMes[mes].gastos += m.cantidad;
+    });
+    
+    // Calcular promedios
+    const meses = Object.keys(porMes);
+    const totalIngresos = meses.reduce((sum, mes) => sum + porMes[mes].ingresos, 0);
+    const totalGastos = meses.reduce((sum, mes) => sum + porMes[mes].gastos, 0);
+    const promedioIngresos = totalIngresos / meses.length;
+    const promedioGastos = totalGastos / meses.length;
+    const promedioAhorro = promedioIngresos - promedioGastos;
+    
+    // Mostrar en UI
+    document.getElementById('ingresosPromedio').textContent = `Bs. ${formatNumberVE(promedioIngresos)}`;
+    document.getElementById('gastosPromedio').textContent = `Bs. ${formatNumberVE(promedioGastos)}`;
+    document.getElementById('ahorroPromedio').textContent = `Bs. ${formatNumberVE(promedioAhorro)}`;
+    
+    // Actualizar simulación
+    actualizarSimulacion(0); // Inicializar con 0%
+    
+    // Renderizar gráfico
+    renderizarGraficoAhorro(porMes);
+}
+
+// ✅ Actualizar simulación cuando cambie la reducción
+function actualizarSimulacion(reduccionPorcentaje) {
+    const ingresos = parseFloat(document.getElementById('ingresosPromedio').textContent.replace('Bs. ', '').replace(/\./g, '').replace(',', '.'));
+    const gastos = parseFloat(document.getElementById('gastosPromedio').textContent.replace('Bs. ', '').replace(/\./g, '').replace(',', '.'));
+    
+    const gastosSimulados = gastos * (1 - reduccionPorcentaje / 100);
+    const ahorroSimulado = ingresos - gastosSimulados;
+    
+    document.getElementById('ingresosSimulado').textContent = `Bs. ${formatNumberVE(ingresos)}`;
+    document.getElementById('gastosSimulado').textContent = `Bs. ${formatNumberVE(gastosSimulados)}`;
+    document.getElementById('ahorroSimulado').textContent = `Bs. ${formatNumberVE(ahorroSimulado)}`;
+}
+
+// ✅ Renderizar gráfico de tendencia
+function renderizarGraficoAhorro(porMes) {
+    if (typeof Chart === 'undefined') return;
+    
+    const meses = Object.keys(porMes).sort();
+    const ingresos = meses.map(m => porMes[m].ingresos);
+    const gastos = meses.map(m => porMes[m].gastos);
+    const ahorro = meses.map((m, i) => ingresos[i] - gastos[i]);
+    
+    if (window.graficoAhorro) window.graficoAhorro.destroy();
+    
+    window.graficoAhorro = new Chart(document.getElementById('graficoAhorro'), {
+        type: 'line',
+        data: {
+            labels: meses.map(m => m.split('-')[1] + '/' + m.split('-')[0].slice(-2)), // "04/25"
+            datasets: [
+                {
+                    label: 'Ingresos',
+                    data: ingresos,
+                    borderColor: '#018642',
+                    backgroundColor: 'rgba(1, 134, 66, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                },
+                {
+                    label: 'Gastos',
+                    data: gastos,
+                    borderColor: '#b00020',
+                    backgroundColor: 'rgba(176, 0, 37, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                },
+                {
+                    label: 'Ahorro',
+                    data: ahorro,
+                    borderColor: '#0b57d0',
+                    backgroundColor: 'rgba(11, 87, 208, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'Bs. ' + formatNumberVE(value);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ✅ Escuchar cambios en el select de reducción
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('reduccionGastos').addEventListener('change', function() {
+        actualizarSimulacion(parseFloat(this.value));
+    });
+});
+
+// ✅ ELIMINAR TODOS LOS MOVIMIENTOS (con confirmación)
+async function eliminarTodosLosMovimientos() {
+    if (!confirm(
+        "🚨 ¡ADVERTENCIA EXTREMA!\n\n" +
+        "Estás a punto de eliminar TODOS tus movimientos:\n" +
+        "- Ingresos\n" +
+        "- Gastos\n" +
+        "- Saldos iniciales\n\n" +
+        "⚠️ Esto NO elimina:\n" +
+        "- Categorías\n" +
+        "- Bancos\n" +
+        "- Reglas\n" +
+        "- Tasa guardada\n" +
+        "- Backup\n\n" +
+        "¿Estás ABSOLUTAMENTE seguro? Esta acción NO se puede deshacer."
+    )) {
+        return;
+    }
+
+    try {
+        // Abrir transacción en modo escritura
+        const transaction = db.transaction([STORES.MOVIMIENTOS], 'readwrite');
+        const store = transaction.objectStore(STORES.MOVIMIENTOS);
+
+        // Borrar TODO el contenido del almacén
+        const request = store.clear();
+
+        request.onsuccess = async () => {
+            alert("✅ ¡Todos los movimientos han sido eliminados!");
+            // Actualizar la interfaz inmediatamente
+            await renderizar();
+            await actualizarSaldo();
+            await actualizarResumenBancosCompleto();
+            await actualizarGrafico();
+            await actualizarBarChart();
+            await renderizarResumenBancos();
+            await actualizarPresupuesto();
+        };
+
+        request.onerror = (event) => {
+            console.error("Error al eliminar todos los movimientos:", event.target.error);
+            alert("❌ Error al eliminar los movimientos. Intenta de nuevo.");
+        };
+
+    } catch (error) {
+        console.error("Error inesperado al eliminar movimientos:", error);
+        alert("❌ Error inesperado. Por favor, recarga la app e intenta de nuevo.");
+    }
+}
+
+// ✅ COMPARACIÓN DE BANCOS: Gráficos de Barras Apiladas y Torta
+async function renderizarComparacionBancos() {
+    const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+    
+    // Agrupar por banco: ingresos, gastos, saldo final
+    const bancos = [...new Set(movimientos.map(m => m.banco || '(Sin banco)'))];
+    const comparacion = {};
+    
+    bancos.forEach(banco => {
+        const movimientosBanco = movimientos.filter(m => m.banco === banco);
+        
+        const ingresos = movimientosBanco
+            .filter(m => m.tipo === 'ingreso' && !m.concepto.includes('(Saldo inicial:'))
+            .reduce((sum, m) => sum + m.cantidad, 0);
+            
+        const gastos = movimientosBanco
+            .filter(m => m.tipo === 'gasto')
+            .reduce((sum, m) => sum + m.cantidad, 0);
+            
+        const saldoInicial = movimientosBanco
+            .filter(m => m.concepto.includes('(Saldo inicial:'))
+            .reduce((sum, m) => sum + m.cantidad, 0);
+            
+        const saldoFinal = saldoInicial + ingresos - gastos;
+        
+        comparacion[banco] = {
+            ingresos,
+            gastos,
+            saldoFinal
+        };
+    });
+    
+    // Preparar datos para gráfico de barras apiladas
+    const bancosLabels = Object.keys(comparacion);
+    const ingresosData = bancosLabels.map(b => comparacion[b].ingresos);
+    const gastosData = bancosLabels.map(b => comparacion[b].gastos);
+    const saldoFinalData = bancosLabels.map(b => comparacion[b].saldoFinal);
+    
+    // Preparar datos para gráfico de torta (saldo final como porcentaje del total)
+    const saldoTotal = Object.values(comparacion).reduce((sum, b) => sum + b.saldoFinal, 0);
+    const porcentajes = bancosLabels.map(b => comparacion[b].saldoFinal / saldoTotal * 100);
+    
+    // Limpiar gráficos anteriores si existen
+    if (window.graficoBarrasApiladas) window.graficoBarrasApiladas.destroy();
+    if (window.graficoTortaBancos) window.graficoTortaBancos.destroy();
+    
+    // ✅ GRÁFICO DE BARRAS APILADAS
+    window.graficoBarrasApiladas = new Chart(document.getElementById('graficoBarrasApiladas'), {
+        type: 'bar',
+        data: {
+            labels: bancosLabels,
+            datasets: [
+                {
+                    label: 'Ingresos',
+                    data: ingresosData,
+                    backgroundColor: '#018642',
+                    borderColor: '#018642',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Gastos',
+                    data: gastosData,
+                    backgroundColor: '#b00020',
+                    borderColor: '#b00020',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Saldo Final',
+                    data: saldoFinalData,
+                    backgroundColor: '#0b57d0',
+                    borderColor: '#0b57d0',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': Bs. ' + formatNumberVE(context.raw);
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    stacked: false,
+                    title: {
+                        display: true,
+                        text: 'Banco'
+                    }
+                },
+                y: {
+                    stacked: false,
+                    title: {
+                        display: true,
+                        text: 'Monto (Bs)'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return 'Bs. ' + formatNumberVE(value);
+                        }
+                    }
+                }
+            }
+        }
+    });
+    
+    // ✅ GRÁFICO DE TORTA (Porcentaje del Saldo Total)
+    window.graficoTortaBancos = new Chart(document.getElementById('graficoTortaBancos'), {
+        type: 'pie',
+        data: {
+            labels: bancosLabels,
+            datasets: [{
+                data: porcentajes,
+                backgroundColor: [
+                    '#0b57d0', '#018642', '#b00020', '#ff9800', '#9c27b0',
+                    '#607d8b', '#cddc39', '#ff5722', '#00bcd4', '#795548'
+                ],
+                borderColor: ['#fff'],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+                            const porcentaje = Math.round((context.raw / total) * 100);
+                            const banco = context.label;
+                            const saldo = comparacion[banco].saldoFinal;
+                            return `${banco}: ${porcentaje}% (${formatNumberVE(saldo)} Bs)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+}
+
+// ✅ MODULO: Modo de Entrada de Números (Automático o Literal)
+function cargarModoEntradaNumeros() {
+    const modoGuardado = localStorage.getItem('numeroModo') || 'automatico';
+    document.getElementById('modoAutomatico').checked = modoGuardado === 'automatico';
+    document.getElementById('modoLiteral').checked = modoGuardado === 'literal';
+}
+
+function guardarModoEntradaNumeros() {
+    const modo = document.querySelector('input[name="numeroModo"]:checked').value;
+    localStorage.setItem('numeroModo', modo);
+}
+
+// Escuchar cambios en los radios
+document.addEventListener('DOMContentLoaded', function() {
+    cargarModoEntradaNumeros();
+    const radios = document.querySelectorAll('input[name="numeroModo"]');
+    radios.forEach(radio => {
+        radio.addEventListener('change', guardarModoEntradaNumeros);
+    });
+});
+
+// ✅ Actualizar aviso de modo en los campos
+function actualizarAvisoModo() {
+    const modo = localStorage.getItem('numeroModo') || 'automatico';
+    const texto = modo === 'literal' ? 'Literal' : 'Automático';
+    document.getElementById('modoActualCantidad').textContent = texto;
+    document.getElementById('modoActualSaldo').textContent = texto;
+    document.getElementById('avisoModoCantidad').style.display = 'block';
+    document.getElementById('avisoModoSaldo').style.display = 'block';
+}
+
+// Llamarlo al cargar la app y cuando cambie el modo
+document.addEventListener('DOMContentLoaded', function() {
+    actualizarAvisoModo();
+    // También actualizar cuando cambie el modo en Configuración
+    const radios = document.querySelectorAll('input[name="numeroModo"]');
+    radios.forEach(radio => {
+        radio.addEventListener('change', actualizarAvisoModo);
+    });
+});
+
+//ACTUALIZAR EL DASHBOARD DINÁMICAMENTE:
+// ✅ ACTUALIZAR TODO EL DASHBOARD EN TIEMPO REAL
+async function actualizarDashboard() {
+    // 1. Actualizar saldo
+    await actualizarSaldo();
+
+    // 2. Actualizar resumen por banco (tabla completa)
+    await actualizarResumenBancosCompleto();
+
+    // 3. Actualizar disponibilidad total (en la sección "Disponibilidad total")
+    const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+    const saldoTotal = movimientos.reduce((sum, m) => {
+        if (m.tipo === 'gasto') return sum - m.cantidad;
+        return sum + m.cantidad;
+    }, 0);
+    document.getElementById('totalGeneral').textContent = formatNumberVE(saldoTotal);
+
+    // 4. Actualizar gráficos de gastos y resumen mensual
+    await actualizarGrafico();
+    await actualizarBarChart();
+
+    // 5. Actualizar alerta de saldo bajo
+    const saldoBs = parseFloat(document.getElementById('saldo').textContent.replace('Bs. ', '').replace(/\./g, '').replace(',', '.'));
+    const umbral = 500;
+    const alerta = document.getElementById('alertaSaldo');
+    if (saldoBs < umbral) {
+        alerta.style.display = 'block';
+    } else {
+        alerta.style.display = 'none';
+    }
+
+    // 6. Actualizar equivalente en otra moneda (si hay tasa)
+    actualizarEquivalente();
+
+    // 7. Actualizar aviso de comisión
+    const avisoComision = document.getElementById('saldoAviso');
+    if (avisoComision) {
+        avisoComision.style.display = saldoTotal > 0 ? 'block' : 'none';
+    }
+}
+
 // ------------------------------------------------------------------------------------------------------------------------------------
 //                                 Inicialización y Event Listeners
 // ------------------------------------------------------------------------------------------------------------------------------------
@@ -2432,8 +3171,36 @@ document.addEventListener('DOMContentLoaded', async function () {
             // mostrarSideTab('dashboard');
             // Añadimos la nueva pestaña como predeterminada si no hay guardada
             mostrarSideTab('dashboard');
+
+                    // ✅ Renderizar calendario si se abre la pestaña
+            if (pestañaGuardada === 'calendario') {
+            renderizarCalendario();
+            }
         }
-    } catch (error) {
+
+            // ✅ Escuchar cambios de pestaña para renderizar calendario cuando se active
+            document.querySelectorAll('.side-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+            const id = btn.getAttribute('onclick').match(/'([^']+)'/)[1];
+            if (id === 'calendario') {
+                renderizarCalendario();
+            }
+            });
+        });
+
+            // ✅ ACTUALIZAR DASHBOARD CUANDO SE ACTIVE LA PESTAÑA
+            document.querySelectorAll('.side-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+            const id = btn.getAttribute('onclick').match(/'([^']+)'/)[1];
+            if (id === 'dashboard') {
+                actualizarDashboard(); // ← ¡Aquí está la magia!
+            }
+        });
+    });
+
+}
+    
+    catch (error) {
         console.error("Error en la inicialización de la app:", error);
     }
 
