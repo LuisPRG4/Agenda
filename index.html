@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Sistema Financiero Personal (SFP)</title>
   <link rel="icon" type="image/x-icon" href="recursos/ICONO.png">
-  <link rel="stylesheet" href="styles.css" />
+
+ <link rel="stylesheet" href="styles.css?v=20250420" />
+
 </head>
 <body>
   <div style="text-align:right; margin-bottom:.5rem;">
@@ -19,6 +21,7 @@
       <button class="side-tab" onclick="mostrarSideTab('analisis')">📈 Análisis</button>
       <button class="side-tab" onclick="mostrarSideTab('presupuesto')">💰 Presupuesto</button>
       <button class="side-tab" onclick="mostrarSideTab('herramientas')">🛠️ Herramientas</button>
+      <button class="side-tab" onclick="mostrarSideTab('calendario')">📅 Calendario</button>
       <button class="side-tab" onclick="mostrarSideTab('config')">⚙️ Config</button>
     </nav>
 
@@ -26,6 +29,8 @@
       <section id="buscador">
         <input type="text" id="txtBuscar" placeholder="🔍 Buscar..." />
       </section>
+
+
       <section id="resumen">
         <h2>Resumen</h2>
         <p>Saldo actual: <strong id="saldo">Bs. 0,00</strong></p>
@@ -66,6 +71,9 @@
           </div>
         </div>
       </section>
+
+
+
       <section id="alertaSaldo" style="display:none;">
         <p style="color:var(--danger); font-weight:500;">
           ⚠️ Tu saldo está por debajo de Bs. <span id="umbralAlerta">500</span>
@@ -99,9 +107,21 @@
         <h2>Agregar Movimiento</h2>
         <label for="saldoInicial">Saldo Inicial (opcional, solo se aplica una vez):
           <input type="text" id="saldoInicial" placeholder="Ej: 3.220,90" style="width:100%; padding:.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem;" />
+
+          <!-- Debajo de <input type="text" id="saldoInicial" ... /> -->
+          <div id="avisoModoSaldo" style="font-size:0.75rem; color:var(--text-light); margin-top:0.25rem; display:none;">
+            📌 Modo: <strong id="modoActualSaldo">Automático</strong>
+          </div>
+
         </label>
         <input type="text" id="concepto" placeholder="Concepto" />
         <input type="text" id="cantidad" placeholder="Ej: 3.000,77" />
+
+          <!-- Debajo de <input type="text" id="cantidad" ... /> -->
+          <div id="avisoModoCantidad" style="font-size:0.75rem; color:var(--text-light); margin-top:0.25rem; display:none;">
+            📌 Modo: <strong id="modoActualCantidad">Automático</strong>
+          </div>
+
         <select id="tipo">
           <option value="ingreso">Ingreso</option>
           <option value="gasto">Gasto</option>
@@ -127,9 +147,20 @@
           </div>
         </label>
         <input type="text" id="nuevoBanco" placeholder="Nombre del banco" style="display:none;" />
+
+
         <label>Fecha:
           <input type="date" id="fechaMov" />
         </label>
+
+        <label style="margin-top: 1rem;">
+      📸 Adjuntar recibo (opcional):
+    <input type="file" id="recibo" accept="image/*,.pdf" style="padding:0.5rem; border:1px solid #ccc; border-radius:8px; width:100%;">
+    </label>
+    <p style="font-size:0.8rem; color:var(--text-light); margin-top:0.25rem;">
+      📎 Soporta: JPG, PNG, PDF. No se sube a internet. Solo se guarda en tu dispositivo.
+    </p>
+
         <div class="btn-group">
             <button onclick="agregarMovimiento()" id="btnAgregar">Agregar</button>
             <button onclick="actualizarMovimiento()" id="btnActualizar" style="display:none;">Guardar cambios</button>
@@ -229,7 +260,7 @@
     </div>
     <div style="flex:1;">
       <label for="presupuestoActual">Gasto actual (Bs):</label>
-      <input type="number" id="presupuestoActual" placeholder="Automático" readonly style="background:var(--card-bg); color:var(--text-light); cursor:not-allowed;" />
+      <input type="text" id="presupuestoActual" placeholder="Automático" readonly style="background:var(--card-bg); color:var(--text-light); cursor:not-allowed; font-family: 'Space Mono', monospace; text-align: right;" />
     </div>
   </div>
   <div style="display:flex; gap:0.75rem; margin-bottom:1.5rem;">
@@ -268,7 +299,7 @@
 
     </div>
 
-    <!-- ✅ PEGA AQUÍ LO QUE COPIASTE (LA HERRAMIENTA) -->
+    <!-- (FORMATEADOR DE NÚMEROS) -->
   <div class="side-content" id="side-herramientas">
     <section>
       <h2>🛠️ Formateador de Números</h2>
@@ -293,10 +324,170 @@
         ⚠️ Esta herramienta no guarda datos. Solo te ayuda a formatear antes de agregar un movimiento.
       </p>
     </section>
+
+   <!-- ✅ NUEVA HERRAMIENTA: CÁLCULO DE EQUIVALENTE -->
+<section style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--text-light);">
+  <h2>📊 Calculadora de Equivalente</h2>
+  <p style="color: var(--text-light); margin-bottom: 1rem;">
+    Usa el saldo de <strong>Disponibilidad Total</strong> (de la pestaña Dashboard) y conviértelo a otra moneda.
+  </p>
+
+  <div style="display:flex; gap:1rem; align-items:center; margin-bottom:1rem;">
+    <label style="flex:1; font-size:0.875rem; color:var(--text-light);">
+      Convertir a:
+      <select id="monedaHerramienta" style="width:100%; padding:0.75rem; border-radius:8px; border:1px solid #ccc; margin-top:0.5rem;">
+        <option value="USD">Dólar (USD)</option>
+        <option value="EUR">Euro (EUR)</option>
+        <option value="COP">Peso Colombiano (COP)</option>
+        <option value="ARS">Peso Argentino (ARS)</option>
+        <option value="MXN">Peso Mexicano (MXN)</option>
+      </select>
+    </label>
   </div>
 
+  <label for="tasaHerramienta">Tasa del día (Bs):</label>
+  <input type="text" id="tasaHerramienta" 
+         placeholder="Ej: 169,98 o 8333,33" 
+         style="width:100%; padding:1rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;"
+         title="Ingresa la tasa como la ves en tu app de banco: 169,98, 8.333,33, 8333.33 — ¡no se formatea!" />
 
+  <div style="display:flex; gap:0.75rem; margin-bottom:1.5rem;">
+    <button id="btnCalcularEquivalente" style="flex:1; background:#0b57d0; color:white; border:none; border-radius:8px; padding:1rem; font-size:1rem;">📊 Calcular Equivalente</button>
+    <button id="btnLimpiarEquivalente" style="flex:1; background:#ff9800; color:white; border:none; border-radius:8px; padding:1rem; font-size:1rem;">🧹 Limpiar</button>
+  </div>
 
+  <div style="background:var(--card-bg); padding:1.5rem; border-radius:8px; border:1px solid #eee; margin-bottom:1.5rem;">
+    <label>Equivalente:</label>
+    <div id="equivalenteHerramienta" style="font-family:'Space Mono', monospace; font-size:1.8rem; font-weight:600; color:var(--primary); padding:1rem; background:#f9f9f9; border-radius:6px; margin-top:0.5rem;">
+      --
+    </div>
+  </div>
+
+  <p style="font-size:0.85rem; color:var(--text-light);">
+    📌 Esta herramienta toma el saldo de <strong>Disponibilidad Total</strong> (Bs. <code id="totalGeneral">0,00</code>) de la pestaña Dashboard.  
+    No depende de tu tasa guardada en el dashboard.  
+    ¡Tienes control total!
+  </p>
+</section>
+
+  </div>
+
+<!-- CALENDARIO DE MOVIMIENTOS-->
+<div class="side-content" id="side-calendario">
+  <section>
+    <h2>📅 Calendario de Movimientos</h2>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <button onclick="cambiarMes(-1)" style="padding:0.5rem 1rem; background:#0b57d0; color:white; border:none; border-radius:8px; font-size:1rem;">← Mes anterior</button>
+      <h3 id="mesActual" style="font-size:1.5rem; font-weight:600; color:var(--text);">Abril 2025</h3>
+      <button onclick="cambiarMes(1)" style="padding:0.5rem 1rem; background:#0b57d0; color:white; border:none; border-radius:8px; font-size:1rem;">Mes siguiente →</button>
+    </div>
+    <div id="calendario" style="display:grid; grid-template-columns: repeat(7, 1fr); gap:0.25rem; margin-bottom:1.5rem; font-size:0.85rem;">
+      <!-- Se rellena dinámicamente -->
+    </div>
+    
+    <div id="detallesDia" style="background:var(--card-bg); padding:1rem; border-radius:8px; border:1px solid #eee; display:none; margin-top:1rem;">
+  <!-- ✅ Eliminamos el título de fecha -->
+  <ul id="listaMovimientosDia" style="list-style:none; padding:0; margin:0;"></ul>
+</div>
+
+  </section>
+</div>
+
+<div class="side-content" id="side-ahorro">
+  <section>
+    <h2>📈 Ahorro Mensual</h2>
+    <p style="color: var(--text-light); margin-bottom: 1.5rem;">
+      Basado en tus movimientos de los últimos 3 meses, te mostramos tu tendencia real.
+    </p>
+
+    <!-- Resumen -->
+    <div style="background:var(--card-bg); padding:1.5rem; border-radius:8px; border:1px solid #eee; margin-bottom:2rem;">
+      <h3 style="margin-bottom:1rem; color:var(--primary);">Tendencia de los últimos 3 meses</h3>
+      <div style="display:flex; flex-wrap:wrap; gap:1.5rem; margin-bottom:1.5rem;">
+        <div style="flex:1; min-width:200px; text-align:center; padding:1rem; border-radius:8px; background:#f0f7ff;">
+          <div style="font-size:0.85rem; color:var(--text-light);">Ingresos promedio</div>
+          <div id="ingresosPromedio" style="font-size:1.5rem; font-weight:600; color:#018642; margin-top:0.5rem;">Bs. 0,00</div>
+        </div>
+        <div style="flex:1; min-width:200px; text-align:center; padding:1rem; border-radius:8px; background:#fff0f0;">
+          <div style="font-size:0.85rem; color:var(--text-light);">Gastos promedio</div>
+          <div id="gastosPromedio" style="font-size:1.5rem; font-weight:600; color:#b00020; margin-top:0.5rem;">Bs. 0,00</div>
+        </div>
+        <div style="flex:1; min-width:200px; text-align:center; padding:1rem; border-radius:8px; background:#f0fff0;">
+          <div style="font-size:0.85rem; color:var(--text-light);">Ahorro mensual</div>
+          <div id="ahorroPromedio" style="font-size:1.5rem; font-weight:600; color:#0b57d0; margin-top:0.5rem;">Bs. 0,00</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Simulador -->
+    <h3>💡 Simulador: ¿Qué pasa si reduzco mis gastos?</h3>
+    <div style="margin-bottom:1.5rem;">
+      <label for="reduccionGastos">Reducción de gastos:</label>
+      <select id="reduccionGastos" style="width:100%; padding:0.75rem; border-radius:8px; border:1px solid #ccc; margin-bottom:1rem;">
+        <option value="0">Ninguna (0%)</option>
+        <option value="10">10%</option>
+        <option value="20">20%</option>
+        <option value="30">30%</option>
+        <option value="40">40%</option>
+        <option value="50">50%</option>
+      </select>
+    </div>
+
+    <div style="background:var(--card-bg); padding:1.5rem; border-radius:8px; border:1px solid #eee; margin-bottom:2rem;">
+      <h4 style="margin-bottom:1rem; color:var(--primary);">Resultado de la simulación</h4>
+      <div style="display:flex; flex-wrap:wrap; gap:1.5rem; margin-bottom:1.5rem;">
+        <div style="flex:1; min-width:200px; text-align:center; padding:1rem; border-radius:8px; background:#f0f7ff;">
+          <div style="font-size:0.85rem; color:var(--text-light);">Ingresos</div>
+          <div id="ingresosSimulado" style="font-size:1.5rem; font-weight:600; color:#018642; margin-top:0.5rem;">Bs. 0,00</div>
+        </div>
+        <div style="flex:1; min-width:200px; text-align:center; padding:1rem; border-radius:8px; background:#fff0f0;">
+          <div style="font-size:0.85rem; color:var(--text-light);">Gastos simulados</div>
+          <div id="gastosSimulado" style="font-size:1.5rem; font-weight:600; color:#b00020; margin-top:0.5rem;">Bs. 0,00</div>
+        </div>
+        <div style="flex:1; min-width:200px; text-align:center; padding:1rem; border-radius:8px; background:#f0fff0;">
+          <div style="font-size:0.85rem; color:var(--text-light);">Ahorro simulado</div>
+          <div id="ahorroSimulado" style="font-size:1.5rem; font-weight:600; color:#0b57d0; margin-top:0.5rem;">Bs. 0,00</div>
+        </div>
+      </div>
+      <p style="font-size:0.85rem; color:var(--text-light); text-align:center;">
+        🚀 ¡Reducir gastos es la clave para crecer financieramente!
+      </p>
+    </div>
+
+    <!-- Gráfico de tendencia -->
+    <h3>📊 Tendencia mensual (últimos 3 meses)</h3>
+    <canvas id="graficoAhorro" height="150"></canvas>
+
+    <!-- Nota explicativa -->
+    <p style="font-size:0.85rem; color:var(--text-light); margin-top:2rem; text-align:center;">
+      ⚠️ Esta calculadora usa solo tus movimientos de los últimos 3 meses.  
+      Cuantos más movimientos tengas, más precisa será la estimación.
+    </p>
+  </section>
+</div>
+
+  <div class="side-content" id="side-comparacion">
+  <section>
+    <h2>🏦 Comparación de Bancos</h2>
+    <p style="color: var(--text-light); margin-bottom: 1.5rem;">
+      Visualiza cómo se comportan tus bancos: ingresos, gastos y saldo final.
+    </p>
+
+    <!-- Gráfico de Barras Apiladas -->
+    <h3>📊 Ingresos, Gastos y Saldo por Banco</h3>
+    <canvas id="graficoBarrasApiladas" height="200"></canvas>
+
+    <!-- Gráfico de Torta (Saldo Total por Banco) -->
+    <h3>🥧 Porcentaje del Saldo Total por Banco</h3>
+    <canvas id="graficoTortaBancos" height="200"></canvas>
+
+    <!-- Nota explicativa -->
+    <p style="font-size:0.85rem; color:var(--text-light); margin-top:2rem; text-align:center;">
+      📌 Estos gráficos se actualizan automáticamente con tus movimientos.  
+      ¡Verás qué banco es tu aliado y cuál es tu mayor gasto!
+    </p>
+  </section>
+</div>
 
 
     <div class="side-content" id="side-config">
@@ -318,6 +509,7 @@
     <button onclick="agregarBanco()" style="margin-top: 0.5rem; width:100%;">➕ Nuevo banco</button>
   </details>
 
+        <!-- ELIMINAR CATEGORÍAS -->
         <details>
           <summary>🗑️ Eliminar categoría</summary>
           <select id="selectEliminarCategoria">
@@ -325,6 +517,8 @@
           </select>
           <button onclick="eliminarCategoria()">Eliminar</button>
         </details>
+
+        <!-- ELIMINAR BANCOS -->
         <details>
           <summary>🗑️ Eliminar banco</summary>
           <select id="selectEliminarBanco">
@@ -332,10 +526,14 @@
           </select>
           <button onclick="eliminarBanco()">Eliminar</button>
         </details>
+
+        <!-- ELIMINAR SALDO INICIAL -->
         <details>
           <summary>🗑️ Eliminar saldo inicial</summary>
           <button onclick="eliminarSaldoInicial()">Eliminar saldo inicial</button>
         </details>
+
+        <!-- NUEVA REGLA -->
         <details>
           <summary>➕ Nueva regla</summary>
           <input type="text" id="txtPalabra" placeholder="Palabra clave (ej. netflix)" />
@@ -350,6 +548,7 @@
           <button onclick="agregarRegla()">Guardar regla</button>
         </details>
 
+              <!-- BLOQUEO DE SEGURIDAD -->
               <details style="margin-top: 1.5rem;">
         <summary>🔒 Bloqueo de App (PIN)</summary>
         <p style="color: var(--text-light); margin-bottom: 1rem;">
@@ -375,6 +574,7 @@
         </p>
       </details>
 
+      <!-- COPIA DE SEGURIDAD -->
       <details style="margin-top: 1.5rem;">
   <summary>💾 Copia de Seguridad</summary>
   <p style="color: var(--text-light); margin-bottom: 1rem;">
@@ -392,13 +592,55 @@
   </button>
   </details>
 
+  <!-- MODO DE ENTRADA -->
+  <details style="margin-top: 1.5rem;">
+  <summary>🔢 Modo de Entrada de Números</summary>
+  <p style="color: var(--text-light); margin-bottom: 1rem;">
+    Elige cómo deseas ingresar cantidades en los campos de "Cantidad" y "Saldo Inicial".
+  </p>
+  <div style="margin-bottom: 1rem;">
+    <label>
+      <input type="radio" name="numeroModo" value="automatico" id="modoAutomatico" checked />
+      <strong>✅ Automático (recomendado)</strong><br>
+      <small>El sistema convierte automáticamente: <code>110.88</code> → <code>11.088,00</code></small>
+    </label>
+  </div>
+  <div style="margin-bottom: 1rem;">
+    <label>
+      <input type="radio" name="numeroModo" value="literal" id="modoLiteral" />
+      <strong>📝 Literal (ingresa tal cual)</strong><br>
+      <small>Guarda exactamente lo que escribas: <code>110.88</code> → <code>110.88</code> (sin formateo)</small>
+    </label>
+  </div>
+  <p style="font-size:0.8rem; color:var(--text-light); margin-top:0.75rem;">
+    ⚠️ En modo literal, no se aplicará formateo ni validación automática.  
+    Asegúrate de usar solo puntos (.) como separador decimal, y no comas (,).
+  </p>
+</details>
+
+
+  <!-- ELIMINAR TODOS LOS MOVIMIENTOS -->
+  <details style="margin-top: 1.5rem; color: #b00020;">
+  <summary style="color: #b00020;">⚠️ Eliminar todos los movimientos</summary>
+  <p style="font-size:0.85rem; color:var(--text-light); margin-bottom:0.75rem;">
+    ⚠️ ¡ADVERTENCIA! Esto eliminará TODOS tus movimientos (ingresos, gastos, saldos iniciales).  
+    Esto NO borra tus categorías, bancos, reglas, tasa o backup.  
+    Solo los movimientos.
+  </p>
+  <button onclick="eliminarTodosLosMovimientos()" style="width:100%; padding:1rem; background:#b00020; color:white; border:none; border-radius:8px; font-size:1rem;">
+    🗑️ Eliminar TODOS los movimientos
+  </button>
+</details>
+
       </section>
     </div>
   </div>
-  <script src="chart.umd.min.js"></script>
-  <script src="xlsx.full.min.js"></script>
-  <script src="app.js"></script>
 
+  <script src="chart.umd.min.js?v=20250926"></script>
+  <script src="xlsx.full.min.js?v=20250926"></script>
+  <script src="app.js?v=20250926"></script>
+  <script src="equivalente-calculator.js"></script>
+  
   <!-- Modal de bloqueo -->
   <div id="modalBloqueo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1001; justify-content:center; align-items:center;">
   <div style="background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow-lg); padding:2rem; width:90%; max-width:350px; text-align:center;">
@@ -414,36 +656,6 @@
     </p>
   </div>
   </div>
-
-    <div class="side-content" id="side-herramientas">
-      <section>
-        <h2>🛠️ Formateador de Números</h2>
-        <p style="color: var(--text-light); margin-bottom: 1.5rem;">
-          Pega o escribe cualquier número (ej: 1111783.99) y lo convertiremos automáticamente a formato venezolano: <strong>1.111.783,99</strong>.
-        </p>
-
-        <label for="inputNumero">Número sin formato:</label>
-        <input type="text" id="inputNumero" placeholder="Ej: 1111783.99 o 1.111.783,99" 
-               style="width:100%; padding:1rem; font-size:1.1rem; margin-bottom:1rem; border:1px solid #ccc; border-radius:8px;">
-
-        <div style="background:var(--card-bg); padding:1.25rem; border-radius:8px; border:1px solid #eee; margin-bottom:1.5rem;">
-          <label>Formateado (Venezuela):</label>
-          <div id="numeroFormateado" style="font-family:'Space Mono', monospace; font-size:1.5rem; font-weight:600; color:var(--primary); padding:1rem; background:#f9f9f9; border-radius:6px; margin-top:0.5rem;">
-            0,00
-          </div>
-        </div>
-
-        <div style="display:flex; gap:0.75rem; margin-bottom:1.5rem;">
-          <button onclick="copiarFormateado()" style="flex:1; background:#0b57d0; color:white; border:none; border-radius:8px; padding:1rem; font-size:1rem;">📋 Copiar al Portapapeles</button>
-          <button onclick="usarEnCantidad()" style="flex:1; background:#018642; color:white; border:none; border-radius:8px; padding:1rem; font-size:1rem;">💸 Usar en Cantidad</button>
-          <button onclick="usarEnSaldoInicial()" style="flex:1; background:#ff9800; color:white; border:none; border-radius:8px; padding:1rem; font-size:1rem;">🏦 Usar en Saldo Inicial</button>
-        </div>
-
-        <p style="font-size:0.85rem; color:var(--text-light); text-align:center;">
-          ⚠️ Esta herramienta no guarda datos. Solo te ayuda a formatear antes de agregar un movimiento.
-        </p>
-      </section>
-    </div>
 
 </body>
 </html>
