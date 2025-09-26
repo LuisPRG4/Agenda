@@ -53,7 +53,6 @@ body.modo-oscuro {
 
 /* ---------- RESET Y BASE ---------- */
 * { box-sizing: border-box; margin: 0; padding: 0; }
-
 body {
   font-family: 'Roboto', sans-serif;
   background: var(--bg);
@@ -65,7 +64,6 @@ body {
   align-items: center;
   transition: background var(--transition), color var(--transition);
 }
-
 h1 {
   font-weight: 300;
   font-size: 2.25rem;
@@ -86,7 +84,6 @@ section {
   margin-bottom: 1.5rem;
   transition: box-shadow var(--transition);
 }
-
 section:hover {
     box-shadow: var(--shadow-lg);
 }
@@ -170,6 +167,7 @@ li {
   transition: all var(--transition);
   border: 1px solid transparent;
 }
+
 li:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
@@ -285,12 +283,15 @@ li .btn-eliminar:hover {
 .side-tab:hover {
   background: rgba(0,0,0,0.05);
 }
+
 body.modo-oscuro .side-tab:hover {
     background: rgba(255,255,255,0.05);
 }
+
 body.modo-claro .side-tab.active {
     background: var(--primary);
 }
+
 body.modo-oscuro .side-tab.active {
     background: var(--primary);
 }
@@ -321,13 +322,13 @@ body.modo-oscuro .side-tab.active {
     transition: transform var(--transition);
     padding: 0;
 }
+
 #btnToggleLista:hover {
     transform: none;
     background: none;
 }
 
 /* ---------- BASE RESPONSIVE ---------- */
-
 @media (max-width: 900px) {
   body { padding: 1rem; }
   .sidebar {
@@ -386,8 +387,7 @@ body { overflow-wrap: break-word; hyphens: auto; }
     to { opacity: 1; }
 }
 
-/* ✅ CONTROL DE TEXTO EN TABLA DE BANCOS */
-/* Tabla de resumen por banco - Diseño flexible */
+/* ✅ CONTROL DE TEXTO EN TABLA DE BANCOS (VERSIÓN IMPRESIÓN PERFECTA) */
 #tablaBancos {
   width: 100%;
   border-collapse: collapse;
@@ -401,71 +401,28 @@ body { overflow-wrap: break-word; hyphens: auto; }
   padding: 0.75rem;
   text-align: right;
   border-bottom: 1px solid #ddd;
-  word-break: break-all; /* ✅ Rompe palabras largas */
-  white-space: normal; /* ✅ Permite saltos de línea naturales */
-  overflow-wrap: break-word; /* ✅ Evita desbordamientos */
-  overflow: hidden; /* ✅ Oculta lo que se sale */
-  text-overflow: ellipsis; /* ✅ Añade "..." si se corta demasiado */
+  word-break: keep-all;        /* ✅ ¡CLAVE! Evita romper palabras */
+  white-space: nowrap;         /* ✅ ¡CLAVE! Evita saltos de línea */
+  overflow: hidden;            /* ✅ Oculta lo que no cabe */
+  text-overflow: ellipsis;     /* ✅ Muestra "..." si se corta */
+  break-inside: avoid;         /* ✅ Evita romper filas al imprimir */
 }
 
 /* Columna de Banco — ancho fijo para nombres largos */
 #tablaBancos th:first-child,
 #tablaBancos td:first-child {
-  width: 28%; /* ✅ 28% del ancho total para el nombre del banco */
-  text-align: left; /* ✅ Alinear a la izquierda para mejor lectura */
-  font-weight: 500;
-  word-break: break-all;
-  white-space: normal;
-  overflow-wrap: break-word;
-  max-width: 250px; /* ✅ Límite máximo de ancho */
-}
-
-/* Columnas de cantidades — ancho fijo y alineación derecha */
-#tablaBancos th:nth-child(2),
-#tablaBancos td:nth-child(2),
-#tablaBancos th:nth-child(3),
-#tablaBancos td:nth-child(3),
-#tablaBancos th:nth-child(4),
-#tablaBancos td:nth-child(4),
-#tablaBancos th:nth-child(5),
-#tablaBancos td:nth-child(5) {
-  width: 18%; /* ✅ 18% para cada columna de monto */
-  text-align: right;
-  font-family: 'Space Mono', monospace; /* ✅ Fuente monoespaciada para números */
-  letter-spacing: -0.2px;
-}
-
-/* Asegurar que el último td (saldo final) no se vea más ancho */
-#tablaBancos td:last-child {
-  font-weight: 700;
-  text-align: right;
-}
-
-#tablaBancos th,
-#tablaBancos td {
-  padding: 0.75rem;
-  text-align: right;
-  border-bottom: 1px solid #ddd;
-  word-break: break-all; /* ✅ Rompe palabras largas */
-  white-space: normal; /* ✅ Permite saltos de línea */
-  overflow-wrap: break-word; /* ✅ Evita desbordamientos */
-  overflow: hidden; /* ✅ Oculta lo que se sale */
-  text-overflow: ellipsis; /* ✅ Añade "..." si se corta demasiado */
-}
-
-/* ✅ Columna de Banco — ancho fijo para nombres largos */
-#tablaBancos th:first-child,
-#tablaBancos td:first-child {
   width: 28%;
   text-align: left;
   font-weight: 500;
-  word-break: break-all;
-  white-space: normal;
-  overflow-wrap: break-word;
+  font-family: 'Roboto', sans-serif;
+  word-break: keep-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   max-width: 250px;
 }
 
-/* ✅ Columnas de cantidades — ancho fijo y alineación derecha */
+/* Columnas de cantidades — ancho fijo, alineación derecha, fuente monoespaciada */
 #tablaBancos th:nth-child(2),
 #tablaBancos td:nth-child(2),
 #tablaBancos th:nth-child(3),
@@ -476,11 +433,15 @@ body { overflow-wrap: break-word; hyphens: auto; }
 #tablaBancos td:nth-child(5) {
   width: 18%;
   text-align: right;
-  font-family: 'Space Mono', monospace; /* ✅ Fuente monoespaciada para números */
-  letter-spacing: -0.2px;
+  font-family: 'Space Mono', Courier, monospace; /* ✅ Fuente perfecta para números */
+  letter-spacing: -0.1px;
+  word-break: keep-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* ✅ Asegurar que el último td (saldo final) no se vea más ancho */
+/* Asegurar que el último td (saldo final) no se vea más ancho */
 #tablaBancos td:last-child {
   font-weight: 700;
   text-align: right;
@@ -504,9 +465,10 @@ li input[type="text"] {
   font: inherit;
   font-weight: 600;
   color: var(--text);
-  word-break: break-all;
-  white-space: normal;
-  overflow-wrap: break-word;
+  word-break: keep-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   max-width: 100%;
 }
 
@@ -518,9 +480,10 @@ li div:nth-child(3) {
   gap: 0.5rem;
   flex-wrap: wrap;
   align-items: center;
-  word-break: break-all;
-  white-space: normal;
-  overflow-wrap: break-word;
+  word-break: keep-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ✅ Asegurar que los números en el dashboard no se desborden */
@@ -528,7 +491,112 @@ li div:nth-child(3) {
 #totalGeneral,
 #equivalente {
   font-family: 'Space Mono', monospace;
-  word-break: break-all;
-  white-space: normal;
-  overflow-wrap: break-word;
+  word-break: keep-all;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ✅ CALENDARIO VISUAL */
+#calendario {
+  font-size: 0.85rem;
+  margin-bottom: 1.5rem;
+}
+
+#calendario div {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border-radius: 6px;
+  background: #f9f9f9;
+  color: var(--text-light);
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+#calendario div:hover {
+  background: #e8f0fe;
+  transform: scale(1.05);
+}
+
+#calendario div.dia-con-movimiento {
+  background: linear-gradient(135deg, #0b57d0, #5289ed);
+  color: white;
+  font-weight: 600;
+}
+
+#calendario div.dia-con-movimiento::after {
+  content: '';
+  position: absolute;
+  bottom: 0.1rem;
+  width: 0.4rem;
+  height: 0.4rem;
+  background: white;
+  border-radius: 50%;
+}
+
+#calendario div.dia-hoy {
+  border: 2px solid var(--primary);
+  border-radius: 50%;
+  margin: -0.25rem;
+  padding: 0.25rem;
+  background: transparent;
+  color: var(--primary);
+  font-weight: bold;
+}
+
+#calendario div.dia-hoy::after {
+  content: '';
+  position: absolute;
+  bottom: 0.1rem;
+  width: 0.4rem;
+  height: 0.4rem;
+  background: var(--primary);
+  border-radius: 50%;
+}
+
+#calendario div.dia-otro {
+  color: var(--text-light);
+  opacity: 0.5;
+}
+
+#detallesDia {
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ✅ RESPONSIVE */
+@media (max-width: 768px) {
+  #calendario {
+    grid-template-columns: repeat(7, 1fr);
+    font-size: 0.8rem;
+  }
+  #calendario div {
+    padding: 0.15rem;
+  }
+}
+
+/* ✅ ESTILOS PARA LA PESTAÑA DE AHORRO */
+#graficoAhorro {
+  border-radius: 8px;
+  background: var(--card-bg);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 1.5rem;
+}
+
+/* ✅ GRÁFICOS DE COMPARACIÓN DE BANCOS */
+#graficoBarrasApiladas,
+#graficoTortaBancos {
+  border-radius: 8px;
+  background: var(--card-bg);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 1.5rem;
 }
