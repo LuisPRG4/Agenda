@@ -13,6 +13,87 @@ const STORES = {
     SALDO_INICIAL: 'saldo_inicial'
 };
 
+// ======================================================================================
+// ✅ FUNCIONES MODERNAS PARA ALERTAS Y CONFIRMACIONES (Reemplazo de alert() y confirm())
+// ======================================================================================
+
+/**
+ * Función para mostrar notificaciones estilo "Toast" (reemplazo de alert).
+ * @param {string} mensaje - El texto del mensaje.
+ * @param {string} [tipo='info'] - El tipo de mensaje: 'success', 'danger', o 'info'.
+ */
+function mostrarToast(mensaje, tipo = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return; 
+
+    const toast = document.createElement('div');
+    toast.className = `custom-toast ${tipo}`;
+    toast.textContent = mensaje;
+    
+    container.appendChild(toast);
+    
+    // Forzar reflow para que la transición de entrada funcione
+    void toast.offsetWidth; 
+    toast.classList.add('show');
+
+    // Desaparecer después de 3 segundos
+    setTimeout(() => {
+        toast.classList.remove('show');
+        // Eliminar el toast del DOM después de que la transición haya terminado
+        toast.addEventListener('transitionend', () => {
+            toast.remove();
+        }, { once: true });
+    }, 3000);
+}
+
+/**
+ * Función para mostrar un modal de confirmación personalizado (reemplazo de confirm).
+ * @param {string} mensaje - El texto de la pregunta de confirmación.
+ * @returns {Promise<boolean>} - Resuelve a true si se presiona Aceptar, false si se presiona Cancelar.
+ */
+function mostrarConfirmacion(mensaje) {
+    const overlay = document.getElementById('custom-confirm');
+    const messageEl = document.getElementById('confirm-message');
+    const okBtn = document.getElementById('confirm-ok');
+    const cancelBtn = document.getElementById('confirm-cancel');
+
+    // Fallback al nativo si la estructura HTML no existe
+    if (!overlay || !messageEl || !okBtn || !cancelBtn) {
+        return Promise.resolve(window.confirm(mensaje));
+    }
+
+    messageEl.textContent = mensaje;
+    overlay.classList.add('show'); 
+
+    return new Promise(resolve => {
+        const handleResult = (result) => {
+            // Limpiar listeners y ocultar
+            okBtn.removeEventListener('click', onOk);
+            cancelBtn.removeEventListener('click', onCancel);
+            overlay.classList.remove('show');
+            
+            // Resolver la promesa
+            resolve(result);
+        };
+
+        const onOk = () => handleResult(true);
+        const onCancel = () => handleResult(false);
+
+        // Añadir listeners
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+
+        // Permitir cerrar con ESC
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                handleResult(false);
+                document.removeEventListener('keydown', handleEscape);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+    });
+}
+
 // ✅ FUNCIONES PARA FORMATO VENEZOLANO (punto mil, coma decimal)
 function formatNumberVE(num) {
     if (typeof num !== 'number' || isNaN(num)) return '0,00';
@@ -68,9 +149,9 @@ function copiarFormateado() {
     const texto = document.getElementById('numeroFormateado').textContent;
     if (texto === 'Formato inválido' || texto === '0,00') return;
     navigator.clipboard.writeText(texto).then(() => {
-        alert('✅ Copiado al portapapeles: ' + texto);
+        mostrarToast('✅ Copiado al portapapeles: ' + texto, 'success');
     }).catch(() => {
-        alert('❌ No se pudo copiar. Usa Ctrl+C.');
+        mostrarToast('❌ No se pudo copiar. Usa Ctrl+C.', 'danger');
     });
 }
 function usarEnCantidad() {
@@ -79,7 +160,7 @@ function usarEnCantidad() {
     // Convertir de "1.111.783,99" a "1111783.99" para que parseNumberVE lo entienda
     const limpio = formateado.replace(/\./g, '').replace(',', '.');
     document.getElementById('cantidad').value = limpio;
-    alert('✅ Valor aplicado al campo "Cantidad".');
+    mostrarToast('✅ Valor aplicado al campo "Cantidad".', 'success');
     mostrarSideTab('movimientos');
     document.getElementById('cantidad').focus();
 }
@@ -89,7 +170,7 @@ function usarEnSaldoInicial() {
     // Convertir de "1.111.783,99" a "1111783.99" para que parseNumberVE lo entienda
     const limpio = formateado.replace(/\./g, '').replace(',', '.');
     document.getElementById('saldoInicial').value = limpio;
-    alert('✅ Valor aplicado al campo "Saldo Inicial".');
+    mostrarToast('✅ Valor aplicado al campo "Saldo Inicial".', 'success');
     mostrarSideTab('movimientos');
     document.getElementById('saldoInicial').focus();
 }
@@ -290,7 +371,7 @@ async function deleteEntry(storeName, key) {
 
 // ✅ Función para cargar un movimiento en el formulario para editar
 async function cargarMovimientoParaEditar(id) {
-    if (confirm("¿Deseas editar este movimiento?")) {
+    if (await mostrarConfirmacion("¿Deseas editar este movimiento?")) {
         try {
             // Asegurarse de que estamos en la pestaña correcta
             mostrarSideTab('movimientos');
@@ -325,7 +406,7 @@ async function cargarMovimientoParaEditar(id) {
 // ✅ Función para actualizar el movimiento en la base de datos
 async function actualizarMovimiento() {
     if (!idMovimientoEditando) {
-        alert("No hay un movimiento seleccionado para editar.");
+        mostrarToast("No hay un movimiento seleccionado para editar.", 'danger');
         return;
     }
 
@@ -338,7 +419,7 @@ async function actualizarMovimiento() {
 
     // ✅ AÑADE ESTA VALIDACIÓN JUSTO ABAJO
     if (isNaN(cantidad) || cantidad <= 0) {
-    alert('Ingresa una cantidad válida mayor a 0.');
+        mostrarToast('Ingresa una cantidad válida mayor a 0.', 'danger');
     return;
     }
 
@@ -368,16 +449,16 @@ async function actualizarMovimiento() {
         await updateEntry(STORES.MOVIMIENTOS, movimientoActualizado);
         await renderizar();
         limpiarForm();
-        alert("Movimiento actualizado con éxito.");
+        mostrarToast("Movimiento actualizado con éxito.", 'success');
     } catch (error) {
         console.error("Error al actualizar movimiento:", error);
-        alert("Error al actualizar el movimiento. Intenta de nuevo.");
+        mostrarToast("Error al actualizar el movimiento. Intenta de nuevo.", 'danger');
     }
 }
 
 // ✅ Función para cancelar la edición con confirmación
-function cancelarEdicion() {
-    if (confirm("¿Estás seguro de que quieres cancelar la edición? Los cambios no se guardarán.")) {
+async function cancelarEdicion() {
+    if (await mostrarConfirmacion("¿Estás seguro de que quieres cancelar la edición? Los cambios no se guardarán.")) {
         limpiarForm();
         idMovimientoEditando = null;
     }
@@ -385,15 +466,15 @@ function cancelarEdicion() {
 
 // ✅ Función para eliminar un movimiento con confirmación
 async function eliminarMovimiento(id) {
-    if (confirm("¿Estás seguro de que quieres eliminar este movimiento?")) {
+    if (await mostrarConfirmacion("¿Estás seguro de que quieres eliminar este movimiento?")) {
         try {
             await deleteEntry(STORES.MOVIMIENTOS, id);
             await renderizar();
             await actualizarSaldo();
-            alert("Movimiento eliminado con éxito.");
+            mostrarToast("Movimiento eliminado con éxito.", 'success');
         } catch (error) {
             console.error("Error al eliminar el movimiento:", error);
-            alert("Error al eliminar el movimiento. Intenta de nuevo.");
+            mostrarToast("Error al eliminar el movimiento. Intenta de nuevo.", 'danger');
         }
     }
 }
@@ -417,7 +498,7 @@ async function agregarMovimiento() {
 
   // Validación básica
   if (!concepto || !banco || !fechaInput) {
-    alert('Por favor, completa el concepto, el banco y la fecha.');
+    mostrarToast('Por favor, completa el concepto, el banco y la fecha.', 'danger');
     return;
   }
 
@@ -425,14 +506,14 @@ async function agregarMovimiento() {
  if (tipo === 'saldo_inicial') {
     const saldoInicial = parseNumberVE(document.getElementById('saldoInicial').value); // ✅ CAMBIO CLAVE
     if (isNaN(saldoInicial) || saldoInicial <= 0) {
-        alert('Ingresa un saldo inicial válido mayor a 0.');
+        mostrarToast('Ingresa un saldo inicial válido mayor a 0.', 'danger');
         return;
     }
     monto = saldoInicial;
  } else {
     const cantidad = parseNumberVE(document.getElementById('cantidad').value);
     if (isNaN(cantidad) || cantidad <= 0) {
-        alert('Ingresa una cantidad válida mayor a 0.');
+        mostrarToast('Ingresa una cantidad válida mayor a 0.', 'danger');
         return;
     }
     monto = cantidad;
@@ -486,17 +567,17 @@ async function agregarMovimiento() {
                         renderizar();
                         actualizarSaldo();
                         limpiarForm();
-                        alert("✅ Movimiento agregado con éxito.");
+                        mostrarToast("✅ Movimiento agregado con éxito.", 'success');
                         resolve();
                     })
                     .catch(error => {
                         console.error("Error al agregar movimiento:", error);
-                        alert("Error al guardar el movimiento.");
+                        mostrarToast("Error al guardar el movimiento.", 'danger');
                         reject(error);
                     });
             };
             reader.onerror = () => {
-                alert("❌ Error al leer el archivo.");
+                mostrarToast("❌ Error al leer el archivo.", 'danger');
                 reject(new Error("Error al leer el archivo"));
             };
             reader.readAsDataURL(file); // Convierte a base64
@@ -511,11 +592,11 @@ async function agregarMovimiento() {
         await renderizar();
         await actualizarSaldo();
         limpiarForm();
-        alert("✅ Movimiento agregado con éxito.");
+        mostrarToast("✅ Movimiento agregado con éxito.", 'success');
     }
   } catch (error) {
     console.error("Error al agregar movimiento:", error);
-    alert("Error al guardar el movimiento.");
+    mostrarToast("Error al guardar el movimiento.", 'danger');
   }
 }
 
