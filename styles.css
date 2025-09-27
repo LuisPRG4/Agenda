@@ -627,3 +627,138 @@ li div:nth-child(3) {
 .side-content.active {
     display: block;
 }
+
+/* Archivo: styles.txt */
+
+/* ---------------------------------------------------------------------------------- */
+/* ---------- ESTILOS PARA ALERTAS Y CONFIRMACIONES MODERNAS (TOASTS Y MODALES) ----- */
+/* ---------------------------------------------------------------------------------- */
+
+/* Contenedor de Toasts (Notificaciones) */
+#toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2000; /* Alto para que esté por encima de todo */
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none; /* Permite clicks a través del contenedor */
+}
+
+.custom-toast {
+  padding: 1rem 1.5rem;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  color: var(--card-bg); /* Texto claro, asume que el fondo del toast es oscuro */
+  font-weight: 500;
+  opacity: 0;
+  transform: translateX(100%);
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+  pointer-events: auto; /* Permite interactuar con el toast si es necesario */
+  max-width: 300px;
+}
+
+.custom-toast.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.custom-toast.success {
+  background-color: var(--success); /* Verde para éxito */
+}
+
+.custom-toast.danger {
+  background-color: var(--danger); /* Rojo para errores */
+}
+
+.custom-toast.info {
+  background-color: var(--primary); /* Azul para información general */
+}
+
+/* Modal de Confirmación (Overlay) */
+.custom-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1500; /* Por encima de todo, pero debajo del toast */
+  display: none; /* Inicialmente oculto */
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(2px);
+  transition: background 0.3s ease;
+}
+
+.custom-modal-overlay.show {
+  display: flex;
+}
+
+/* Contenido del Modal de Confirmación */
+.custom-modal-content {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 2rem;
+  width: 90%;
+  max-width: 400px;
+  text-align: left; /* Ajustado para mejor lectura */
+  transform: scale(0.9);
+  opacity: 0;
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+}
+
+.custom-modal-overlay.show .custom-modal-content {
+  transform: scale(1);
+  opacity: 1;
+}
+
+#confirm-message {
+  color: var(--text);
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end; /* Botones a la derecha */
+  gap: 10px;
+  margin-top: 20px;
+}
+
+/* Estilos de botones */
+.btn-aceptar, .btn-cancelar {
+  padding: 0.75rem 1.25rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition), opacity var(--transition);
+}
+
+.btn-aceptar {
+  background: var(--primary);
+  color: white;
+}
+.btn-aceptar:hover {
+  background: var(--primary-light);
+}
+
+.btn-cancelar {
+  background: transparent;
+  color: var(--text-light);
+}
+.btn-cancelar:hover {
+  background: rgba(var(--text-light-rgb), 0.1); /* Usar un color más claro para el hover */
+}
+/* Estilo específico para el modo oscuro en el botón cancelar */
+body.modo-oscuro .btn-cancelar, 
+body:not(.modo-claro):not(.modo-oscuro) .btn-cancelar {
+  color: var(--text);
+}
+body.modo-oscuro .btn-cancelar:hover, 
+body:not(.modo-claro):not(.modo-oscuro) .btn-cancelar:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
