@@ -1019,6 +1019,9 @@ function mostrarSideTab(id) {
         case 'comparacion':
             renderizarComparacionBancos();
             break;
+        case 'cambios':
+            // Aquí puedes añadir cualquier lógica específica para la pestaña de cambios si es necesario
+            break;
     }
 }
 
