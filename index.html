@@ -22,6 +22,7 @@
       <button class="side-tab" onclick="mostrarSideTab('presupuesto')">💰 Presupuesto</button>
       <button class="side-tab" onclick="mostrarSideTab('herramientas')">🛠️ Herramientas</button>
       <button class="side-tab" onclick="mostrarSideTab('calendario')">📅 Calendario</button>
+      <button class="side-tab" onclick="mostrarSideTab('cambios')">📝 Cambios</button>
       <button class="side-tab" onclick="mostrarSideTab('config')">⚙️ Config</button>
     </nav>
 
@@ -393,102 +394,17 @@
   </section>
 </div>
 
-<div class="side-content" id="side-ahorro">
-  <section>
-    <h2>📈 Ahorro Mensual</h2>
-    <p style="color: var(--text-light); margin-bottom: 1.5rem;">
-      Basado en tus movimientos de los últimos 3 meses, te mostramos tu tendencia real.
-    </p>
-
-    <!-- Resumen -->
-    <div style="background:var(--card-bg); padding:1.5rem; border-radius:8px; border:1px solid #eee; margin-bottom:2rem;">
-      <h3 style="margin-bottom:1rem; color:var(--primary);">Tendencia de los últimos 3 meses</h3>
-      <div style="display:flex; flex-wrap:wrap; gap:1.5rem; margin-bottom:1.5rem;">
-        <div style="flex:1; min-width:200px; text-align:center; padding:1rem; border-radius:8px; background:#f0f7ff;">
-          <div style="font-size:0.85rem; color:var(--text-light);">Ingresos promedio</div>
-          <div id="ingresosPromedio" style="font-size:1.5rem; font-weight:600; color:#018642; margin-top:0.5rem;">Bs. 0,00</div>
-        </div>
-        <div style="flex:1; min-width:200px; text-align:center; padding:1rem; border-radius:8px; background:#fff0f0;">
-          <div style="font-size:0.85rem; color:var(--text-light);">Gastos promedio</div>
-          <div id="gastosPromedio" style="font-size:1.5rem; font-weight:600; color:#b00020; margin-top:0.5rem;">Bs. 0,00</div>
-        </div>
-        <div style="flex:1; min-width:200px; text-align:center; padding:1rem; border-radius:8px; background:#f0fff0;">
-          <div style="font-size:0.85rem; color:var(--text-light);">Ahorro mensual</div>
-          <div id="ahorroPromedio" style="font-size:1.5rem; font-weight:600; color:#0b57d0; margin-top:0.5rem;">Bs. 0,00</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Simulador -->
-    <h3>💡 Simulador: ¿Qué pasa si reduzco mis gastos?</h3>
-    <div style="margin-bottom:1.5rem;">
-      <label for="reduccionGastos">Reducción de gastos:</label>
-      <select id="reduccionGastos" style="width:100%; padding:0.75rem; border-radius:8px; border:1px solid #ccc; margin-bottom:1rem;">
-        <option value="0">Ninguna (0%)</option>
-        <option value="10">10%</option>
-        <option value="20">20%</option>
-        <option value="30">30%</option>
-        <option value="40">40%</option>
-        <option value="50">50%</option>
-      </select>
-    </div>
-
-    <div style="background:var(--card-bg); padding:1.5rem; border-radius:8px; border:1px solid #eee; margin-bottom:2rem;">
-      <h4 style="margin-bottom:1rem; color:var(--primary);">Resultado de la simulación</h4>
-      <div style="display:flex; flex-wrap:wrap; gap:1.5rem; margin-bottom:1.5rem;">
-        <div style="flex:1; min-width:200px; text-align:center; padding:1rem; border-radius:8px; background:#f0f7ff;">
-          <div style="font-size:0.85rem; color:var(--text-light);">Ingresos</div>
-          <div id="ingresosSimulado" style="font-size:1.5rem; font-weight:600; color:#018642; margin-top:0.5rem;">Bs. 0,00</div>
-        </div>
-        <div style="flex:1; min-width:200px; text-align:center; padding:1rem; border-radius:8px; background:#fff0f0;">
-          <div style="font-size:0.85rem; color:var(--text-light);">Gastos simulados</div>
-          <div id="gastosSimulado" style="font-size:1.5rem; font-weight:600; color:#b00020; margin-top:0.5rem;">Bs. 0,00</div>
-        </div>
-        <div style="flex:1; min-width:200px; text-align:center; padding:1rem; border-radius:8px; background:#f0fff0;">
-          <div style="font-size:0.85rem; color:var(--text-light);">Ahorro simulado</div>
-          <div id="ahorroSimulado" style="font-size:1.5rem; font-weight:600; color:#0b57d0; margin-top:0.5rem;">Bs. 0,00</div>
-        </div>
-      </div>
-      <p style="font-size:0.85rem; color:var(--text-light); text-align:center;">
-        🚀 ¡Reducir gastos es la clave para crecer financieramente!
-      </p>
-    </div>
-
-    <!-- Gráfico de tendencia -->
-    <h3>📊 Tendencia mensual (últimos 3 meses)</h3>
-    <canvas id="graficoAhorro" height="150"></canvas>
-
-    <!-- Nota explicativa -->
-    <p style="font-size:0.85rem; color:var(--text-light); margin-top:2rem; text-align:center;">
-      ⚠️ Esta calculadora usa solo tus movimientos de los últimos 3 meses.  
-      Cuantos más movimientos tengas, más precisa será la estimación.
-    </p>
+<!-- Cambios y actualizaciones-->
+<div class="side-content" id="side-cambios">
+  <section id="cambios">
+    <h2>Cambios y Actualizaciones</h2>
+    <ul>
+      <li>Versión 1.0.1: Corrección de errores en el modo literal de entrada de números.</li>
+      <li>Versión 1.0.2: Mejora en la interfaz de usuario para la gestión de movimientos.</li>
+      <!-- Añade más elementos según sea necesario -->
+    </ul>
   </section>
 </div>
-
-  <div class="side-content" id="side-comparacion">
-  <section>
-    <h2>🏦 Comparación de Bancos</h2>
-    <p style="color: var(--text-light); margin-bottom: 1.5rem;">
-      Visualiza cómo se comportan tus bancos: ingresos, gastos y saldo final.
-    </p>
-
-    <!-- Gráfico de Barras Apiladas -->
-    <h3>📊 Ingresos, Gastos y Saldo por Banco</h3>
-    <canvas id="graficoBarrasApiladas" height="200"></canvas>
-
-    <!-- Gráfico de Torta (Saldo Total por Banco) -->
-    <h3>🥧 Porcentaje del Saldo Total por Banco</h3>
-    <canvas id="graficoTortaBancos" height="200"></canvas>
-
-    <!-- Nota explicativa -->
-    <p style="font-size:0.85rem; color:var(--text-light); margin-top:2rem; text-align:center;">
-      📌 Estos gráficos se actualizan automáticamente con tus movimientos.  
-      ¡Verás qué banco es tu aliado y cuál es tu mayor gasto!
-    </p>
-  </section>
-</div>
-
 
     <div class="side-content" id="side-config">
       <section id="panelReglas">
@@ -638,8 +554,9 @@
 
   <script src="chart.umd.min.js?v=20250927"></script>
   <script src="xlsx.full.min.js?v=20250927"></script>
-  <script src="app.js?v=20250927"></script>
   <script src="equivalente-calculator.js"></script>
+  <script src="app.js?v=20250927"></script>
+  
   
   <!-- Modal de bloqueo -->
   <div id="modalBloqueo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1001; justify-content:center; align-items:center;">
