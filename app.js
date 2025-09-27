@@ -102,26 +102,48 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ✅ FUNCIONES PARA LA HERRAMIENTA DE FORMATO DE NÚMEROS
+
+// ✅ Función para mostrar números según el modo de entrada configurado
+function displayNumber(num, textoOriginal = null) {
+    const modo = localStorage.getItem('numeroModo') || 'automatico';
+    
+    if (modo === 'literal') {
+        // En modo literal, mostrar el texto original si existe
+        if (textoOriginal) {
+            return textoOriginal;
+        }
+        // Si no hay texto original, mostrar el número como string
+        return num.toString();
+    } else {
+        // En modo automático, usar el formato venezolano estándar
+        return formatNumberVE(num);
+    }
+}
+
 function parseNumberVE(str) {
     if (!str || typeof str !== 'string') return 0;
 
-    // ✅ OBTENER EL MODO DE ENTRADA GUARDADO
     const modo = localStorage.getItem('numeroModo') || 'automatico';
 
-    // ✅ MODO LITERAL: Guardar tal cual, sin transformación
     if (modo === 'literal') {
-        // Solo limpiar espacios y validar que sea un número válido
-        const cleaned = str.trim().replace(/ /g, '');
-        // Permitir solo dígitos, punto decimal, y signo negativo
-        if (!/^-?\d*\.?\d*$/.test(cleaned)) {
-            return 0; // Si no es un número válido, devolver 0
+        let cleaned = str.trim().replace(/ /g, '');
+        
+        const regex = /^-?\d+(?:[.,]\d+)?$/;
+        if (!regex.test(cleaned)) return 0;
+
+        if (cleaned.includes('.')) {
+            return parseFloat(cleaned);
         }
-        return parseFloat(cleaned) || 0;
+
+        if (cleaned.includes(',')) {
+            cleaned = cleaned.replace(',', '.');
+            return parseFloat(cleaned);
+        }
+
+        return parseFloat(cleaned);
     }
 
-    // ✅ MODO AUTOMÁTICO: Comportamiento original
-    // Eliminar puntos (separadores de miles) y reemplazar coma por punto
-    const cleaned = str.replace(/\./g, '').replace(',', '.');
+    let cleaned = str.replace(/\./g, '').replace(',', '.');
     const num = parseFloat(cleaned);
     return isNaN(num) ? 0 : num;
 }
@@ -320,17 +342,27 @@ async function actualizarMovimiento() {
     return;
     }
 
-    const movimientoActualizado = {
-    id: idMovimientoEditando,
-    concepto: concepto,
-    cantidad: cantidad,
-    tipo: tipo,
-    categoria: categoria,
-    fecha: fecha.toISOString(),
-    banco: banco,
-    // ✅ Recalcular comisión si es gasto, o poner 0 si no lo es
-    comision: tipo === 'gasto' ? (cantidad * 0.003) : 0
-};
+        // ✅ OBTENER EL TEXTO ORIGINAL EN MODO LITERAL
+        const modo = localStorage.getItem('numeroModo') || 'automatico';
+        let textoOriginal = null;
+        
+        if (modo === 'literal') {
+          textoOriginal = document.getElementById('cantidad').value;
+        }
+    
+        const movimientoActualizado = {
+        id: idMovimientoEditando,
+        concepto: concepto,
+        cantidad: cantidad,
+        tipo: tipo,
+        categoria: categoria,
+        fecha: fecha.toISOString(),
+        banco: banco,
+        // ✅ NUEVO: Guardar texto original para modo literal
+        textoOriginal: textoOriginal,
+        // ✅ Recalcular comisión si es gasto, o poner 0 si no lo es
+        comision: tipo === 'gasto' ? (cantidad * 0.003) : 0
+    };
 
     try {
         await updateEntry(STORES.MOVIMIENTOS, movimientoActualizado);
@@ -406,19 +438,33 @@ async function agregarMovimiento() {
     monto = cantidad;
  }
 
-  // Crear movimiento
-  const movimiento = {
-    concepto: tipo === 'saldo_inicial'
-      ? `${concepto} (Saldo inicial: ${banco})`
-      : concepto,
-    cantidad: monto,
-    tipo: tipo === 'saldo_inicial' ? 'ingreso' : tipo,
-    categoria: categoria || 'Sin categoría',
-    fecha: new Date(fechaInput + 'T12:00:00').toISOString(),
-    banco: banco,
-    // ✅ NUEVO: Calcular y guardar la comisión solo una vez
-    comision: tipo === 'gasto' ? (monto * 0.003) : 0
- };
+    // ✅ OBTENER EL TEXTO ORIGINAL EN MODO LITERAL
+    const modo = localStorage.getItem('numeroModo') || 'automatico';
+    let textoOriginal = null;
+    
+    if (modo === 'literal') {
+      if (tipo === 'saldo_inicial') {
+        textoOriginal = document.getElementById('saldoInicial').value;
+      } else {
+        textoOriginal = document.getElementById('cantidad').value;
+      }
+    }
+  
+    // Crear movimiento
+    const movimiento = {
+      concepto: tipo === 'saldo_inicial'
+        ? `${concepto} (Saldo inicial: ${banco})`
+        : concepto,
+      cantidad: monto,
+      tipo: tipo === 'saldo_inicial' ? 'ingreso' : tipo,
+      categoria: categoria || 'Sin categoría',
+      fecha: new Date(fechaInput + 'T12:00:00').toISOString(),
+      banco: banco,
+      // ✅ NUEVO: Guardar texto original para modo literal
+      textoOriginal: textoOriginal,
+      // ✅ NUEVO: Calcular y guardar la comisión solo una vez
+      comision: tipo === 'gasto' ? (monto * 0.003) : 0
+   };
 
      // ✅ CAPTURAR RECIBO (si se subió)
     const fileInput = document.getElementById('recibo');
@@ -585,7 +631,7 @@ async function renderizar() {
         ${comision ? `<div style="font-size:.8rem; color:#b00020; margin-top:0.25rem;">Comisión: ${comision} Bs</div>` : ''}
     </div>
     <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">
-        <span style="font-weight:500; color:var(--text); font-size:1rem;">${formatNumberVE(m.cantidad)} Bs</span>
+                <span style="font-weight:500; color:var(--text); font-size:1rem;">${displayNumber(m.cantidad, m.textoOriginal)} Bs</span>
         <button class="btn-editar" data-id="${m.id}" style="padding:.25rem; font-size:.8rem; background:#0b57d0; color:white; border-radius:50%; border:none; cursor:pointer; width:auto;">✏️</button>
 
                 ${m.recibo ? `
@@ -3071,6 +3117,32 @@ async function actualizarDashboard() {
         avisoComision.style.display = saldoTotal > 0 ? 'block' : 'none';
     }
 }
+
+// ✅ Event listener para los radio buttons del modo de entrada de números
+document.addEventListener('DOMContentLoaded', function() {
+    // Event listener para los radio buttons del modo de entrada
+    const radioButtons = document.querySelectorAll('input[name="numeroModo"]');
+    radioButtons.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.checked) {
+                localStorage.setItem('numeroModo', this.value);
+                console.log('Modo de entrada cambiado a:', this.value);
+                
+                // Mostrar confirmación al usuario
+                const modoTexto = this.value === 'automatico' ? 'Automático' : 'Literal';
+                alert(`✅ Modo de entrada cambiado a: ${modoTexto}`);
+            }
+        });
+    });
+    
+    // Cargar el modo guardado al iniciar
+    const modoGuardado = localStorage.getItem('numeroModo') || 'automatico';
+    const radioGuardado = document.getElementById(modoGuardado === 'automatico' ? 'modoAutomatico' : 'modoLiteral');
+    if (radioGuardado) {
+        radioGuardado.checked = true;
+    }
+});
+
 
 // ------------------------------------------------------------------------------------------------------------------------------------
 //                                 Inicialización y Event Listeners
