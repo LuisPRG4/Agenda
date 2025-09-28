@@ -58,6 +58,10 @@
   💡 Este saldo incluye una comisión del 0.3% aplicada automáticamente a cada gasto.
   </p>
 
+  <div style="text-align: center; margin-top: 1rem; font-size: 0.875rem; color: var(--text-light);">
+    <span>Versión del sistema: </span><span id="versionDashboard" style="font-weight: 600; color: var(--primary);">1.0.3</span>
+</div>
+
   <p style="font-size:0.85rem; color:var(--text-light); margin-top:0.5rem;">
   📁 <strong>¿Cuidas tus datos?</strong> Haz un backup: <a href="#" onclick="exportarBackup()" style="color:var(--primary); text-decoration:underline;">Exportar</a>
   </p>
@@ -443,6 +447,11 @@
     <section id="cambios">
 
     <h2>Cambios y Actualizaciones</h2>
+
+    <p style="text-align: center; margin-bottom: 1.5rem; font-size: 0.875rem; color: var(--text-light);">
+      Versión actual del sistema: <span id="versionActual" style="font-weight: 600; color: var(--primary);">1.0.3</span>
+  </p>
+
     <ul>
       <li>Versión 1.0.1: Corrección de errores en el modo literal de entrada de números.</li>
       <li>Versión 1.0.2: Mejora en la interfaz de usuario para la gestión de movimientos.</li>
@@ -461,6 +470,13 @@
 <div class="side-content" id="side-config">
   <div class="sidebar-content">
     <section id="panelReglas">
+
+      <div style="text-align: center; margin-bottom: 1.5rem; padding: 1rem; background: var(--card-bg); border-radius: var(--radius); border: 1px solid var(--text-light);">
+        <h3 style="margin: 0 0 0.5rem 0; color: var(--text);">Sistema de Finanzas Personales</h3>
+        <p style="margin: 0; font-size: 0.875rem; color: var(--text-light);">
+            Versión <span id="versionConfig" style="font-weight: 600; color: var(--primary);">1.0.3</span>
+        </p>
+      </div>
 
         <h2>Reglas de automatización</h2>
         <ul id="listaReglas"></ul>
