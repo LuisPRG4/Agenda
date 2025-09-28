@@ -229,6 +229,9 @@ function parseNumberVE(str) {
     return isNaN(num) ? 0 : num;
 }
 
+//Versión del sistema:
+const APP_VERSION = '1.0.3';
+
 // Configuración de paginación
 const MOVIMIENTOS_POR_PAGINA = 10;          // para la lista general
 let paginaActual = 1;
@@ -1110,12 +1113,26 @@ function mostrarSideTab(id) {
         case 'ahorro':
             calcularAhorroMensual();
             break;
-        case 'comparacion':
-            renderizarComparacionBancos();
-            break;
-        case 'cambios':
+            case 'comparacion':
+                renderizarComparacionBancos();
+                break;
+                // ✅ MOSTRAR VERSIÓN EN EL PANEL DE CONFIGURACIÓN
+                const versionElementConfig = document.getElementById('versionConfig');
+                if (versionElementConfig) {
+                    versionElementConfig.textContent = APP_VERSION;
+                }
+            case 'cambios':
+            mostrarVersionEnCambios();
             // Aquí puedes añadir cualquier lógica específica para la pestaña de cambios si es necesario
             break;
+    }
+
+    function mostrarVersionEnCambios() {
+        // ✅ MOSTRAR VERSIÓN EN LA PESTAÑA DE CAMBIOS
+        const elementosVersion = document.querySelectorAll('#versionActual');
+        elementosVersion.forEach(el => {
+            el.textContent = APP_VERSION;
+        });
     }
 }
 
@@ -3199,6 +3216,13 @@ document.addEventListener('DOMContentLoaded', function() {
 //ACTUALIZAR EL DASHBOARD DINÁMICAMENTE:
 // ✅ ACTUALIZAR TODO EL DASHBOARD EN TIEMPO REAL
 async function actualizarDashboard() {
+
+    // ✅ MOSTRAR VERSIÓN EN EL DASHBOARD
+    const versionElement = document.getElementById('versionDashboard');
+    if (versionElement) {
+        versionElement.textContent = APP_VERSION;
+    }
+
     // 1. Actualizar saldo
     await actualizarSaldo();
 
