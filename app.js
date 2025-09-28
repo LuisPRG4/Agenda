@@ -825,6 +825,9 @@ async function guardarCambio(id, campo, valor) {
 
 async function cargarSelectBancos() {
     const bancos = (await getAllEntries(STORES.BANCOS)).map(b => b.nombre);
+    // ✅ ORDENAR ALFABÉTICAMENTE
+    bancos.sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+    
     const select = document.getElementById('banco');
     // Conservamos "(Sin banco)" y "+ Nuevo..." si existen
     const sinBancoOpt = select.querySelector('option[value=""]');
@@ -846,6 +849,8 @@ async function cargarSelectBancos() {
 async function renderizarResumenBancos() {
     const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
     const bancos = [...new Set(movimientos.map(m => (m.banco && typeof m.banco === 'string' ? m.banco : '(Sin banco)')))];
+    // ✅ ORDENAR ALFABÉTICAMENTE
+    bancos.sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
 
     const selectFiltro = document.getElementById('filtroBanco');
     const actual = selectFiltro.value;
@@ -1203,6 +1208,9 @@ async function agregarCategoria() {
 
 async function actualizarSelectCategorias() {
     const cats = (await getAllEntries(STORES.CATEGORIAS)).map(c => c.nombre);
+    // ✅ ORDENAR ALFABÉTICAMENTE (ignorando mayúsculas/minúsculas)
+    cats.sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+    
     const select = document.getElementById('categoria');
     const optOtro = select.options[select.options.length - 1];
     while (select.options.length > 2) select.remove(1);
@@ -1250,6 +1258,9 @@ async function eliminarCategoria() {
 async function cargarSelectEliminarCategorias() {
     const select = document.getElementById('selectEliminarCategoria');
     const categorias = (await getAllEntries(STORES.CATEGORIAS)).map(c => c.nombre);
+    // ✅ ORDENAR ALFABÉTICAMENTE
+    categorias.sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+    
     while (select.options.length > 1) {
         select.remove(1);
     }
@@ -1259,6 +1270,7 @@ async function cargarSelectEliminarCategorias() {
         opt.textContent = cat;
         select.appendChild(opt);
     });
+    
     const botonEliminar = document.querySelector('[onclick="eliminarCategoria()"]');
     if (categorias.length === 0) {
         botonEliminar.disabled = true;
@@ -1327,6 +1339,9 @@ async function eliminarBanco() {
 async function cargarSelectEliminarBancos() {
     const select = document.getElementById('selectEliminarBanco');
     const bancos = (await getAllEntries(STORES.BANCOS)).map(b => b.nombre);
+    // ✅ ORDENAR ALFABÉTICAMENTE
+    bancos.sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+    
     while (select.options.length > 1) {
         select.remove(1);
     }
@@ -1341,6 +1356,9 @@ async function cargarSelectEliminarBancos() {
 async function cargarSelectBancoRegla() {
     const select = document.getElementById('txtBancoRegla');
     const bancos = (await getAllEntries(STORES.BANCOS)).map(b => b.nombre);
+    // ✅ ORDENAR ALFABÉTICAMENTE
+    bancos.sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+    
     const cualquierBanco = select.options[0];
     const nuevoOpt = select.options[select.options.length - 1];
     select.innerHTML = '';
@@ -1566,6 +1584,9 @@ function cerrarModalReporte() {
 
 async function mostrarSeleccionCategoria() {
     const categorias = await getAllEntries(STORES.CATEGORIAS);
+    // ✅ ORDENAR ALFABÉTICAMENTE
+    categorias.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+    
     const select = document.getElementById('selectCategoriaReporte');
     select.innerHTML = '<option value="">Selecciona una categoría</option>';
     categorias.forEach(c => {
