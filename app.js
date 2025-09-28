@@ -230,8 +230,14 @@ function parseNumberVE(str) {
 }
 
 // Configuración de paginación
-const MOVIMIENTOS_POR_PAGINA = 10;
+const MOVIMIENTOS_POR_PAGINA = 10;          // para la lista general
 let paginaActual = 1;
+
+/* ----------  CALENDARIO TARJETAS  ---------- */
+/* ----------  PAGINACIÓN  ---------- */
+const MOVIMIENTOS_POR_PAGINA_CAL = 6;     // para el calendario
+let paginaActualCal = 1;
+let fechaCalendarioSeleccionada = '';
 
 // ✅ Variable global para guardar el ID del movimiento que se está editando
 let idMovimientoEditando = null; 
@@ -671,8 +677,10 @@ async function renderizar() {
     listaFiltrada.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
     // Paginación
+    // Paginación
     const totalMovimientos = listaFiltrada.length;
     const totalPaginas = Math.ceil(totalMovimientos / MOVIMIENTOS_POR_PAGINA);
+    let paginaActual = 1; // ✅ AGREGAR ESTA LÍNEA
     paginaActual = Math.min(paginaActual, totalPaginas || 1);
     paginaActual = Math.max(paginaActual, 1);
 
@@ -1460,7 +1468,7 @@ async function actualizarPresupuesto() {
     }
 
     // Renderizar detalles
-    renderizarDetallesPresupuesto(gastosUltimos30Dias);
+    renderizarPresupuestoTarjetas();
 }
 
 function renderizarDetallesPresupuesto(gastos) {
@@ -2745,40 +2753,53 @@ async function renderizarCalendario() {
 }
 
 // Mostrar movimientos de un día específico
+/* ----------  MOSTRAR MOVIMIENTOS DEL DÍA CON TARJETAS  ---------- */
 async function mostrarMovimientosDia(fechaStr) {
-    const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
-    const movimientosDia = movimientos.filter(m => {
-        const mFecha = new Date(m.fecha).toISOString().split('T')[0];
-        return mFecha === fechaStr;
-    });
-    const lista = document.getElementById('listaMovimientosDia');
-    lista.innerHTML = '';
-    if (movimientosDia.length === 0) {
-        lista.innerHTML = '<li style="color:var(--text-light); padding:0.75rem;">No hay movimientos este día.</li>';
-    } else {
-        movimientosDia.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).forEach(m => {
-            const li = document.createElement('li');
-            const tipo = m.tipo === 'ingreso' ? '+' : '-';
-            const color = m.tipo === 'ingreso' ? 'var(--success)' : 'var(--danger)';
-            li.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; border-bottom:1px solid #eee;">
-                    <div style="flex:1;">
-                        <strong>${m.concepto}</strong><br>
-                        <small style="color:var(--text-light);">${m.categoria || 'Sin categoría'} • ${m.banco || '(Sin banco)'}</small>
-                    </div>
-                    <div style="font-weight:600; color:${color};">
-                        ${tipo} Bs. ${formatNumberVE(m.cantidad)}
-                    </div>
-                </div>
-            `;
-            lista.appendChild(li);
-        });
+    fechaCalendarioSeleccionada = fechaStr;
+  
+    const container = document.getElementById('listaMovimientosDia');
+    container.innerHTML = '';
+  
+    // Cargar todos los movimientos una sola vez (si no están cargados)
+    if (!window.movimientosCalendario) {
+      window.movimientosCalendario = await getAllEntries(STORES.MOVIMIENTOS);
     }
-    // ✅ Eliminar el título de fecha completa
-    // document.getElementById('diaSeleccionado').textContent = `${diaNombre}, ${diaNumero} de ${mesNombre} ${anio}`;
-    // ✅ No mostramos el título de fecha, solo la lista
+  
+    // Filtrar por día
+    const movimientosDia = window.movimientosCalendario.filter(m =>
+      new Date(m.fecha).toISOString().startsWith(fechaStr)
+    ).sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  
+    const totalPaginas = Math.ceil(movimientosDia.length / MOVIMIENTOS_POR_PAGINA_CAL);
+    paginaActualCal = Math.min(paginaActualCal, totalPaginas || 1);
+  
+    const inicio = (paginaActualCal - 1) * MOVIMIENTOS_POR_PAGINA_CAL;
+    const fin = inicio + MOVIMIENTOS_POR_PAGINA_CAL;
+    const pagina = movimientosDia.slice(inicio, fin);
+  
+    // Crear grid de tarjetas
+    const grid = document.createElement('div');
+    grid.className = 'calendario-grid';
+  
+    pagina.forEach(mov => {
+      const tarjeta = document.createElement('div');
+      tarjeta.className = 'tarjeta-mov-dia';
+      tarjeta.innerHTML = `
+        <div class="mov-emoji">${mov.tipo === 'ingreso' ? '💰' : '💸'}</div>
+        <div class="mov-concepto">${mov.concepto}</div>
+        <div class="mov-monto ${mov.tipo}">Bs. ${formatNumberVE(mov.cantidad)}</div>
+        <div class="mov-hora">${new Date(mov.fecha).toLocaleTimeString('es-VE', {hour:'2-digit', minute:'2-digit'})}</div>
+        <div class="mov-banco">${mov.banco || ''}</div>
+      `;
+      grid.appendChild(tarjeta);
+    });
+  
+    container.appendChild(grid);
+  
+    // Paginación
+    renderizarPaginacionCalendario(totalPaginas);
     document.getElementById('detallesDia').style.display = 'block';
-}
+  }
 
 // Cambiar de mes
 function cambiarMes(diferencia) {
@@ -2911,13 +2932,6 @@ function renderizarGraficoAhorro(porMes) {
         }
     });
 }
-
-// ✅ Escuchar cambios en el select de reducción
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('reduccionGastos').addEventListener('change', function() {
-        actualizarSimulacion(parseFloat(this.value));
-    });
-});
 
 // ✅ ELIMINAR TODOS LOS MOVIMIENTOS (con confirmación)
 async function eliminarTodosLosMovimientos() {
@@ -3248,6 +3262,158 @@ if (window.innerWidth <= 900) {
   document.body.appendChild(ham);
   ham.addEventListener('click', () => nav.classList.toggle('open'));
 }
+
+/* ----------  RENDERIZAR PRESUPUESTO CON TARJETAS  ---------- */
+const TARJETAS_POR_PAGINA = 6;
+let paginaActualPres = 1;
+
+async function renderizarPresupuestoTarjetas() {
+  const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+  const fechaHoy = new Date();
+  const fechaHace30Dias = new Date(fechaHoy.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const gastos = movimientos.filter(m =>
+    m.tipo === 'gasto' &&
+    new Date(m.fecha) >= fechaHace30Dias &&
+    new Date(m.fecha) <= fechaHoy
+  );
+
+  // Agrupar por categoría
+  const resumen = {};
+  gastos.forEach(m => {
+    const cat = m.categoria || 'Sin categoría';
+    resumen[cat] = (resumen[cat] || 0) + m.cantidad;
+  });
+
+  const categorias = Object.entries(resumen).sort((a, b) => b[1] - a[1]);
+  const totalPaginas = Math.ceil(categorias.length / TARJETAS_POR_PAGINA);
+  paginaActualPres = Math.min(paginaActualPres, totalPaginas || 1);
+
+  const inicio = (paginaActualPres - 1) * TARJETAS_POR_PAGINA;
+  const fin = inicio + TARJETAS_POR_PAGINA;
+  const pagina = categorias.slice(inicio, fin);
+
+  // Renderizar tarjetas
+  const container = document.getElementById('listaPresupuestoDetalles');
+  container.innerHTML = '';
+
+  const grid = document.createElement('div');
+  grid.className = 'presupuesto-grid';
+
+  pagina.forEach(([cat, monto]) => {
+    const tarjeta = document.createElement('div');
+    tarjeta.className = 'tarjeta-gasto';
+    tarjeta.innerHTML = `
+      <div class="tarjeta-emoji">${emojiCategoria(cat)}</div>
+      <div class="tarjeta-categoria">${cat}</div>
+      <div class="tarjeta-monto">Bs. ${formatNumberVE(monto)}</div>
+    `;
+    grid.appendChild(tarjeta);
+  });
+
+  container.appendChild(grid);
+
+  // Paginación
+  renderizarPaginacionPresupuesto(totalPaginas);
+}
+
+/* ----------  EMOJI POR CATEGORÍA (opcional)  ---------- */
+function emojiCategoria(cat) {
+  const map = {
+    'Honorarios': '💰',
+    'Laboratorios': '🧪',
+    'Material': '🩺',
+    'Servicios': '🔌',
+    'Oficina': '🖥️',
+    'Transporte': '🚗',
+    'Comida': '🍔',
+    'Otros': '📦'
+  };
+  return map[cat] || '📊';
+}
+
+/* ----------  RENDERIZAR PAGINACIÓN  ---------- */
+function renderizarPaginacionPresupuesto(total) {
+  const container = document.getElementById('paginacionPresupuesto') || document.createElement('div');
+  container.id = 'paginacionPresupuesto';
+  container.className = 'paginacion-presupuesto';
+
+  if (total <= 1) {
+    container.innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = `
+    <button onclick="cambiarPaginaPresupuesto(-1)" ${paginaActualPres === 1 ? 'disabled' : ''}>←</button>
+    <span class="paginacion-info">Página ${paginaActualPres} de ${total}</span>
+    <button onclick="cambiarPaginaPresupuesto(1)" ${paginaActualPres === total ? 'disabled' : ''}>→</button>
+  `;
+
+  const detalles = document.getElementById('listaPresupuestoDetalles');
+  detalles.parentNode.insertBefore(container, detalles.nextSibling);
+}
+
+/* ----------  CAMBIAR PÁGINA  ---------- */
+function cambiarPaginaPresupuesto(direccion) {
+  paginaActualPres += direccion;
+  renderizarPresupuestoTarjetas();
+}
+
+/* ----------  PAGINACIÓN CALENDARIO  ---------- */
+function renderizarPaginacionCalendario(total) {
+    let container = document.getElementById('paginacionCalendario');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'paginacionCalendario';
+      container.className = 'paginacion-calendario';
+      const detalles = document.getElementById('listaMovimientosDia');
+      detalles.parentNode.insertBefore(container, detalles.nextSibling);
+    }
+  
+    if (total <= 1) {
+      container.innerHTML = '';
+      return;
+    }
+  
+    container.innerHTML = `
+      <button onclick="cambiarPaginaCalendario(-1)" ${paginaActualCal === 1 ? 'disabled' : ''}>←</button>
+      <span class="paginacion-info">Página ${paginaActualCal} de ${total}</span>
+      <button onclick="cambiarPaginaCalendario(1)" ${paginaActualCal === total ? 'disabled' : ''}>→</button>
+    `;
+  }
+  
+  function cambiarPaginaCalendario(direccion) {
+    paginaActualCal += direccion;
+    mostrarMovimientosDia(fechaCalendarioSeleccionada);
+  }
+
+// ================== BUSCADOR EN VIVO DEL DASHBOARD ==================
+function filtrarDashboard() {
+    const needle = document.getElementById('txtBuscar').value.trim().toLowerCase();
+    if (!needle) {                       // sin texto → mostrar todo
+      actualizarDashboard();             // recarga original
+      return;
+    }
+  
+    // 1️⃣ FILTRAR TABLA DE BANCOS
+    const filas = document.querySelectorAll('#tablaBancos tbody tr');
+    filas.forEach(tr => {
+      const texto = tr.textContent.toLowerCase();
+      tr.style.display = texto.includes(needle) ? '' : 'none';
+    });
+  
+    // 2️⃣ FILTRAR LISTA RESUMEN POR BANCO
+    const items = document.querySelectorAll('#listaBancos li');
+    items.forEach(li => {
+      const texto = li.textContent.toLowerCase();
+      li.style.display = texto.includes(needle) ? '' : 'none';
+    });
+  
+    // 3️⃣ (Opcional) Si en futuro pintas movimientos en dashboard, los filtras aquí
+  }
+  
+  // Escuchar cada tecla
+  document.getElementById('txtBuscar').addEventListener('input', filtrarDashboard);
 
 // ------------------------------------------------------------------------------------------------------------------------------------
 //                                 Inicialización y Event Listeners
