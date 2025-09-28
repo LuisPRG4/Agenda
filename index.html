@@ -6,7 +6,8 @@
   <title>Sistema Financiero Personal (SFP)</title>
   <link rel="icon" type="image/x-icon" href="recursos/ICONO.png">
 
- <link rel="stylesheet" href="styles.css?v=20250420" />
+ <link rel="stylesheet" href="styles.css?v=20250928" />
+ <link rel="stylesheet" href="win11-theme.css?v=20250928">
 
 </head>
 <body>
@@ -14,7 +15,18 @@
     <button id="btnTema" title="Cambiar tema">🌓</button>
   </div>
   <h1 style="text-align:center; margin-bottom:1rem;">Sistema Financiero Personal (SFP)</h1>
+  
+  
   <div class="sidebar">
+
+    <div class="sidebar-content">
+
+    <aside class="win11-nav">
+      <div class="nav-header">
+        <img src="recursos/ICONO.png" class="nav-logo">
+        <span class="nav-title">SFP</span>
+      </div>
+    
     <nav class="side-tabs">
       <button class="side-tab active" onclick="mostrarSideTab('dashboard')">📊 Dashboard</button>
       <button class="side-tab" onclick="mostrarSideTab('movimientos')">💳 Movimientos</button>
@@ -26,8 +38,15 @@
       <button class="side-tab" onclick="mostrarSideTab('config')">⚙️ Config</button>
     </nav>
 
-    <div class="side-content active" id="side-dashboard">
+    <footer class="nav-footer">
+      <button class="nav-toggle" title="Contraer menú">☰</button>
+    </footer>
+  </aside>
+
+  <div class="side-content active" id="side-dashboard">
+    <div class="sidebar-content">
       <section id="buscador">
+
         <input type="text" id="txtBuscar" placeholder="🔍 Buscar..." />
       </section>
 
@@ -98,13 +117,17 @@
   </thead>
   <tbody></tbody>
   </table>
-      </section>
-    </div>
+
+</section>
+</div> <!-- cierre sidebar-content -->
+</div>
 
 
+<div class="side-content" id="side-movimientos">
+  <div class="sidebar-content">
+    <section>
 
-    <div class="side-content" id="side-movimientos">
-      <section>
+
         <h2>Agregar Movimiento</h2>
         <label for="saldoInicial">Saldo Inicial (opcional, solo se aplica una vez):
           <input type="text" id="saldoInicial" placeholder="Ej: 3.220,90" style="width:100%; padding:.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem;" />
@@ -227,10 +250,16 @@
       </div>
       <div class="button-center">
         <button onclick="exportarExcel()">📊 Exportar Excel</button>
+
       </div>
-    </div>
-    <div class="side-content" id="side-analisis">
+    </div> <!-- cierre sidebar-content -->
+  </div>
+
+
+  <div class="side-content" id="side-analisis">
+    <div class="sidebar-content">
       <section id="grafico">
+
         <h2>Gastos por categoría</h2>
         <canvas id="torta" style="max-width:100%; height:auto;"></canvas>
       </section>
@@ -244,14 +273,19 @@
           <option value="">Todos los bancos</option>
         </select>
         <ul id="listaBancos"></ul>
-      </section>
+
+
+            </section>
+      </div> <!-- cierre sidebar-content -->
     </div>
 
 
 
 
     <div class="side-content" id="side-presupuesto">
-      <section id="presupuestoMeta">
+      <div class="sidebar-content">
+        <section id="presupuestoMeta">
+
   <h2>🎯 Meta de Presupuesto</h2>
   <p style="margin-bottom: 1rem; color: var(--text-light);">Define tu meta mensual y tu progreso actual.</p>
   <div style="display:flex; gap:1rem; margin-bottom:1.5rem;">
@@ -296,13 +330,16 @@
   <p id="leyendaPresupuesto" style="margin-top:1.5rem; font-size:0.85rem; color:var(--text-light); text-align:center; font-style:italic; max-width:400px; margin-left:auto; margin-right:auto; display:none;">
     📌 <strong>¿Sin meta?</strong> Esta pestaña muestra tu gasto real. Define una meta para ver tu progreso.
   </p>
-  </section>
 
-    </div>
+</section>
+</div> <!-- cierre sidebar-content -->
+</div>
 
     <!-- (FORMATEADOR DE NÚMEROS) -->
-  <div class="side-content" id="side-herramientas">
-    <section>
+    <div class="side-content" id="side-herramientas">
+      <div class="sidebar-content">
+        <section>
+
       <h2>🛠️ Formateador de Números</h2>
       <p style="color: var(--text-light); margin-bottom: 1.5rem;">
         Pega o escribe cualquier número (ej: 1111783.99) y lo convertiremos automáticamente a formato venezolano: <strong>1.111.783,99</strong>.
@@ -369,13 +406,16 @@
     No depende de tu tasa guardada en el dashboard.  
     ¡Tienes control total!
   </p>
-</section>
 
-  </div>
+</section>
+</div> <!-- cierre sidebar-content -->
+</div>
 
 <!-- CALENDARIO DE MOVIMIENTOS-->
 <div class="side-content" id="side-calendario">
-  <section>
+  <div class="sidebar-content">
+    <section>
+
     <h2>📅 Calendario de Movimientos</h2>
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
       <button onclick="cambiarMes(-1)" style="padding:0.5rem 1rem; background:#0b57d0; color:white; border:none; border-radius:8px; font-size:1rem;">← Mes anterior</button>
@@ -391,23 +431,30 @@
   <ul id="listaMovimientosDia" style="list-style:none; padding:0; margin:0;"></ul>
 </div>
 
-  </section>
+</section>
+</div> <!-- cierre sidebar-content -->
 </div>
 
 <!-- Cambios y actualizaciones-->
 <div class="side-content" id="side-cambios">
-  <section id="cambios">
+  <div class="sidebar-content">
+    <section id="cambios">
+
     <h2>Cambios y Actualizaciones</h2>
     <ul>
       <li>Versión 1.0.1: Corrección de errores en el modo literal de entrada de números.</li>
       <li>Versión 1.0.2: Mejora en la interfaz de usuario para la gestión de movimientos.</li>
       <!-- Añade más elementos según sea necesario -->
     </ul>
+
   </section>
+</div> <!-- cierre sidebar-content -->
 </div>
 
-    <div class="side-content" id="side-config">
-      <section id="panelReglas">
+<div class="side-content" id="side-config">
+  <div class="sidebar-content">
+    <section id="panelReglas">
+
         <h2>Reglas de automatización</h2>
         <ul id="listaReglas"></ul>
 
@@ -548,9 +595,9 @@
   </button>
 </details>
 
-      </section>
-    </div>
-  </div>
+</section>
+</div> <!-- cierre sidebar-content -->
+</div>
 
   <script src="chart.umd.min.js?v=20250928"></script>
   <script src="xlsx.full.min.js?v=20250928"></script>
@@ -586,6 +633,9 @@
       <button id="confirm-ok" class="btn-aceptar">Aceptar</button>
     </div>
   </div>
+
+</div>
+
 </div>
 
 </body>
