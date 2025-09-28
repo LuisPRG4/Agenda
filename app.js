@@ -3227,6 +3227,27 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+/* =====  COLAPSAR / EXPANDIR NAVEGACIÓN  ===== */
+const nav       = document.querySelector('.win11-nav');
+const navToggle = document.querySelector('.nav-toggle');
+const key       = 'navCollapsed';
+
+// restaurar estado
+if (localStorage.getItem(key) === 'true') nav.classList.add('collapsed');
+
+navToggle.addEventListener('click', () => {
+  nav.classList.toggle('collapsed');
+  localStorage.setItem(key, nav.classList.contains('collapsed'));
+});
+
+/* =====  HAMBURGUESA MÓVIL  ===== */
+if (window.innerWidth <= 900) {
+  const ham = document.createElement('button');
+  ham.className = 'nav-float-ham';
+  ham.innerHTML = '☰';
+  document.body.appendChild(ham);
+  ham.addEventListener('click', () => nav.classList.toggle('open'));
+}
 
 // ------------------------------------------------------------------------------------------------------------------------------------
 //                                 Inicialización y Event Listeners
