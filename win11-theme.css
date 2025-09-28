@@ -1,0 +1,354 @@
+/*  win11-theme.css  –  Aparencia Windows 11 para SFP  */
+/*  1. Paleta oficial Fluent  */
+:root{
+    --win-bg           : #f3f3f3;          /* fondo ventana claro */
+    --win-bg-dark      : #202020;          /* fondo ventana oscuro */
+    --win-card         : #ffffff;          /* superficie elevada  */
+    --win-card-dark    : #2c2c2c;
+    --win-text         : #202124;
+    --win-text-dark    : #e8eaed;
+    --win-accent       : #0078d4;          /* azul Windows */
+    --win-accent-dark  : #60cdff;
+    --win-border       : rgba(0,0,0,.05);
+    --win-border-dark  : rgba(255,255,255,.08);
+    --win-shadow-sm    : 0 2px  8px rgba(0,0,0,.08);
+    --win-shadow-md    : 0 4px 16px rgba(0,0,0,.12);
+    --radius           : 8px;                /* esquina característica */
+    --radius-lg        : 12px;
+    --transition       : all .2s cubic-bezier(.47,0,.23,1.38);
+  }
+  
+  /*  2. Modo claro / oscuro automático  */
+  body.modo-claro,
+  body:not(.modo-oscuro){
+    --bg           : var(--win-bg);
+    --card-bg      : var(--win-card);
+    --text         : var(--win-text);
+    --primary      : var(--win-accent);
+    --border       : var(--win-border);
+    --shadow-sm    : var(--win-shadow-sm);
+    --shadow-md    : var(--win-shadow-md);
+  }
+  body.modo-oscuro{
+    --bg           : var(--win-bg-dark);
+    --card-bg      : var(--win-card-dark);
+    --text         : var(--win-text-dark);
+    --primary      : var(--win-accent-dark);
+    --border       : var(--win-border-dark);
+    --shadow-sm    : 0 2px  8px rgba(0,0,0,.3);
+    --shadow-md    : 0 4px 16px rgba(0,0,0,.4);
+  }
+  
+  /*  3. Ventana general  */
+  body{
+    background      : var(--bg);
+    font-family     : "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size       : 14px;
+    letter-spacing  : -.1px;
+    color           : var(--text);
+  }
+  
+  /*  4. Tarjetas / secciones  */
+  section,
+  .sidebar,
+  .side-content{
+    background      : var(--card-bg);
+    border-radius   : var(--radius-lg);
+    box-shadow      : var(--shadow-sm);
+    border          : 1px solid var(--border);
+    transition      : var(--transition);
+  }
+  section:hover,
+  .sidebar:hover{
+    box-shadow      : var(--shadow-md);
+  }
+  
+  /*  5. Botones estilo Windows 11  */
+  button,
+  .side-tab,
+  .btn-group button,
+  .button-center button{
+    border          : 1px solid transparent;
+    border-radius   : var(--radius);
+    padding         : 8px 16px;
+    font-weight     : 500;
+    background      : var(--primary);
+    color           : #fff;
+    transition      : var(--transition);
+    cursor          : pointer;
+    outline         : none;
+  }
+  button:hover,
+  .side-tab:hover{
+    transform       : translateY(-2px);
+    box-shadow      : 0 4px 12px rgba(0,0,0,.15);
+  }
+  button:active,
+  .side-tab.active{
+    transform       : translateY(0);
+    box-shadow      : inset 0 0 0 1px rgba(0,0,0,.1);
+  }
+  
+  /*  6. Pestañas laterales (igual que botones de navegación Win11)  */
+  .side-tab{
+    background      : transparent;
+    color           : var(--text);
+    margin-bottom   : 4px;
+    width           : 100%;
+    text-align      : left;
+    padding-left    : 20px;
+  }
+  .side-tab.active{
+    background      : rgba(var(--primary-rgb),.15);
+    color           : var(--primary);
+    font-weight     : 600;
+    border-left     : 4px solid var(--primary);
+  }
+  
+  /*  7. Inputs y selects  */
+  input, select{
+    border-radius   : var(--radius);
+    border          : 1px solid var(--border);
+    padding         : 8px 12px;
+    background      : var(--card-bg);
+    color           : var(--text);
+    transition      : var(--transition);
+  }
+  input:focus, select:focus{
+    border-color    : var(--primary);
+    box-shadow      : 0 0 0 2px rgba(var(--primary-rgb),.25);
+  }
+  
+  /*  8. Listas de movimientos (mica effect)  */
+  li{
+    background      : rgba(255,255,255,.6);
+    border-radius   : var(--radius);
+    backdrop-filter : blur(20px);
+    border          : 1px solid var(--border);
+    margin-bottom   : 8px;
+    padding         : 12px 16px;
+    transition      : var(--transition);
+  }
+  body.modo-oscuro li{
+    background      : rgba(30,30,30,.5);
+  }
+  li:hover{
+    transform       : translateY(-2px);
+    box-shadow      : var(--shadow-md);
+  }
+  
+  /*  9. Scrollbar estilo Win11  */
+  ::-webkit-scrollbar{
+    width           : 10px;
+    height          : 10px;
+  }
+  ::-webkit-scrollbar-track{
+    background      : transparent;
+  }
+  ::-webkit-scrollbar-thumb{
+    background      : var(--border);
+    border-radius   : var(--radius);
+    border          : 2px solid var(--card-bg);
+  }
+  ::-webkit-scrollbar-thumb:hover{
+    background      : var(--primary);
+  }
+  
+  /* 10. Animación suave al cambiar de pestaña */
+  .side-content{
+    animation       : fadeIn .3s ease;
+  }
+  @keyframes fadeIn{
+    from{ opacity:0; transform:translateY(8px); }
+    to  { opacity:1; transform:translateY(0);  }
+  }
+  
+  /* 11. Tabla “Ingresos vs Gastos por banco” redondeada */
+  #tablaBancos{
+    border-radius   : var(--radius-lg);
+    overflow        : hidden;
+    box-shadow      : var(--shadow-sm);
+  }
+  
+  /* 12. Selector de tema (botón redondo con giro) */
+  #btnTema{
+    border-radius   : 50%;
+    width           : 36px;
+    height          : 36px;
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    background      : var(--card-bg);
+    border          : 1px solid var(--border);
+    transition      : var(--transition);
+  }
+  #btnTema:hover{
+    transform       : rotate(30deg);
+  }
+  
+  /* 13. Avisos y toasts (estilo InfoBar Win11) */
+  .custom-toast{
+    border-radius   : var(--radius);
+    backdrop-filter : blur(20px);
+    border          : 1px solid rgba(255,255,255,.2);
+  }
+
+  /* ----------  WIN11 NAV  ---------- */
+.win11-nav{
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 260px;
+    background: #f3f3f3;
+    border-right: 1px solid #ddd;
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+  }
+  .nav-header{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px;
+  }
+  .nav-logo{ width: 24px; height: 24px; }
+  .nav-title{ font-size: 18px; font-weight: 600; }
+  
+  .side-tabs{
+    flex: 1;
+    padding: 8px;
+  }
+  .side-tab{
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: transparent;
+    padding: 10px 12px;
+    margin-bottom: 4px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background .2s;
+  }
+  .side-tab:hover{ background: rgba(0,120,212,.12); }
+  .side-tab.active{ background: rgba(0,120,212,.20); color: #0078d4; font-weight: 600; }
+  
+  .nav-footer{ padding: 12px; border-top: 1px solid #ddd; }
+  .nav-toggle{ width: 36px; height: 36px; border: none; background: none; font-size: 18px; cursor: pointer; border-radius: 50%; }
+  .nav-toggle:hover{ background: rgba(0,0,0,.05); }
+  
+  /* ----------  AJUSTE DEL CONTENIDO  ---------- */
+  body{ margin-left: 260px; } /* deja espacio al nav */
+  @media (max-width: 900px){
+    .win11-nav{ transform: translateX(-100%); transition: transform .3s; }
+    body{ margin-left: 0; }
+  }
+
+  /* ----------  CONTRASTE PESTAÑA ACTIVA  ---------- */
+.side-tab.active {
+    background: var(--primary) !important;   /* fondo azul Windows */
+    color: #ffffff !important;               /* texto blanco puro */
+    font-weight: 600;
+  }
+  .side-tab.active::before {
+    opacity: 0;                              /* quitamos el pip azul para no duplicar */
+  }
+  
+  /* ----------  GLASS + BLUR  ---------- */
+  .win11-nav {
+    background: rgba(255, 255, 255, 0.55);   /* glass claro */
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-right: 1px solid rgba(0, 0, 0, 0.08);
+  }
+  
+  body.modo-oscuro .win11-nav {
+    background: rgba(30, 30, 30, 0.55);      /* glass oscuro */
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  
+  /* ----------  COLAPSAR / EXPANDIR  ---------- */
+  .win11-nav.collapsed {
+    width: 64px;
+  }
+  .win11-nav.collapsed .nav-title,
+  .win11-nav.collapsed .side-tab span {
+    display: none;
+  }
+  .win11-nav.collapsed .nav-header {
+    justify-content: center;
+  }
+  .win11-nav.collapsed .side-tab {
+    justify-content: center;
+    padding: 10px;
+  }
+  
+  /* ----------  BOTÓN TOGGLE GIRATORIO  ---------- */
+  .nav-toggle {
+    transition: transform 0.3s;
+  }
+  .win11-nav.collapsed .nav-toggle {
+    transform: rotate(180deg);
+  }
+  
+  /* ----------  MÓVIL: MENÚ DESLIZABLE  ---------- */
+  @media (max-width: 900px) {
+    .win11-nav {
+      position: fixed;
+      transform: translateX(-100%);
+      transition: transform 0.35s;
+    }
+    .win11-nav.open {
+      transform: translateX(0);
+    }
+    /* Hamburguesa flotante para móvil */
+    .nav-float-ham {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 101;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-md);
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+      cursor: pointer;
+    }
+  }
+
+  /* ----------  CONTENIDO OCUPA TODO EL ANCHO  ---------- */
+.sidebar-content {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding: 1.5rem;
+    box-sizing: border-box;
+  }
+  
+  /* Aseguramos que cada sección ocupe todo el ancho */
+  .side-content section {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+  }
+  
+  /* Tablas, inputs y canvas se estiran al 100% */
+  .side-content table,
+  .side-content input,
+  .side-content select,
+  .side-content canvas {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+  }
+  
+  /* En móvil, eliminamos padding extra */
+  @media (max-width: 900px) {
+    .sidebar-content {
+      padding: 1rem;
+    }
+  }
