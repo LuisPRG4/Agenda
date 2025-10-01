@@ -1,7 +1,7 @@
 // Variable global para la base de datos
 let db;
 const DB_NAME = 'sfpDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // ✅ Versión actual de la base de datos
 
 // Nombres de los almacenes de objetos
 const STORES = {
@@ -10,7 +10,8 @@ const STORES = {
     CATEGORIAS: 'categorias',
     BANCOS: 'bancos',
     REGLAS: 'reglas',
-    SALDO_INICIAL: 'saldo_inicial'
+    SALDO_INICIAL: 'saldo_inicial',
+    INVERSIONES: 'inversiones'
 };
 
 // ======================================================================================
@@ -230,7 +231,7 @@ function parseNumberVE(str) {
 }
 
 //Versión del sistema:
-const APP_VERSION = '1.0.3';
+const APP_VERSION = '1.0.4';
 
 // Configuración de paginación
 const MOVIMIENTOS_POR_PAGINA = 10;          // para la lista general
@@ -286,6 +287,11 @@ function openDB() {
             if (!db.objectStoreNames.contains(STORES.SALDO_INICIAL)) {
                 db.createObjectStore(STORES.SALDO_INICIAL, { keyPath: 'id' });
             }
+
+            // Pestaña Inversiones
+            if (!db.objectStoreNames.contains(STORES.INVERSIONES)) {
+                db.createObjectStore(STORES.INVERSIONES, { keyPath: 'id', autoIncrement: true });
+            }
         };
 
         request.onsuccess = (event) => {
@@ -301,24 +307,83 @@ function openDB() {
     });
 }
 
-// Funciones genéricas para interactuar con la DB
+// Funciones genéricas para interactuar con la DB con manejo de errores mejorado
 async function addEntry(storeName, entry) {
-    const transaction = db.transaction([storeName], 'readwrite');
-    const store = transaction.objectStore(storeName);
-    return new Promise((resolve, reject) => {
-        const request = store.add(entry);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = (event) => reject(event.target.error);
-    });
+    try {
+        // Verificar si el object store existe antes de intentar usarlo
+        if (!db.objectStoreNames.contains(storeName)) {
+            console.warn(`Object store '${storeName}' no existe. Creándolo...`);
+            await crearObjectStoreSiNoExiste(storeName);
+        }
+
+        const transaction = db.transaction([storeName], 'readwrite');
+        const store = transaction.objectStore(storeName);
+        return new Promise((resolve, reject) => {
+            const request = store.add(entry);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = (event) => reject(event.target.error);
+        });
+    } catch (error) {
+        console.error(`Error en addEntry para ${storeName}:`, error);
+        throw error;
+    }
 }
 
 async function getAllEntries(storeName) {
-    const transaction = db.transaction([storeName], 'readonly');
-    const store = transaction.objectStore(storeName);
+    try {
+        // Verificar si el object store existe antes de intentar usarlo
+        if (!db.objectStoreNames.contains(storeName)) {
+            console.warn(`Object store '${storeName}' no existe. Creándolo...`);
+            await crearObjectStoreSiNoExiste(storeName);
+        }
+
+        const transaction = db.transaction([storeName], 'readonly');
+        const store = transaction.objectStore(storeName);
+        return new Promise((resolve, reject) => {
+            const request = store.getAll();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = (event) => reject(event.target.error);
+        });
+    } catch (error) {
+        console.error(`Error en getAllEntries para ${storeName}:`, error);
+        throw error;
+    }
+}
+
+// Función auxiliar para crear object stores dinámicamente si no existen
+async function crearObjectStoreSiNoExiste(storeName) {
     return new Promise((resolve, reject) => {
-        const request = store.getAll();
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = (event) => reject(event.target.error);
+        // Necesitamos cerrar la conexión actual y reabrirla con una nueva versión
+        db.close();
+
+        const nuevaVersion = DB_VERSION + 1; // Incrementar versión para permitir cambios de esquema
+        const request = indexedDB.open(DB_NAME, nuevaVersion);
+
+        request.onupgradeneeded = (event) => {
+            const dbUpgrade = event.target.result;
+
+            // Crear el object store que falta
+            if (!dbUpgrade.objectStoreNames.contains(storeName)) {
+                if (storeName === STORES.INVERSIONES) {
+                    dbUpgrade.createObjectStore(storeName, { keyPath: 'id', autoIncrement: true });
+                } else {
+                    // Para otros stores, usar configuración por defecto
+                    dbUpgrade.createObjectStore(storeName, { keyPath: 'id', autoIncrement: true });
+                }
+                console.log(`Object store '${storeName}' creado exitosamente`);
+            }
+        };
+
+        request.onsuccess = (event) => {
+            db = event.target.result;
+            console.log(`Base de datos actualizada a versión ${nuevaVersion}`);
+            resolve();
+        };
+
+        request.onerror = (event) => {
+            console.error('Error al actualizar la base de datos:', event.target.error);
+            reject(event.target.error);
+        };
     });
 }
 
@@ -359,55 +424,90 @@ function deleteEntry(storeName, id) {
 }
 
 async function updateEntry(storeName, entry) {
-    const transaction = db.transaction([storeName], 'readwrite');
-    const store = transaction.objectStore(storeName);
-    return new Promise((resolve, reject) => {
-        const request = store.put(entry);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = (event) => reject(event.target.error);
-    });
+    try {
+        // Verificar si el object store existe antes de intentar usarlo
+        if (!db.objectStoreNames.contains(storeName)) {
+            console.warn(`Object store '${storeName}' no existe. Creándolo...`);
+            await crearObjectStoreSiNoExiste(storeName);
+        }
+
+        const transaction = db.transaction([storeName], 'readwrite');
+        const store = transaction.objectStore(storeName);
+        return new Promise((resolve, reject) => {
+            const request = store.put(entry);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = (event) => reject(event.target.error);
+        });
+    } catch (error) {
+        console.error(`Error en updateEntry para ${storeName}:`, error);
+        throw error;
+    }
 }
 
 async function deleteEntry(storeName, key) {
-    const transaction = db.transaction([storeName], 'readwrite');
-    const store = transaction.objectStore(storeName);
-    return new Promise((resolve, reject) => {
-        const request = store.delete(key);
-        request.onsuccess = () => resolve(true);
-        request.onerror = (event) => reject(event.target.error);
-    });
+    try {
+        // Verificar si el object store existe antes de intentar usarlo
+        if (!db.objectStoreNames.contains(storeName)) {
+            console.warn(`Object store '${storeName}' no existe. Creándolo...`);
+            await crearObjectStoreSiNoExiste(storeName);
+        }
+
+        const transaction = db.transaction([storeName], 'readwrite');
+        const store = transaction.objectStore(storeName);
+        return new Promise((resolve, reject) => {
+            const request = store.delete(key);
+            request.onsuccess = () => resolve(true);
+            request.onerror = (event) => reject(event.target.error);
+        });
+    } catch (error) {
+        console.error(`Error en deleteEntry para ${storeName}:`, error);
+        throw error;
+    }
 }
 
 // ✅ Función para cargar un movimiento en el formulario para editar
 async function cargarMovimientoParaEditar(id) {
     if (await mostrarConfirmacion("¿Deseas editar este movimiento?")) {
         try {
-            // Asegurarse de que estamos en la pestaña correcta
+            // ✅ MEJORA: Limpiar formulario antes de cargar
+            limpiarForm();
+            
             mostrarSideTab('movimientos');
 
             const movimiento = await getEntry(STORES.MOVIMIENTOS, id);
             if (movimiento) {
-                document.getElementById('concepto').value = movimiento.concepto;
-                document.getElementById('cantidad').value = movimiento.cantidad;
-                document.getElementById('tipo').value = movimiento.tipo;
-                document.getElementById('categoria').value = movimiento.categoria;
-                document.getElementById('fechaMov').value = new Date(movimiento.fecha).toISOString().split('T')[0];
-                document.getElementById('banco').value = movimiento.banco;
+                // ✅ MEJORA: Cargar datos con validación
+                document.getElementById('concepto').value = movimiento.concepto || '';
+                document.getElementById('cantidad').value = movimiento.textoOriginal || movimiento.cantidad.toString();
+                document.getElementById('tipo').value = movimiento.tipo || 'ingreso';
+                document.getElementById('categoria').value = movimiento.categoria || '';
+                
+                // ✅ MEJORA: Formatear fecha correctamente
+                const fecha = new Date(movimiento.fecha);
+                const fechaFormateada = fecha.toISOString().split('T')[0];
+                document.getElementById('fechaMov').value = fechaFormateada;
+                
+                document.getElementById('banco').value = movimiento.banco || '';
 
+                // ✅ MEJORA: Mostrar botones de edición
                 document.getElementById('btnAgregar').style.display = 'none';
                 document.getElementById('btnActualizar').style.display = 'block';
                 document.getElementById('btnCancelarEdicion').style.display = 'block';
                 
                 idMovimientoEditando = id;
 
-                // ✅ Buscar la sección del formulario dentro del contenedor de la pestaña
+                // ✅ MEJORA: Hacer scroll suave al formulario
                 const formSection = document.querySelector('#side-movimientos section:first-of-type');
                 if (formSection) {
                     formSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
+                
+                // ✅ MEJORA: Mostrar notificación
+                mostrarToast(`✏️ Editando: ${movimiento.concepto}`, 'info');
             }
         } catch (error) {
             console.error("Error al cargar movimiento para editar:", error);
+            mostrarToast("❌ Error al cargar el movimiento para editar", 'danger');
         }
     }
 }
@@ -683,7 +783,7 @@ async function renderizar() {
     // Paginación
     const totalMovimientos = listaFiltrada.length;
     const totalPaginas = Math.ceil(totalMovimientos / MOVIMIENTOS_POR_PAGINA);
-    let paginaActual = 1; // ✅ AGREGAR ESTA LÍNEA
+    
     paginaActual = Math.min(paginaActual, totalPaginas || 1);
     paginaActual = Math.max(paginaActual, 1);
 
@@ -1125,6 +1225,10 @@ function mostrarSideTab(id) {
             mostrarVersionEnCambios();
             // Aquí puedes añadir cualquier lógica específica para la pestaña de cambios si es necesario
             break;
+
+            case 'inversiones':
+            renderizarInversiones();
+            break;
     }
 
     function mostrarVersionEnCambios() {
@@ -1135,6 +1239,214 @@ function mostrarSideTab(id) {
         });
     }
 }
+
+// ======================================================================================
+// 🎯 BUSCADOR ESPECÍFICO PARA MOVIMIENTOS
+// ======================================================================================
+
+// Variable para almacenar el término de búsqueda de movimientos
+let terminoBusquedaMovimientos = '';
+
+document.addEventListener('DOMContentLoaded', function() {
+    const buscadorMovimientos = document.getElementById('buscadorMovimientos');
+    
+    if (buscadorMovimientos) {
+        buscadorMovimientos.addEventListener('input', function(e) {
+            terminoBusquedaMovimientos = e.target.value.toLowerCase().trim();
+            // ✅ Aplicar búsqueda inmediatamente
+            aplicarFiltroMovimientos();
+        });
+
+        // ✅ Buscar también al pegar
+        buscadorMovimientos.addEventListener('paste', function() {
+            setTimeout(() => aplicarFiltroMovimientos(), 10);
+        });
+    }
+});
+
+// ✅ Función para aplicar el filtro de búsqueda específico
+function aplicarFiltroMovimientos() {
+    const listaMovimientos = document.getElementById('listaMovimientos');
+    const movimientos = listaMovimientos.querySelectorAll('li');
+    
+    if (!terminoBusquedaMovimientos) {
+        // Mostrar todos si no hay búsqueda
+        movimientos.forEach(mov => {
+            mov.style.display = 'block';
+            mov.style.opacity = '1';
+        });
+        return;
+    }
+
+    let encontrados = 0;
+    
+    movimientos.forEach(mov => {
+        // ✅ Buscar en concepto, categoría y banco
+        const concepto = mov.querySelector('input[type="text"]')?.value.toLowerCase() || '';
+        const infoSpans = mov.querySelectorAll('span');
+        const categoria = infoSpans.length > 0 ? infoSpans[0]?.textContent.toLowerCase() || '' : '';
+        const banco = infoSpans.length > 1 ? infoSpans[1]?.textContent.toLowerCase() || '' : '';
+        
+        const textoCompleto = `${concepto} ${categoria} ${banco}`;
+        
+        if (textoCompleto.includes(terminoBusquedaMovimientos)) {
+            mov.style.display = 'block';
+            mov.style.opacity = '1';
+            encontrados++;
+        } else {
+            mov.style.display = 'none';
+            mov.style.opacity = '0.3';
+        }
+    });
+
+    // ✅ Mostrar resultado de búsqueda
+    mostrarResultadoBusquedaMovimientos(encontrados);
+}
+
+// ✅ Función para mostrar resultado de búsqueda
+function mostrarResultadoBusquedaMovimientos(encontrados) {
+    const buscador = document.getElementById('buscadorMovimientos');
+    const placeholder = document.getElementById('placeholderBusqueda');
+    
+    if (!buscador) return;
+
+    if (terminoBusquedaMovimientos && encontrados === 0) {
+        buscador.style.borderColor = 'var(--danger)';
+        buscador.placeholder = '❌ No se encontraron movimientos...';
+    } else {
+        buscador.style.borderColor = '';
+        buscador.placeholder = '🔍 Buscar movimientos por concepto, categoría o banco...';
+    }
+}
+
+// ======================================================================================
+// 🎯 MEJORAS PARA NAVEGACIÓN DEL MENÚ LATERAL
+// ======================================================================================
+
+// Sistema mejorado para el menú lateral existente
+class SidebarManager {
+    constructor() {
+        this.searchTerm = '';
+        this.init();
+    }
+
+    init() {
+        this.setupSearch();
+        this.setupKeyboardShortcuts();
+        this.setupTabNavigation();
+    }
+
+    // Configurar búsqueda en el menú
+    setupSearch() {
+        const searchInput = document.getElementById('navSearch');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                this.searchTerm = e.target.value.toLowerCase();
+                this.filterTabs();
+            });
+
+            // Buscar también al pegar
+            searchInput.addEventListener('paste', () => {
+                setTimeout(() => this.filterTabs(), 10);
+            });
+        }
+    }
+
+    // Filtrar pestañas según búsqueda
+    filterTabs() {
+        const tabs = document.querySelectorAll('.side-tab');
+        let visibleCount = 0;
+
+        tabs.forEach(tab => {
+            const text = tab.textContent.toLowerCase();
+            const shouldShow = !this.searchTerm || text.includes(this.searchTerm);
+
+            if (shouldShow) {
+                tab.style.display = 'block';
+                tab.style.opacity = '1';
+                tab.style.transform = 'scale(1)';
+                visibleCount++;
+            } else {
+                tab.style.display = 'none';
+                tab.style.opacity = '0.3';
+                tab.style.transform = 'scale(0.95)';
+            }
+        });
+
+        // Mostrar resultado de búsqueda
+        this.showSearchResults(visibleCount);
+    }
+
+    // Mostrar resultados de búsqueda
+    showSearchResults(count) {
+        const searchInput = document.getElementById('navSearch');
+        if (this.searchTerm && count === 0) {
+            searchInput.style.borderColor = 'var(--danger)';
+            searchInput.placeholder = '❌ No encontrado...';
+        } else {
+            searchInput.style.borderColor = '';
+            searchInput.placeholder = '🔍 Buscar pestañas...';
+        }
+    }
+
+    // Atajos de teclado mejorados
+    setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Solo si no estamos en input/textarea
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            const key = e.key.toLowerCase();
+            const shortcuts = {
+                'd': 'dashboard',
+                'm': 'movimientos',
+                'a': 'analisis',
+                'p': 'presupuesto',
+                'h': 'herramientas',
+                'c': 'calendario',
+                'i': 'inversiones',
+                'u': 'deudas',
+                'g': 'config',
+                'b': 'cambios'
+            };
+
+            if (shortcuts[key] && !e.ctrlKey && !e.altKey) {
+                e.preventDefault();
+                mostrarSideTab(shortcuts[key]);
+                mostrarToast(`⚡ ${shortcuts[key]}`, 'info');
+            }
+
+            // Ctrl+K para focus en búsqueda del menú
+            if (e.ctrlKey && key === 'k') {
+                e.preventDefault();
+                const searchInput = document.getElementById('navSearch');
+                if (searchInput) {
+                    searchInput.focus();
+                    searchInput.select();
+                }
+            }
+        });
+    }
+
+    // Mejorar navegación de pestañas
+    setupTabNavigation() {
+        document.querySelectorAll('.side-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Limpiar búsqueda después de seleccionar
+                const searchInput = document.getElementById('navSearch');
+                if (searchInput) {
+                    searchInput.value = '';
+                    this.searchTerm = '';
+                    this.filterTabs();
+                }
+            });
+        });
+    }
+}
+
+// Inicializar mejoras del menú lateral
+document.addEventListener('DOMContentLoaded', function() {
+    window.sidebarManager = new SidebarManager();
+});
 
 function actualizarEquivalente() {
     // 1. Obtener saldo actual (ya formateado en Bs.)
@@ -3459,6 +3771,1217 @@ function filtrarDashboard() {
   
   // Escuchar cada tecla
   document.getElementById('txtBuscar').addEventListener('input', filtrarDashboard);
+
+// ------------------------------------------------------------------------------------------------------------------------------------
+//                                 Funciones de ayuda modal para Presupuesto
+// ------------------------------------------------------------------------------------------------------------------------------------
+
+//FUNCIÓN PARA MOSTRAR AYUDA EN PRESUPUESTO
+function mostrarAyudaPresupuesto() {
+    document.getElementById('modalAyudaPresupuesto').style.display = 'flex';
+}
+
+function cerrarAyudaPresupuesto() {
+    document.getElementById('modalAyudaPresupuesto').style.display = 'none';
+}
+
+// Cerrar modal al hacer clic fuera de él
+document.addEventListener('DOMContentLoaded', function() {
+    const modalPresupuesto = document.getElementById('modalAyudaPresupuesto');
+    if (modalPresupuesto) {
+        modalPresupuesto.addEventListener('click', function(e) {
+            if (e.target === modalPresupuesto) {
+                cerrarAyudaPresupuesto();
+            }
+        });
+    }
+    
+    // Cerrar modal con tecla Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modalPresupuesto && modalPresupuesto.style.display === 'flex') {
+            cerrarAyudaPresupuesto();
+        }
+    });
+});
+
+// ------------------------------------------------------------------------------------------------------------------------------------
+//                                 Funciones de ayuda modal para otras pestañas
+// ------------------------------------------------------------------------------------------------------------------------------------
+
+function mostrarAyudaDashboard() {
+    // Crear modal similar al de presupuesto pero para Dashboard
+    const contenido = `
+        <h2 style="color:var(--primary); margin-bottom:1.5rem; text-align:center;">📊 ¿Qué es el Dashboard?</h2>
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="color:var(--text); margin-bottom:0.75rem;">🔍 Secciones principales:</h3>
+            <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+                <li><strong>Saldo actual:</strong> Tu balance financiero total incluyendo comisiones</li>
+                <li><strong>Disponibilidad total:</strong> Suma de todos tus saldos en diferentes bancos</li>
+                <li><strong>Conversor de moneda:</strong> Convierte tu saldo a otras monedas</li>
+                <li><strong>Resumen por banco:</strong> Detalle de ingresos, gastos y saldos por entidad</li>
+            </ul>
+        </div>
+        <div style="background:var(--primary-bg); padding:1rem; border-radius:8px; border-left:4px solid var(--primary); margin-top:1.5rem;">
+            <p style="margin:0; color:var(--primary-text); font-size:0.875rem;">
+                <strong>💡 Consejo:</strong> Usa el conversor de moneda para saber cuánto equivale tu saldo en dólares o euros.
+            </p>
+        </div>
+    `;
+    mostrarModalAyuda(contenido, 'modalAyudaDashboard');
+}
+
+function mostrarAyudaMovimientos() {
+    // Crear modal para Movimientos
+    const contenido = `
+        <h2 style="color:var(--primary); margin-bottom:1.5rem; text-align:center;">📝 Gestión de Movimientos</h2>
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="color:var(--text); margin-bottom:0.75rem;">✅ Funcionalidades:</h3>
+            <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+                <li><strong>Agregar movimientos:</strong> Ingresos, gastos y saldos iniciales</li>
+                <li><strong>Clasificación automática:</strong> Por categorías y bancos</li>
+                <li><strong>Gestión avanzada:</strong> Editar, eliminar y buscar movimientos</li>
+                <li><strong>Exportación:</strong> Genera reportes Excel de tu actividad</li>
+            </ul>
+        </div>
+        <div style="background:var(--success-bg); padding:1rem; border-radius:8px; border-left:4px solid var(--success); margin-top:1.5rem;">
+            <p style="margin:0; color:var(--success-text); font-size:0.875rem;">
+                <strong>🎯 Tip:</strong> Usa reglas de automatización para clasificar automáticamente tus movimientos frecuentes.
+            </p>
+        </div>
+    `;
+    mostrarModalAyuda(contenido, 'modalAyudaMovimientos');
+}
+
+function mostrarAyudaAnalisis() {
+    // Crear modal para Análisis
+    const contenido = `
+        <h2 style="color:var(--primary); margin-bottom:1.5rem; text-align:center;">📈 Análisis Financiero</h2>
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="color:var(--text); margin-bottom:0.75rem;">📊 Gráficos disponibles:</h3>
+            <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+                <li><strong>Gráfico circular:</strong> Distribución de gastos por categoría</li>
+                <li><strong>Gráfico de barras:</strong> Evolución mensual de ingresos vs gastos</li>
+                <li><strong>Resumen por banco:</strong> Análisis detallado por entidad financiera</li>
+                <li><strong>Filtros avanzados:</strong> Visualiza datos específicos</li>
+            </ul>
+        </div>
+        <div style="background:var(--warning-bg); padding:1rem; border-radius:8px; border-left:4px solid var(--warning); margin-top:1.5rem;">
+            <p style="margin:0; color:var(--warning-text); font-size:0.875rem;">
+                <strong>📊 Interpretación:</strong> Usa estos gráficos para identificar patrones de gasto y tomar decisiones financieras informadas.
+            </p>
+        </div>
+    `;
+    mostrarModalAyuda(contenido, 'modalAyudaAnalisis');
+}
+
+function mostrarAyudaHerramientas() {
+    // Crear modal para Herramientas
+    const contenido = `
+        <h2 style="color:var(--primary); margin-bottom:1.5rem; text-align:center;">🛠️ Herramientas Útiles</h2>
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="color:var(--text); margin-bottom:0.75rem;">🔧 Funciones disponibles:</h3>
+            <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+                <li><strong>Formateador de números:</strong> Convierte números a formato venezolano</li>
+                <li><strong>Calculadora de equivalente:</strong> Convierte tu saldo a otras monedas</li>
+                <li><strong>Modo de entrada:</strong> Elige cómo ingresar cantidades (automático o literal)</li>
+                <li><strong>Copia de seguridad:</strong> Exporta e importa tus datos</li>
+            </ul>
+        </div>
+        <div style="background:var(--info-bg); padding:1rem; border-radius:8px; border-left:4px solid var(--info); margin-top:1.5rem;">
+            <p style="margin:0; color:var(--info-text); font-size:0.875rem;">
+                <strong>⚡ Productividad:</strong> Estas herramientas agilizan la entrada de datos y facilitan conversiones monetarias.
+            </p>
+        </div>
+    `;
+    mostrarModalAyuda(contenido, 'modalAyudaHerramientas');
+}
+
+function mostrarAyudaConfiguracion() {
+    // Crear modal para Configuración
+    const contenido = `
+        <h2 style="color:var(--primary); margin-bottom:1.5rem; text-align:center;">⚙️ Configuración Avanzada</h2>
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="color:var(--text); margin-bottom:0.75rem;">🛠️ Opciones disponibles:</h3>
+            <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+                <li><strong>Reglas de automatización:</strong> Crea reglas para clasificar movimientos automáticamente</li>
+                <li><strong>Gestión de categorías:</strong> Crear, editar y eliminar categorías</li>
+                <li><strong>Gestión de bancos:</strong> Administrar entidades financieras</li>
+                <li><strong>Bloqueo de seguridad:</strong> Protege tu app con PIN</li>
+                <li><strong>Modo de entrada:</strong> Configura cómo ingresar números</li>
+            </ul>
+        </div>
+        <div style="background:var(--danger-bg); padding:1rem; border-radius:8px; border-left:4px solid var(--danger); margin-top:1.5rem;">
+            <p style="margin:0; color:var(--danger-text); font-size:0.875rem;">
+                <strong>⚠️ Importante:</strong> Las reglas de automatización te ahorran tiempo al clasificar movimientos frecuentes automáticamente.
+            </p>
+        </div>
+    `;
+    mostrarModalAyuda(contenido, 'modalAyudaConfiguracion');
+}
+
+// Función genérica para mostrar modales de ayuda
+function mostrarModalAyuda(contenido, modalId) {
+    // Crear modal dinámico si no existe
+    let modal = document.getElementById(modalId);
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = modalId;
+        modal.style.cssText = 'display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1002; justify-content:center; align-items:center;';
+        
+        modal.innerHTML = `
+            <div style="background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow-lg); padding:2rem; width:90%; max-width:500px; max-height:80vh; overflow-y:auto; position:relative;">
+                <button onclick="document.getElementById('${modalId}').style.display='none';" 
+        style="position:absolute; top:1rem; right:1rem; background:none; border:none; font-size:1.5rem; color:var(--text-light); cursor:pointer; padding:0.5rem; border-radius:50%; transition:background 0.2s;"
+        title="Cerrar">✕</button>
+                ${contenido}
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    modal.style.display = 'flex';
+}
+
+function mostrarAyudaInversiones() {
+    // Crear modal para Inversiones
+    const contenido = `
+        <h2 style="color:var(--primary); margin-bottom:1.5rem; text-align:center;">📈 ¿Cómo funciona el Simulador de Inversiones?</h2>
+
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="color:var(--text); margin-bottom:0.75rem;">🎯 ¿Qué es esto?</h3>
+            <p style="color:var(--text-light); line-height:1.6; margin:0 0 1rem 0;">
+                <strong>¡Es un simulador educativo!</strong> No inviertes dinero real, solo simulas inversiones para aprender y experimentar con diferentes estrategias.
+            </p>
+            <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+                <li><strong>Precios simulados:</strong> Los precios cambian automáticamente cada vez que actualizas</li>
+                <li><strong>Sin riesgo:</strong> Puedes experimentar con diferentes activos sin perder dinero</li>
+                <li><strong>Educativo:</strong> Perfecto para aprender conceptos de inversión</li>
+                <li><strong>Gráficos reales:</strong> Visualiza el rendimiento con gráficos profesionales</li>
+            </ul>
+        </div>
+
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="color:var(--text); margin-bottom:0.75rem;">📊 ¿Qué puedes hacer aquí?</h3>
+            <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+                <li><strong>Agregar inversiones:</strong> Simula compra de acciones, cripto o fondos</li>
+                <li><strong>Seguimiento automático:</strong> Los precios se actualizan periódicamente</li>
+                <li><strong>Análisis visual:</strong> Ve gráficos de rendimiento y ganancias/pérdidas</li>
+                <li><strong>Portafolio simulado:</strong> Gestiona múltiples inversiones como en la vida real</li>
+            </ul>
+        </div>
+
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="color:var(--text); margin-bottom:0.75rem;">💡 Consejos para usar el simulador</h3>
+            <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+                <li>Empieza con cantidades pequeñas para experimentar</li>
+                <li>Prueba diferentes tipos de activos (acciones, cripto, fondos)</li>
+                <li>Observa cómo cambian los precios y afecta tu portafolio</li>
+                <li>Usa fechas diferentes para simular inversiones a largo plazo</li>
+            </ul>
+        </div>
+
+        <div style="background:var(--warning-bg); padding:1rem; border-radius:8px; border-left:4px solid var(--warning); margin-top:1.5rem;">
+            <p style="margin:0; color:var(--warning-text); font-size:0.875rem;">
+                <strong>⚠️ Recordatorio:</strong> Esto es solo un simulador educativo. No refleja inversiones reales ni precios de mercado actuales. ¡Es perfecto para aprender sin riesgos!
+            </p>
+        </div>
+    `;
+    mostrarModalAyuda(contenido, 'modalAyudaInversiones');
+}
+
+function cerrarAyudaInversiones() {
+    document.getElementById('modalAyudaInversiones').style.display = 'none';
+}
+
+//PESTAÑA INVERSIONES SIMULADAS:
+// Función para agregar una inversión
+async function agregarInversion() {
+    const activo = document.getElementById('activoInversion').value.trim();
+    const cantidadInvertida = parseNumberVE(document.getElementById('cantidadInvertida').value);
+    const fecha = new Date(document.getElementById('fechaInversion').value + 'T12:00:00');
+    const tipoActivo = document.getElementById('tipoActivo').value;
+
+    if (!activo || isNaN(cantidadInvertida) || !fecha) {
+        mostrarToast('Por favor, completa todos los campos.', 'danger');
+        return;
+    }
+
+    // Obtener el precio actual del activo
+    let precioActual = 0;
+    try {
+        precioActual = await obtenerPrecioActivo(activo, tipoActivo);
+    } catch (error) {
+        console.error('Error al obtener precio:', error);
+        mostrarToast('No se pudo obtener el precio del activo. Inténtalo de nuevo.', 'danger');
+        return;
+    }
+
+    // Calcular la cantidad de activos comprados (por ejemplo, si invertiste 1000 Bs y el precio es 10 Bs por unidad, tienes 100 unidades)
+    const cantidadUnidades = cantidadInvertida / precioActual;
+
+    const inversion = {
+        activo,
+        cantidadInvertida,
+        fecha: fecha.toISOString(),
+        tipoActivo,
+        precioCompra: precioActual,
+        cantidadUnidades,
+        precioActual: precioActual // Se actualizará periódicamente
+    };
+
+    try {
+        await addEntry(STORES.INVERSIONES, inversion);
+        mostrarToast('Inversión agregada con éxito.', 'success');
+        limpiarFormularioInversion();
+        renderizarInversiones();
+    } catch (error) {
+        console.error('Error al agregar inversión:', error);
+        mostrarToast('Error al agregar la inversión.', 'danger');
+    }
+}
+
+// Función para limpiar el formulario de inversión
+function limpiarFormularioInversion() {
+    document.getElementById('activoInversion').value = '';
+    document.getElementById('cantidadInvertida').value = '';
+    document.getElementById('fechaInversion').value = '';
+    document.getElementById('tipoActivo').value = 'accion';
+}
+
+// Función para renderizar la lista de inversiones y el gráfico
+async function renderizarInversiones() {
+    try {
+        const inversiones = await getAllEntries(STORES.INVERSIONES);
+        const ul = document.getElementById('listaInversiones');
+        ul.innerHTML = '';
+
+        if (inversiones.length === 0) {
+            ul.innerHTML = '<li style="text-align: center; color: var(--text-light);">No tienes inversiones simuladas.</li>';
+            // Crear gráfico vacío
+            actualizarGraficoInversiones([]);
+            return;
+        }
+
+        // Actualizar los precios actuales de cada inversión
+        for (const inversion of inversiones) {
+            try {
+                inversion.precioActual = await obtenerPrecioActivo(inversion.activo, inversion.tipoActivo);
+                // Actualizar en la base de datos
+                await updateEntry(STORES.INVERSIONES, inversion);
+            } catch (error) {
+                console.error(`Error al actualizar precio de ${inversion.activo}:`, error);
+            }
+        }
+
+        // Renderizar cada inversión
+        inversiones.forEach(inversion => {
+            const valorActual = inversion.cantidadUnidades * inversion.precioActual;
+            const gananciaPerdida = valorActual - inversion.cantidadInvertida;
+            const porcentajeCambio = (gananciaPerdida / inversion.cantidadInvertida) * 100;
+
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <div style="flex: 1;">
+                    <strong>${inversion.activo}</strong> (${inversion.tipoActivo})
+                    <div style="font-size: 0.8rem; color: var(--text-light);">
+                        Invertido: ${formatNumberVE(inversion.cantidadInvertida)} Bs
+                        <br>Fecha: ${new Date(inversion.fecha).toLocaleDateString()}
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div>Valor actual: <strong>${formatNumberVE(valorActual)} Bs</strong></div>
+                    <div style="color: ${gananciaPerdida >= 0 ? 'var(--success)' : 'var(--danger)'};">
+                        ${gananciaPerdida >= 0 ? '+' : ''}${formatNumberVE(gananciaPerdida)} Bs (${porcentajeCambio.toFixed(2)}%)
+                    </div>
+                    <button onclick="eliminarInversion(${inversion.id})" style="background: var(--danger); color: white; border: none; border-radius: 4px; padding: 0.25rem 0.5rem; margin-top: 0.5rem;">Eliminar</button>
+                </div>
+            `;
+            ul.appendChild(li);
+        });
+
+        // Actualizar gráfico
+        actualizarGraficoInversiones(inversiones);
+    } catch (error) {
+        console.error('Error al renderizar inversiones:', error);
+        mostrarToast('Error al cargar las inversiones. Inténtalo de nuevo.', 'danger');
+
+        // Mostrar mensaje de error en la interfaz
+        const ul = document.getElementById('listaInversiones');
+        if (ul) {
+            ul.innerHTML = '<li style="text-align: center; color: var(--danger);">Error al cargar inversiones. Verifica la consola para más detalles.</li>';
+        }
+    }
+}
+
+// Función para eliminar una inversión
+async function eliminarInversion(id) {
+    if (await mostrarConfirmacion("¿Estás seguro de que quieres eliminar esta inversión?")) {
+        try {
+            await deleteEntry(STORES.INVERSIONES, id);
+            mostrarToast('Inversión eliminada.', 'success');
+            renderizarInversiones();
+        } catch (error) {
+            console.error('Error al eliminar inversión:', error);
+            mostrarToast('Error al eliminar la inversión.', 'danger');
+        }
+    }
+}
+
+// Función para obtener el precio de un activo (simulado por ahora, luego usaremos APIs)
+async function obtenerPrecioActivo(activo, tipo) {
+    // Por ahora, simulamos precios aleatorios para demostrar
+    // En un futuro, aquí haríamos llamadas a APIs reales
+    if (tipo === 'accion') {
+        // Simular precio entre 10 y 1000 Bs
+        return Math.random() * 990 + 10;
+    } else if (tipo === 'cripto') {
+        // Simular precio entre 10000 y 100000 Bs
+        return Math.random() * 90000 + 10000;
+    } else {
+        // Fondos: entre 100 y 500 Bs
+        return Math.random() * 400 + 100;
+    }
+}
+
+// Función para actualizar el gráfico de inversiones
+function actualizarGraficoInversiones(inversiones) {
+    const canvas = document.getElementById('graficoInversiones');
+    if (!canvas) {
+        console.warn('Canvas de gráfico de inversiones no encontrado');
+        return;
+    }
+
+    const ctx = canvas.getContext('2d');
+
+    // Si ya hay un gráfico válido, destruirlo
+    if (window.graficoInversiones && typeof window.graficoInversiones.destroy === 'function') {
+        window.graficoInversiones.destroy();
+    }
+
+    // Si no hay inversiones, no crear gráfico
+    if (!inversiones || inversiones.length === 0) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.font = '16px Arial';
+        ctx.fillStyle = 'var(--text-light)';
+        ctx.textAlign = 'center';
+        ctx.fillText('No hay inversiones para mostrar', canvas.width / 2, canvas.height / 2);
+        return;
+    }
+
+    const labels = inversiones.map(inv => inv.activo);
+    const dataInvertido = inversiones.map(inv => inv.cantidadInvertida);
+    const dataActual = inversiones.map(inv => inv.cantidadUnidades * inv.precioActual);
+
+    try {
+        window.graficoInversiones = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Invertido',
+                        data: dataInvertido,
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)'
+                    },
+                    {
+                        label: 'Valor actual',
+                        data: dataActual,
+                        backgroundColor: 'rgba(75, 192, 192, 0.5)'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Comparación: Invertido vs Valor Actual'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Cantidad (Bs)'
+                        }
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error al crear gráfico de inversiones:', error);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.font = '14px Arial';
+        ctx.fillStyle = 'var(--danger)';
+        ctx.textAlign = 'center';
+        ctx.fillText('Error al cargar el gráfico', canvas.width / 2, canvas.height / 2);
+    }
+}
+
+// ======================================================================================
+// ✅ SISTEMA DE WIDGETS PERSONALIZABLES
+// ======================================================================================
+
+// Widget types disponibles
+const TIPOS_WIDGET = {
+    RESUMEN_FINANCIERO: 'resumen_financiero',
+    GRAFICO_GASTOS: 'grafico_gastos',
+    ALERTA_SALDO: 'alerta_saldo',
+    CONVERSOR_MONEDA: 'conversor_moneda',
+    PROGRESO_PRESUPUESTO: 'progreso_presupuesto',
+    ULTIMOS_MOVIMIENTOS: 'ultimos_movimientos'
+};
+
+// Función para obtener configuración de widgets del localStorage
+function obtenerConfiguracionWidgets() {
+    const config = localStorage.getItem('dashboardWidgets');
+    return config ? JSON.parse(config) : [];
+}
+
+// Función para guardar configuración de widgets
+function guardarConfiguracionWidgets(config) {
+    localStorage.setItem('dashboardWidgets', JSON.stringify(config));
+}
+
+// Función para crear un widget básico
+function crearWidget(id, tipo, titulo, configuracion = {}) {
+    const widget = {
+        id,
+        tipo,
+        titulo,
+        configuracion,
+        posicion: Date.now(), // Para ordenamiento
+        activo: true
+    };
+    return widget;
+}
+
+// Función para agregar un nuevo widget
+function agregarWidget() {
+    const tipos = Object.values(TIPOS_WIDGET);
+    const tipoSeleccionado = tipos[Math.floor(Math.random() * tipos.length)]; // Para demo
+    
+    const widget = crearWidget(
+        'widget_' + Date.now(),
+        tipoSeleccionado,
+        obtenerTituloWidget(tipoSeleccionado)
+    );
+    
+    const config = obtenerConfiguracionWidgets();
+    config.push(widget);
+    guardarConfiguracionWidgets(config);
+    
+    cargarWidgets();
+    mostrarToast('✅ Widget agregado exitosamente', 'success');
+}
+
+// Función para obtener título según el tipo de widget
+function obtenerTituloWidget(tipo) {
+    const titulos = {
+        [TIPOS_WIDGET.RESUMEN_FINANCIERO]: '📊 Resumen Financiero',
+        [TIPOS_WIDGET.GRAFICO_GASTOS]: '📈 Gastos por Categoría',
+        [TIPOS_WIDGET.ALERTA_SALDO]: '⚠️ Alerta de Saldo',
+        [TIPOS_WIDGET.CONVERSOR_MONEDA]: '💱 Conversor de Moneda',
+        [TIPOS_WIDGET.PROGRESO_PRESUPUESTO]: '🎯 Progreso del Presupuesto',
+        [TIPOS_WIDGET.ULTIMOS_MOVIMIENTOS]: '📝 Últimos Movimientos'
+    };
+    return titulos[tipo] || 'Widget Personalizado';
+}
+
+// Función para renderizar un widget específico
+function renderizarWidget(widget) {
+    const contenedor = document.getElementById('contenedorWidgets');
+    if (!contenedor) return;
+
+    const widgetElement = document.createElement('div');
+    widgetElement.className = 'widget-card';
+    widgetElement.id = `widget-${widget.id}`;
+    widgetElement.draggable = true;
+    
+    // Agregar estilos básicos para el widget
+    widgetElement.style.cssText = `
+        background: var(--card-bg);
+        border-radius: var(--radius);
+        padding: 1rem;
+        box-shadow: var(--shadow-sm);
+        transition: all var(--transition);
+        cursor: move;
+        border: 1px solid var(--text-light);
+    `;
+    
+    // Header del widget
+    const header = document.createElement('div');
+    header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;';
+    
+    const titulo = document.createElement('h3');
+    titulo.textContent = widget.titulo;
+    titulo.style.cssText = 'font-size: 1rem; margin: 0; color: var(--text);';
+    
+    const controles = document.createElement('div');
+    controles.style.cssText = 'display: flex; gap: 0.25rem;';
+    
+    // Botón configurar
+    const btnConfig = document.createElement('button');
+    btnConfig.innerHTML = '⚙️';
+    btnConfig.style.cssText = 'background: none; border: none; color: var(--primary); cursor: pointer; padding: 0.25rem; border-radius: 4px; font-size: 0.8rem;';
+    btnConfig.title = 'Configurar widget';
+    btnConfig.onclick = () => configurarWidget(widget.id);
+    
+    // Botón eliminar
+    const btnEliminar = document.createElement('button');
+    btnEliminar.innerHTML = '🗑️';
+    btnEliminar.style.cssText = 'background: none; border: none; color: var(--danger); cursor: pointer; padding: 0.25rem; border-radius: 4px; font-size: 0.8rem;';
+    btnEliminar.title = 'Eliminar widget';
+    btnEliminar.onclick = () => eliminarWidget(widget.id);
+    
+    controles.appendChild(btnConfig);
+    controles.appendChild(btnEliminar);
+    
+    header.appendChild(titulo);
+    header.appendChild(controles);
+    
+    // Contenido del widget según su tipo
+    const contenido = document.createElement('div');
+    contenido.className = 'widget-content';
+    contenido.style.cssText = 'color: var(--text-light);';
+    
+    // Renderizar contenido según el tipo de widget
+    switch (widget.tipo) {
+        case TIPOS_WIDGET.RESUMEN_FINANCIERO:
+            contenido.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <p style="font-size: 0.8rem; margin: 0 0 0.25rem 0;">Saldo Actual</p>
+                        <p style="font-size: 1.2rem; font-weight: 600; color: var(--success); margin: 0;">Bs. ${formatNumberVE(0)}</p>
+                    </div>
+                    <div>
+                        <p style="font-size: 0.8rem; margin: 0 0 0.25rem 0;">Este Mes</p>
+                        <p style="font-size: 1.2rem; font-weight: 600; color: var(--primary); margin: 0;">Bs. ${formatNumberVE(0)}</p>
+                    </div>
+                </div>
+            `;
+            break;
+            
+        case TIPOS_WIDGET.ALERTA_SALDO:
+            contenido.innerHTML = `
+                <div style="text-align: center; padding: 1rem;">
+                    <p style="margin: 0 0 0.5rem 0;">💰 Estado del Saldo</p>
+                    <p style="font-size: 1.1rem; font-weight: 600; color: var(--success); margin: 0;">✓ Saldo Saludable</p>
+                </div>
+            `;
+            break;
+            
+        case TIPOS_WIDGET.CONVERSOR_MONEDA:
+            contenido.innerHTML = `
+                <div style="text-align: center;">
+                    <p style="margin: 0 0 0.5rem 0;">💱 Equivalente en USD</p>
+                    <p style="font-size: 1.3rem; font-weight: 600; color: var(--primary); margin: 0;">$0.00</p>
+                    <p style="font-size: 0.8rem; color: var(--text-light); margin: 0.25rem 0 0 0;">Tasa: 1 USD = Bs. 0,00</p>
+                </div>
+            `;
+            break;
+            
+        default:
+            contenido.innerHTML = `
+                <div style="text-align: center; padding: 1rem;">
+                    <p style="margin: 0;">📊 Widget ${widget.tipo}</p>
+                    <p style="font-size: 0.8rem; color: var(--text-light); margin: 0.5rem 0 0 0;">Contenido personalizado</p>
+                </div>
+            `;
+    }
+    
+    widgetElement.appendChild(header);
+    widgetElement.appendChild(contenido);
+    
+    // Eventos de drag & drop
+    widgetElement.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', widget.id);
+        widgetElement.style.opacity = '0.5';
+    });
+    
+    widgetElement.addEventListener('dragend', () => {
+        widgetElement.style.opacity = '1';
+        guardarOrdenWidgets();
+    });
+    
+    widgetElement.addEventListener('dragover', (e) => {
+        e.preventDefault();
+    });
+    
+    widgetElement.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const draggedId = e.dataTransfer.getData('text/plain');
+        const dropTarget = widgetElement;
+        
+        if (draggedId !== dropTarget.id.replace('widget-', '')) {
+            reordenarWidgets(draggedId, dropTarget.id.replace('widget-', ''));
+        }
+    });
+    
+    return widgetElement;
+}
+
+// Función para cargar todos los widgets
+function cargarWidgets() {
+    const contenedor = document.getElementById('contenedorWidgets');
+    const mensajeSinWidgets = document.getElementById('mensajeSinWidgets');
+    
+    if (!contenedor) return;
+    
+    // Limpiar contenedor
+    contenedor.innerHTML = '';
+    
+    const config = obtenerConfiguracionWidgets();
+    
+    if (config.length === 0) {
+        mensajeSinWidgets.style.display = 'block';
+        return;
+    }
+    
+    mensajeSinWidgets.style.display = 'none';
+    
+    // Ordenar widgets por posición
+    config.sort((a, b) => a.posicion - b.posicion);
+    
+    // Renderizar cada widget
+    config.forEach(widget => {
+        if (widget.activo) {
+            const widgetElement = renderizarWidget(widget);
+            contenedor.appendChild(widgetElement);
+        }
+    });
+}
+
+// Función para eliminar un widget
+function eliminarWidget(widgetId) {
+    mostrarConfirmacion('¿Estás seguro de que quieres eliminar este widget?').then(confirmado => {
+        if (confirmado) {
+            const config = obtenerConfiguracionWidgets();
+            const nuevosWidgets = config.filter(w => w.id !== widgetId);
+            guardarConfiguracionWidgets(nuevosWidgets);
+            
+            cargarWidgets();
+            mostrarToast('✅ Widget eliminado', 'success');
+        }
+    });
+}
+
+// Función para configurar un widget
+function configurarWidget(widgetId) {
+    mostrarToast('🔧 Configuración de widgets próximamente', 'info');
+    // Aquí iría la lógica para configurar opciones específicas del widget
+}
+
+// Función para mostrar configuración general de widgets
+function mostrarConfiguracionWidgets() {
+    mostrarToast('⚙️ Configuración general próximamente', 'info');
+    // Aquí iría un modal con opciones generales de widgets
+}
+
+// Función para guardar el orden de los widgets
+function guardarOrdenWidgets() {
+    const contenedor = document.getElementById('contenedorWidgets');
+    if (!contenedor) return;
+    
+    const widgets = Array.from(contenedor.children);
+    const config = obtenerConfiguracionWidgets();
+    
+    widgets.forEach((widget, index) => {
+        const widgetId = widget.id.replace('widget-', '');
+        const widgetConfig = config.find(w => w.id === widgetId);
+        if (widgetConfig) {
+            widgetConfig.posicion = index;
+        }
+    });
+    
+    guardarConfiguracionWidgets(config);
+}
+
+// Función para reordenar widgets mediante drag & drop
+function reordenarWidgets(draggedId, targetId) {
+    const config = obtenerConfiguracionWidgets();
+    const draggedIndex = config.findIndex(w => w.id === draggedId);
+    const targetIndex = config.findIndex(w => w.id === targetId);
+    
+    if (draggedIndex !== -1 && targetIndex !== -1) {
+        // Intercambiar posiciones
+        [config[draggedIndex], config[targetIndex]] = [config[targetIndex], config[draggedIndex]];
+        
+        // Actualizar posiciones
+        config.forEach((widget, index) => {
+            widget.posicion = index;
+        });
+        
+        guardarConfiguracionWidgets(config);
+        cargarWidgets();
+    }
+}
+
+// Función para mostrar ayuda sobre widgets
+function mostrarAyudaWidgets() {
+    mostrarToast('❓ Los widgets son componentes personalizables que puedes agregar, eliminar y reorganizar en tu dashboard', 'info');
+}
+
+// Función para editar deuda (funcionalidad básica)
+function editarDeuda(deudaId) {
+    mostrarToast('✏️ Edición de deudas próximamente', 'info');
+    // Aquí iría la lógica para editar una deuda existente
+}
+
+// Inicializar widgets cuando se carga la página
+document.addEventListener('DOMContentLoaded', function() {
+    // Cargar widgets cuando se muestra el dashboard
+    const dashboardTab = document.querySelector('[onclick="mostrarSideTab(\'dashboard\')"]');
+    if (dashboardTab) {
+        dashboardTab.addEventListener('click', cargarWidgets);
+    }
+    
+    // También cargar si ya estamos en el dashboard
+    if (document.getElementById('side-dashboard').classList.contains('active')) {
+        cargarWidgets();
+    }
+});
+
+// ======================================================================================
+// ✅ SISTEMA DE GESTIÓN DE DEUDAS Y PRÉSTAMOS
+// ======================================================================================
+
+// Constantes para tipos de deuda
+const TIPOS_DEUDA = {
+    DEBO: 'debo',
+    ME_DEBEN: 'me_deben'
+};
+
+const ESTADOS_DEUDA = {
+    PENDIENTE: 'pendiente',
+    PAGADA: 'pagada',
+    VENCIDA: 'vencida'
+};
+
+// Función para obtener configuración de deudas del localStorage
+function obtenerDeudas() {
+    const deudas = localStorage.getItem('deudas');
+    return deudas ? JSON.parse(deudas) : [];
+}
+
+// Función para guardar deudas en localStorage
+function guardarDeudas(deudas) {
+    localStorage.setItem('deudas', JSON.stringify(deudas));
+}
+
+// Función para limpiar el formulario de deuda
+function limpiarFormularioDeuda() {
+    document.getElementById('nombreDeudor').value = '';
+    document.getElementById('montoDeuda').value = '';
+    document.getElementById('fechaDeuda').value = '';
+    document.getElementById('descripcionDeuda').value = '';
+    document.getElementById('tieneInteres').checked = false;
+    document.getElementById('tasaInteres').value = '';
+    document.getElementById('tieneFechaVencimiento').checked = false;
+    document.getElementById('fechaVencimiento').value = '';
+    document.getElementById('camposInteres').style.display = 'none';
+    document.getElementById('camposVencimiento').style.display = 'none';
+    document.querySelector('input[name="tipoDeuda"][value="debo"]').checked = true;
+}
+
+// Función para guardar una nueva deuda
+function guardarDeuda() {
+    const nombre = document.getElementById('nombreDeudor').value.trim();
+    const monto = document.getElementById('montoDeuda').value.trim();
+    const moneda = document.getElementById('monedaDeuda').value;
+    const fecha = document.getElementById('fechaDeuda').value;
+    const descripcion = document.getElementById('descripcionDeuda').value.trim();
+    const tipo = document.querySelector('input[name="tipoDeuda"]:checked').value;
+    const tieneInteres = document.getElementById('tieneInteres').checked;
+    const tasaInteres = tieneInteres ? parseFloat(document.getElementById('tasaInteres').value) : 0;
+    const tieneVencimiento = document.getElementById('tieneFechaVencimiento').checked;
+    const fechaVencimiento = tieneVencimiento ? document.getElementById('fechaVencimiento').value : null;
+
+    // Validaciones
+    if (!nombre || !monto || !fecha) {
+        mostrarToast('❌ Por favor completa todos los campos obligatorios', 'danger');
+        return;
+    }
+
+    if (tieneInteres && (isNaN(tasaInteres) || tasaInteres < 0)) {
+        mostrarToast('❌ Ingresa una tasa de interés válida', 'danger');
+        return;
+    }
+
+    // Crear objeto deuda
+    const deuda = {
+        id: 'deuda_' + Date.now(),
+        nombre,
+        monto: parseFloat(monto),
+        moneda,
+        fecha,
+        descripcion,
+        tipo,
+        estado: ESTADOS_DEUDA.PENDIENTE,
+        tieneInteres,
+        tasaInteres,
+        tieneVencimiento,
+        fechaVencimiento,
+        fechaCreacion: new Date().toISOString(),
+        pagos: []
+    };
+
+    // Agregar deuda a la lista
+    const deudas = obtenerDeudas();
+    deudas.push(deuda);
+    guardarDeudas(deudas);
+
+    // Limpiar formulario y actualizar vista
+    limpiarFormularioDeuda();
+    cargarDeudas();
+    mostrarToast('✅ Deuda registrada exitosamente', 'success');
+}
+
+// Función para cargar y mostrar todas las deudas
+function cargarDeudas() {
+    const contenedor = document.getElementById('contenedorDeudas');
+    const filtroEstado = document.getElementById('filtroEstadoDeuda').value;
+    const filtroTipo = document.getElementById('filtroTipoDeuda').value;
+    
+    if (!contenedor) return;
+
+    const deudas = obtenerDeudas();
+    
+    // Aplicar filtros
+    let deudasFiltradas = deudas;
+    if (filtroEstado) {
+        deudasFiltradas = deudasFiltradas.filter(d => d.estado === filtroEstado);
+    }
+    if (filtroTipo) {
+        deudasFiltradas = deudasFiltradas.filter(d => d.tipo === filtroTipo);
+    }
+
+    // Limpiar contenedor
+    contenedor.innerHTML = '';
+
+    if (deudasFiltradas.length === 0) {
+        contenedor.innerHTML = '<p style="text-align: center; color: var(--text-light); font-style: italic;">No hay deudas que coincidan con los filtros</p>';
+        actualizarResumenDeudas(deudas);
+        return;
+    }
+
+    // Crear tarjetas para cada deuda
+    deudasFiltradas.forEach(deuda => {
+        const tarjetaDeuda = crearTarjetaDeuda(deuda);
+        contenedor.appendChild(tarjetaDeuda);
+    });
+
+    actualizarResumenDeudas(deudas);
+    actualizarAlertasVencimiento(deudas);
+    actualizarSelectorDeudas();
+}
+
+// Función para crear tarjeta de deuda
+function crearTarjetaDeuda(deuda) {
+    const tarjeta = document.createElement('div');
+    tarjeta.className = 'tarjeta-deuda';
+    tarjeta.style.cssText = `
+        background: var(--card-bg);
+        border-radius: var(--radius);
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-left: 4px solid ${deuda.tipo === TIPOS_DEUDA.DEBO ? 'var(--danger)' : 'var(--success)'};
+        box-shadow: var(--shadow-sm);
+    `;
+
+    const esVencida = deuda.tieneVencimiento && new Date(deuda.fechaVencimiento) < new Date() && deuda.estado === ESTADOS_DEUDA.PENDIENTE;
+    if (esVencida) {
+        tarjeta.style.borderLeftColor = 'var(--danger)';
+    }
+
+    const montoFormateado = formatNumberVE(deuda.monto);
+    const simboloMoneda = deuda.moneda === 'USD' ? '$' : deuda.moneda === 'EUR' ? '€' : 'Bs.';
+
+    tarjeta.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+            <div>
+                <h3 style="margin: 0 0 0.25rem 0; color: var(--text);">${deuda.nombre}</h3>
+                <p style="margin: 0; color: var(--text-light); font-size: 0.875rem;">
+                    ${deuda.tipo === TIPOS_DEUDA.DEBO ? 'Debo' : 'Me deben'} ${simboloMoneda} ${montoFormateado}
+                    ${deuda.tieneFechaVencimiento ? `• Vence: ${new Date(deuda.fechaVencimiento).toLocaleDateString()}` : ''}
+                </p>
+            </div>
+            <div style="display: flex; gap: 0.25rem;">
+                <button onclick="editarDeuda('${deuda.id}')" style="background: none; border: none; color: var(--primary); cursor: pointer; padding: 0.25rem;" title="Editar">
+                    ✏️
+                </button>
+                <button onclick="marcarComoPagada('${deuda.id}')" style="background: none; border: none; color: var(--success); cursor: pointer; padding: 0.25rem;" title="Marcar como pagada">
+                    ✅
+                </button>
+                <button onclick="eliminarDeuda('${deuda.id}')" style="background: none; border: none; color: var(--danger); cursor: pointer; padding: 0.25rem;" title="Eliminar">
+                    🗑️
+                </button>
+            </div>
+        </div>
+        
+        ${deuda.tieneInteres ? `<p style="margin: 0 0 0.5rem 0; font-size: 0.875rem; color: var(--text-light);">💰 Interés: ${deuda.tasaInteres}% anual</p>` : ''}
+        
+        ${deuda.descripcion ? `<p style="margin: 0 0 0.5rem 0; font-size: 0.875rem; color: var(--text-light);">📝 ${deuda.descripcion}</p>` : ''}
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--text-light);">
+            <span>Creada: ${new Date(deuda.fechaCreacion).toLocaleDateString()}</span>
+            <span class="${esVencida ? 'vencida' : deuda.estado}">Estado: ${esVencida ? 'VENCIDA' : deuda.estado.toUpperCase()}</span>
+        </div>
+    `;
+
+    return tarjeta;
+}
+
+// Función para actualizar resumen de deudas
+function actualizarResumenDeudas(deudas) {
+    const totalDebo = deudas
+        .filter(d => d.tipo === TIPOS_DEUDA.DEBO && d.estado === ESTADOS_DEUDA.PENDIENTE)
+        .reduce((sum, d) => sum + d.monto, 0);
+
+    const totalMeDeben = deudas
+        .filter(d => d.tipo === TIPOS_DEUDA.ME_DEBEN && d.estado === ESTADOS_DEUDA.PENDIENTE)
+        .reduce((sum, d) => sum + d.monto, 0);
+
+    document.getElementById('totalDebo').textContent = formatNumberVE(totalDebo);
+    document.getElementById('totalMeDeben').textContent = formatNumberVE(totalMeDeDeben);
+}
+
+// Función para actualizar alertas de vencimiento
+function actualizarAlertasVencimiento(deudas) {
+    const alertasContenedor = document.getElementById('contenedorAlertas');
+    const hoy = new Date();
+    const proximosDias = 7; // Alertar si vence en los próximos 7 días
+
+    const alertas = deudas.filter(d => {
+        if (d.estado !== ESTADOS_DEUDA.PENDIENTE || !d.tieneVencimiento) return false;
+        
+        const fechaVencimiento = new Date(d.fechaVencimiento);
+        const diferenciaDias = Math.ceil((fechaVencimiento - hoy) / (1000 * 60 * 60 * 24));
+        
+        return diferenciaDias <= proximosDias && diferenciaDias >= 0;
+    });
+
+    if (alertas.length === 0) {
+        alertasContenedor.innerHTML = '<p style="text-align: center; color: var(--text-light); font-style: italic;">No hay alertas pendientes</p>';
+        return;
+    }
+
+    alertasContenedor.innerHTML = '';
+    alertas.forEach(alerta => {
+        const fechaVencimiento = new Date(alerta.fechaVencimiento);
+        const diferenciaDias = Math.ceil((fechaVencimiento - hoy) / (1000 * 60 * 60 * 24));
+        
+        const alertaDiv = document.createElement('div');
+        alertaDiv.style.cssText = `
+            background: ${diferenciaDias === 0 ? 'var(--danger)' : 'var(--warning)'};
+            color: white;
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        `;
+        
+        alertaDiv.innerHTML = `
+            <strong>🚨 ${alerta.nombre}</strong><br>
+            Vence ${diferenciaDias === 0 ? 'HOY' : `en ${diferenciaDias} día${diferenciaDias !== 1 ? 's' : ''}`}
+            ${alerta.tipo === TIPOS_DEUDA.DEBO ? `• Debo Bs. ${formatNumberVE(alerta.monto)}` : `• Me deben Bs. ${formatNumberVE(alerta.monto)}`}
+        `;
+        
+        alertasContenedor.appendChild(alertaDiv);
+    });
+}
+
+// Función para marcar deuda como pagada
+function marcarComoPagada(deudaId) {
+    mostrarConfirmacion('¿Marcar esta deuda como pagada?').then(confirmado => {
+        if (confirmado) {
+            const deudas = obtenerDeudas();
+            const deuda = deudas.find(d => d.id === deudaId);
+            
+            if (deuda) {
+                deuda.estado = ESTADOS_DEUDA.PAGADA;
+                deuda.fechaPago = new Date().toISOString();
+                guardarDeudas(deudas);
+                cargarDeudas();
+                mostrarToast('✅ Deuda marcada como pagada', 'success');
+            }
+        }
+    });
+}
+
+// Función para eliminar deuda
+function eliminarDeuda(deudaId) {
+    mostrarConfirmacion('¿Estás seguro de que quieres eliminar esta deuda?').then(confirmado => {
+        if (confirmado) {
+            const deudas = obtenerDeudas();
+            const nuevasDeudas = deudas.filter(d => d.id !== deudaId);
+            guardarDeudas(nuevasDeudas);
+            cargarDeudas();
+            mostrarToast('✅ Deuda eliminada', 'success');
+        }
+    });
+}
+
+// Función para calcular intereses simples
+function calcularIntereses() {
+    const capital = parseFloat(document.getElementById('capitalInteres').value);
+    const tasa = parseFloat(document.getElementById('tasaInteresCalc').value);
+    const periodo = parseFloat(document.getElementById('periodoInteres').value);
+
+    if (isNaN(capital) || isNaN(tasa) || isNaN(periodo)) {
+        mostrarToast('❌ Ingresa valores válidos', 'danger');
+        return;
+    }
+
+    if (capital <= 0 || tasa < 0 || periodo <= 0) {
+        mostrarToast('❌ Los valores deben ser mayores a cero', 'danger');
+        return;
+    }
+
+    const interes = (capital * tasa * periodo) / 100;
+    const montoFinal = capital + interes;
+
+    document.getElementById('montoFinalInteres').value = formatNumberVE(montoFinal);
+    mostrarToast(`💰 Intereses: ${formatNumberVE(interes)} • Total: ${formatNumberVE(montoFinal)}`, 'success');
+}
+
+// Función para generar plan de pagos en PDF
+function generarPlanPagosPDF() {
+    const deudaId = document.getElementById('deudaParaPlan').value;
+    const numPagos = parseInt(document.getElementById('numPagos').value);
+    const frecuencia = document.getElementById('frecuenciaPagos').value;
+
+    if (!deudaId || !numPagos) {
+        mostrarToast('❌ Selecciona una deuda y número de pagos', 'danger');
+        return;
+    }
+
+    const deudas = obtenerDeudas();
+    const deuda = deudas.find(d => d.id === deudaId);
+    
+    if (!deuda) {
+        mostrarToast('❌ Deuda no encontrada', 'danger');
+        return;
+    }
+
+    // Crear contenido del PDF
+    const contenido = generarContenidoPlanPagos(deuda, numPagos, frecuencia);
+    
+    // Crear y descargar PDF (usando jsPDF si está disponible)
+    if (typeof jspdf !== 'undefined') {
+        const { jsPDF } = jspdf;
+        const doc = new jsPDF();
+        
+        doc.setFontSize(16);
+        doc.text('PLAN DE PAGOS', 20, 20);
+        
+        doc.setFontSize(12);
+        doc.text(`Deuda: ${deuda.nombre}`, 20, 35);
+        doc.text(`Monto total: Bs. ${formatNumberVE(deuda.monto)}`, 20, 45);
+        doc.text(`Número de pagos: ${numPagos}`, 20, 55);
+        doc.text(`Frecuencia: ${frecuencia}`, 20, 65);
+        
+        doc.setFontSize(10);
+        let yPosition = 85;
+        
+        contenido.forEach((pago, index) => {
+            if (yPosition > 250) {
+                doc.addPage();
+                yPosition = 20;
+            }
+            
+            doc.text(`Pago ${index + 1}: ${pago.fecha} - Bs. ${formatNumberVE(pago.monto)}`, 20, yPosition);
+            yPosition += 10;
+        });
+        
+        doc.save(`plan_pagos_${deuda.nombre.replace(/\s+/g, '_')}.pdf`);
+        mostrarToast('📄 PDF generado exitosamente', 'success');
+    } else {
+        mostrarToast('❌ Librería jsPDF no disponible', 'danger');
+    }
+}
+
+// Función para generar contenido del plan de pagos
+function generarContenidoPlanPagos(deuda, numPagos, frecuencia) {
+    const pagos = [];
+    const montoPorPago = deuda.monto / numPagos;
+    const fechaInicio = new Date();
+    
+    for (let i = 0; i < numPagos; i++) {
+        const fechaPago = new Date(fechaInicio);
+        
+        switch (frecuencia) {
+            case 'mensual':
+                fechaPago.setMonth(fechaPago.getMonth() + i);
+                break;
+            case 'quincenal':
+                fechaPago.setDate(fechaPago.getDate() + (i * 15));
+                break;
+            case 'semanal':
+                fechaPago.setDate(fechaPago.getDate() + (i * 7));
+                break;
+        }
+        
+        pagos.push({
+            fecha: fechaPago.toLocaleDateString(),
+            monto: montoPorPago
+        });
+    }
+    
+    return pagos;
+}
+
+// Función para mostrar ayuda sobre deudas
+function mostrarAyudaDeudas() {
+    mostrarToast('💡 Gestiona tus préstamos personales: registra deudas que tienes o dinero que te deben', 'info');
+}
+
+// Función para actualizar selector de deudas
+function actualizarSelectorDeudas() {
+    const selector = document.getElementById('deudaParaPlan');
+    const deudas = obtenerDeudas();
+    
+    selector.innerHTML = '<option value="">Selecciona una deuda</option>';
+    
+    deudas.filter(d => d.estado === ESTADOS_DEUDA.PENDIENTE).forEach(deuda => {
+        const option = document.createElement('option');
+        option.value = deuda.id;
+        option.textContent = `${deuda.nombre} - Bs. ${formatNumberVE(deuda.monto)}`;
+        selector.appendChild(option);
+    });
+}
+
+// Eventos para mostrar/ocultar campos adicionales
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxInteres = document.getElementById('tieneInteres');
+    const checkboxVencimiento = document.getElementById('tieneFechaVencimiento');
+    
+    if (checkboxInteres) {
+        checkboxInteres.addEventListener('change', function() {
+            document.getElementById('camposInteres').style.display = this.checked ? 'block' : 'none';
+        });
+    }
+    
+    if (checkboxVencimiento) {
+        checkboxVencimiento.addEventListener('change', function() {
+            document.getElementById('camposVencimiento').style.display = this.checked ? 'block' : 'none';
+        });
+    }
+    
+    // Cargar deudas cuando se muestra la pestaña
+    const deudasTab = document.querySelector('[onclick="mostrarSideTab(\'deudas\')"]');
+    if (deudasTab) {
+        deudasTab.addEventListener('click', cargarDeudas);
+    }
+    
+    // También cargar si ya estamos en deudas
+    if (document.getElementById('side-deudas').classList.contains('active')) {
+        cargarDeudas();
+    }
+});
 
 // ------------------------------------------------------------------------------------------------------------------------------------
 //                                 Inicialización y Event Listeners
