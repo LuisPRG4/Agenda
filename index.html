@@ -6,8 +6,11 @@
   <title>Sistema Financiero Personal (SFP)</title>
   <link rel="icon" type="image/x-icon" href="recursos/ICONO.png">
 
- <link rel="stylesheet" href="styles.css?v=20250928" />
+ <link rel="stylesheet" href="styles.css?v=20250930" />
+ <link rel="stylesheet" href="deudas.css?v=20250930" />
  <link rel="stylesheet" href="win11-theme.css?v=20250928">
+
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 </head>
 <body>
@@ -25,18 +28,88 @@
       <div class="nav-header">
         <img src="recursos/ICONO.png" class="nav-logo">
         <span class="nav-title">SFP</span>
+        <div class="nav-search">
+          <input type="text" id="navSearch" placeholder="🔍 Buscar pestañas..." />
+        </div>
       </div>
     
-    <nav class="side-tabs">
-      <button class="side-tab active" onclick="mostrarSideTab('dashboard')">📊 Dashboard</button>
-      <button class="side-tab" onclick="mostrarSideTab('movimientos')">💳 Movimientos</button>
-      <button class="side-tab" onclick="mostrarSideTab('analisis')">📈 Análisis</button>
-      <button class="side-tab" onclick="mostrarSideTab('presupuesto')">💰 Presupuesto</button>
-      <button class="side-tab" onclick="mostrarSideTab('herramientas')">🛠️ Herramientas</button>
-      <button class="side-tab" onclick="mostrarSideTab('calendario')">📅 Calendario</button>
-      <button class="side-tab" onclick="mostrarSideTab('cambios')">📝 Cambios</button>
-      <button class="side-tab" onclick="mostrarSideTab('config')">⚙️ Config</button>
-    </nav>
+      <nav class="side-tabs">
+
+        <!-- Después de <nav class="side-tabs"> agregar: -->
+
+<!-- FINANZAS -->
+<div class="category-badge">💰 FINANZAS</div>
+<button class="side-tab active" onclick="mostrarSideTab('dashboard')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#4F46E5">
+    <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+  </svg>
+  Dashboard
+</button>
+<button class="side-tab" onclick="mostrarSideTab('movimientos')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#059669">
+    <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+  </svg>
+  Movimientos
+</button>
+<button class="side-tab" onclick="mostrarSideTab('analisis')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#DC2626">
+    <path d="M3 3v18h18V3H3zm16 16H5V5h14v14zM7 7h4v10H7V7zm6 0h4v6h-4V7z"/>
+  </svg>
+  Análisis
+</button>
+<button class="side-tab" onclick="mostrarSideTab('presupuesto')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#EA580C">
+    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+  </svg>
+  Presupuesto
+</button>
+
+<div class="nav-category-separator"></div>
+
+<!-- HERRAMIENTAS -->
+<div class="category-badge">🛠️ HERRAMIENTAS</div>
+<button class="side-tab" onclick="mostrarSideTab('herramientas')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#6B7280">
+    <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/>
+  </svg>
+  Herramientas
+</button>
+<button class="side-tab" onclick="mostrarSideTab('calendario')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#2563EB">
+    <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+  </svg>
+  Calendario
+</button>
+<button class="side-tab" onclick="mostrarSideTab('inversiones')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#16A34A">
+    <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.3L22 12V6z"/>
+  </svg>
+  Inversiones
+</button>
+<button class="side-tab" onclick="mostrarSideTab('deudas')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#8B5CF6">
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+  </svg>
+  Deudas
+</button>
+
+<div class="nav-category-separator"></div>
+
+<!-- CONFIGURACIÓN -->
+<div class="category-badge">⚙️ CONFIGURACIÓN</div>
+<button class="side-tab" onclick="mostrarSideTab('config')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#6B7280">
+    <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.65 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
+  </svg>
+  Configuración
+</button>
+<button class="side-tab" onclick="mostrarSideTab('cambios')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#CA8A04">
+    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+  </svg>
+  Cambios
+</button>
+      </nav>
 
     <footer class="nav-footer">
       <button class="nav-toggle" title="Contraer menú">☰</button>
@@ -52,14 +125,20 @@
 
 
       <section id="resumen">
-        <h2>Resumen</h2>
+
+        <h2>Resumen 
+    <button onclick="mostrarAyudaDashboard()" 
+            style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+            title="¿Qué significa cada sección?">❓</button>
+</h2>
+
         <p>Saldo actual: <strong id="saldo">Bs. 0,00</strong></p>
   <p id="saldoAviso" style="font-size: 0.875rem; color: var(--text-light); margin-top: 0.25rem; display: none;">
   💡 Este saldo incluye una comisión del 0.3% aplicada automáticamente a cada gasto.
   </p>
 
   <div style="text-align: center; margin-top: 1rem; font-size: 0.875rem; color: var(--text-light);">
-    <span>Versión del sistema: </span><span id="versionDashboard" style="font-weight: 600; color: var(--primary);">1.0.3</span>
+    <span>Versión del sistema: </span><span id="versionDashboard" style="font-weight: 600; color: var(--primary);">1.0.4</span>
 </div>
 
   <p style="font-size:0.85rem; color:var(--text-light); margin-top:0.5rem;">
@@ -96,7 +175,33 @@
         </div>
       </section>
 
+<!-- WIDGETS PERSONALIZABLES -->
+<section id="widgetsPersonalizables">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+    <h2>📊 Widgets Personalizables
+      <button onclick="mostrarAyudaWidgets()"
+              style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+              title="¿Cómo personalizar los widgets?">❓</button>
+    </h2>
+    <div style="display: flex; gap: 0.5rem;">
+      <button onclick="mostrarConfiguracionWidgets()" id="btnConfigWidgets"
+              style="padding: 0.5rem; background: var(--primary); color: white; border: none; border-radius: 6px; font-size: 0.8rem; cursor: pointer;"
+              title="Configurar widgets">⚙️</button>
+      <button onclick="agregarWidget()" id="btnAgregarWidget"
+              style="padding: 0.5rem; background: var(--success); color: white; border: none; border-radius: 6px; font-size: 0.8rem; cursor: pointer;"
+              title="Agregar nuevo widget">➕</button>
+    </div>
+  </div>
 
+  <div id="contenedorWidgets" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+    <!-- Los widgets se cargarán dinámicamente aquí -->
+  </div>
+
+  <div id="mensajeSinWidgets" style="text-align: center; padding: 2rem; color: var(--text-light); display: none;">
+    <p>📭 No tienes widgets personalizados aún.</p>
+    <p>Haz clic en "➕" para agregar tu primer widget.</p>
+  </div>
+</section>
 
       <section id="alertaSaldo" style="display:none;">
         <p style="color:var(--danger); font-weight:500;">
@@ -132,7 +237,12 @@
     <section>
 
 
-        <h2>Agregar Movimiento</h2>
+      <h2>Agregar Movimiento 
+        <button onclick="mostrarAyudaMovimientos()" 
+                style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                title="¿Cómo agregar y gestionar movimientos?">❓</button>
+    </h2>
+
         <label for="saldoInicial">Saldo Inicial (opcional, solo se aplica una vez):
           <input type="text" id="saldoInicial" placeholder="Ej: 3.220,90" style="width:100%; padding:.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem;" />
 
@@ -200,8 +310,15 @@
         Movimientos
         <button id="btnToggleLista" onclick="toggleLista()">
             <span id="iconoFlecha">▼</span>
-        </button>
+        </button> 
     </h2>
+
+    <!-- Buscador específico para movimientos -->
+<div style="margin-bottom: 1rem;">
+  <input type="text" id="buscadorMovimientos" placeholder="🔍 Buscar movimientos por concepto, categoría o banco..." 
+         style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem;" />
+</div>
+    
         <div id="listaContenedor" style="display: none;">
         <ul id="listaMovimientos"></ul>
         <div id="controlesPaginacion" style="margin-top: 1rem; text-align: center;"></div>
@@ -264,7 +381,12 @@
     <div class="sidebar-content">
       <section id="grafico">
 
-        <h2>Gastos por categoría</h2>
+        <h2>Gastos por categoría 
+          <button onclick="mostrarAyudaAnalisis()" 
+                  style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                  title="¿Cómo interpretar los gráficos?">❓</button>
+      </h2>
+
         <canvas id="torta" style="max-width:100%; height:auto;"></canvas>
       </section>
       <section id="barras">
@@ -290,7 +412,12 @@
       <div class="sidebar-content">
         <section id="presupuestoMeta">
 
-  <h2>🎯 Meta de Presupuesto</h2>
+          <h2>🎯 Meta de Presupuesto 
+            <button onclick="mostrarAyudaPresupuesto()" 
+                    style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                    title="¿Cómo funciona esta pestaña?">❓</button>
+        </h2>
+
   <p style="margin-bottom: 1rem; color: var(--text-light);">Define tu meta mensual y tu progreso actual.</p>
   <div style="display:flex; gap:1rem; margin-bottom:1.5rem;">
     <div style="flex:1;">
@@ -346,7 +473,12 @@
       <div class="sidebar-content">
         <section>
 
-      <h2>🛠️ Formateador de Números</h2>
+          <h2>🛠️ Formateador de Números 
+            <button onclick="mostrarAyudaHerramientas()" 
+                    style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                    title="¿Para qué sirven estas herramientas?">❓</button>
+        </h2>
+
       <p style="color: var(--text-light); margin-bottom: 1.5rem;">
         Pega o escribe cualquier número (ej: 1111783.99) y lo convertiremos automáticamente a formato venezolano: <strong>1.111.783,99</strong>.
       </p>
@@ -441,6 +573,204 @@
 </div> <!-- cierre sidebar-content -->
 </div>
 
+<!-- INVERSIONES-->
+<div class="side-content" id="side-inversiones">
+  <div class="sidebar-content">
+    <section>
+      <h2>Simulador de Inversiones 
+        <button onclick="mostrarAyudaInversiones()" 
+                style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                title="¿Cómo funciona el simulador de inversiones?">❓</button>
+      </h2>
+      <p style="color: var(--text-light); margin-bottom: 1rem;">
+        Simula inversiones en acciones, criptomonedas o fondos. Los precios se actualizan automáticamente.
+      </p>
+
+      <!-- Formulario para agregar nueva inversión -->
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem;">
+        <h3 style="margin-top: 0;">Agregar Inversión</h3>
+        <label for="activoInversion">Activo (ej: AAPL, BTC):</label>
+        <input type="text" id="activoInversion" placeholder="Símbolo del activo" />
+
+        <label for="cantidadInvertida">Cantidad invertida (Bs):</label>
+        <input type="text" id="cantidadInvertida" placeholder="Ej: 1000" />
+
+        <label for="fechaInversion">Fecha de inversión:</label>
+        <input type="date" id="fechaInversion" />
+
+        <label for="tipoActivo">Tipo de activo:</label>
+        <select id="tipoActivo">
+          <option value="accion">Acción</option>
+          <option value="cripto">Criptomoneda</option>
+          <option value="fondo">Fondo de inversión</option>
+        </select>
+
+        <button onclick="agregarInversion()">Agregar Inversión</button>
+      </div>
+
+      <!-- Lista de inversiones actuales -->
+      <div>
+        <h3>Mis Inversiones</h3>
+        <ul id="listaInversiones"></ul>
+      </div>
+
+      <!-- Gráfico de rendimiento -->
+      <div style="margin-top: 2rem;">
+        <h3>Rendimiento</h3>
+        <canvas id="graficoInversiones" style="max-width: 100%; height: 300px;"></canvas>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- DEUDAS Y PRÉSTAMOS-->
+<div class="side-content" id="side-deudas">
+  <div class="sidebar-content">
+    <section id="registroDeuda">
+      <h2>💰 Registrar Nueva Deuda/Préstamo
+        <button onclick="mostrarAyudaDeudas()" 
+                style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                title="¿Cómo gestionar deudas y préstamos?">❓</button>
+      </h2>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <label>
+          <input type="radio" name="tipoDeuda" value="debo" checked> Le debo a alguien
+        </label>
+        <label>
+          <input type="radio" name="tipoDeuda" value="me_deben"> Alguien me debe
+        </label>
+      </div>
+
+      <input type="text" id="nombreDeudor" placeholder="Nombre de la persona/entidad" style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; margin-bottom: 1rem;" />
+
+      <input type="text" id="montoDeuda" placeholder="Monto (ej: 50.00)" style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; margin-bottom: 1rem;" />
+
+      <select id="monedaDeuda" style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; margin-bottom: 1rem;">
+        <option value="USD">Dólar (USD)</option>
+        <option value="EUR">Euro (EUR)</option>
+        <option value="VES">Bolívar (VES)</option>
+      </select>
+
+      <input type="date" id="fechaDeuda" style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; margin-bottom: 1rem;" />
+
+      <label style="display: block; margin-bottom: 0.5rem;">
+        <input type="checkbox" id="tieneInteres"> Tiene interés (% anual)
+      </label>
+      
+      <div id="camposInteres" style="display: none; margin-bottom: 1rem;">
+        <input type="number" id="tasaInteres" placeholder="Tasa de interés (%)" step="0.01" min="0" style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem;" />
+      </div>
+
+      <label style="display: block; margin-bottom: 0.5rem;">
+        <input type="checkbox" id="tieneFechaVencimiento"> Tiene fecha de vencimiento
+      </label>
+      
+      <div id="camposVencimiento" style="display: none; margin-bottom: 1rem;">
+        <input type="date" id="fechaVencimiento" style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem;" />
+      </div>
+
+      <textarea id="descripcionDeuda" placeholder="Descripción/observaciones (opcional)" style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; margin-bottom: 1rem; min-height: 80px; resize: vertical;"></textarea>
+
+      <div style="display: flex; gap: 0.75rem;">
+        <button onclick="guardarDeuda()" style="flex: 1; background: #0b57d0; color: white; border: none; border-radius: 8px; padding: 0.75rem; font-size: 1rem;">💾 Guardar Deuda</button>
+        <button onclick="limpiarFormularioDeuda()" style="flex: 1; background: #6b7280; color: white; border: none; border-radius: 8px; padding: 0.75rem; font-size: 1rem;">🧹 Limpiar</button>
+      </div>
+    </section>
+
+    <section id="listaDeudas">
+      <h2>📋 Mis Deudas/Préstamos</h2>
+      <div id="filtrosDeudas" style="margin-bottom: 1rem;">
+        <select id="filtroEstadoDeuda" style="margin-right: 0.5rem; padding: 0.5rem; border: 1px solid #ccc; border-radius: 6px;">
+          <option value="">Todas las deudas</option>
+          <option value="pendiente">Pendientes</option>
+          <option value="pagada">Pagadas</option>
+          <option value="vencida">Vencidas</option>
+        </select>
+        <select id="filtroTipoDeuda" style="padding: 0.5rem; border: 1px solid #ccc; border-radius: 6px;">
+          <option value="">Todos los tipos</option>
+          <option value="debo">Debo dinero</option>
+          <option value="me_deben">Me deben dinero</option>
+        </select>
+      </div>
+      <div id="contenedorDeudas">
+        <!-- Las deudas se cargarán dinámicamente aquí -->
+      </div>
+    </section>
+
+    <section id="resumenDeudas">
+      <h2>📊 Resumen de Deudas</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div style="background: var(--card-bg); padding: 1rem; border-radius: var(--radius); text-align: center;">
+          <p style="color: var(--text-light); margin: 0 0 0.5rem 0;">Total que debo</p>
+          <p style="font-size: 1.5rem; font-weight: 600; color: var(--danger); margin: 0;">Bs. <span id="totalDebo">0,00</span></p>
+        </div>
+        <div style="background: var(--card-bg); padding: 1rem; border-radius: var(--radius); text-align: center;">
+          <p style="color: var(--text-light); margin: 0 0 0.5rem 0;">Total que me deben</p>
+          <p style="font-size: 1.5rem; font-weight: 600; color: var(--success); margin: 0;">Bs. <span id="totalMeDeben">0,00</span></p>
+        </div>
+      </div>
+    </section>
+
+    <section id="alertasDeudas">
+      <h2>🚨 Alertas de Vencimiento</h2>
+      <div id="contenedorAlertas">
+        <p style="color: var(--text-light); text-align: center; font-style: italic;">No hay alertas pendientes</p>
+      </div>
+    </section>
+
+    <section id="calculadoraIntereses">
+      <h2>🧮 Calculadora de Intereses</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div>
+          <label>Capital:</label>
+          <input type="text" id="capitalInteres" placeholder="1000" style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 6px;" />
+        </div>
+        <div>
+          <label>Tasa anual (%):</label>
+          <input type="number" id="tasaInteresCalc" placeholder="12" step="0.01" style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 6px;" />
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div>
+          <label>Período (años):</label>
+          <input type="number" id="periodoInteres" placeholder="1" step="0.01" min="0" style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 6px;" />
+        </div>
+        <div>
+          <label>Monto final:</label>
+          <input type="text" id="montoFinalInteres" readonly style="width: 100%; padding: 0.5rem; background: var(--card-bg); border: 1px solid #ccc; border-radius: 6px;" />
+        </div>
+      </div>
+      <button onclick="calcularIntereses()" style="width: 100%; background: var(--primary); color: white; border: none; border-radius: 8px; padding: 0.75rem; font-size: 1rem;">📊 Calcular Intereses</button>
+    </section>
+
+    <section id="exportarDeudas">
+      <h2>📄 Exportar Plan de Pagos</h2>
+      <div style="margin-bottom: 1rem;">
+        <label>Seleccionar deuda:</label>
+        <select id="deudaParaPlan" style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem;">
+          <option value="">Selecciona una deuda</option>
+        </select>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <div>
+          <label>Número de pagos:</label>
+          <input type="number" id="numPagos" placeholder="12" min="1" style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 6px;" />
+        </div>
+        <div>
+          <label>Frecuencia:</label>
+          <select id="frecuenciaPagos" style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 6px;">
+            <option value="mensual">Mensual</option>
+            <option value="quincenal">Quincenal</option>
+            <option value="semanal">Semanal</option>
+          </select>
+        </div>
+      </div>
+      <button onclick="generarPlanPagosPDF()" style="width: 100%; background: #059669; color: white; border: none; border-radius: 8px; padding: 0.75rem; font-size: 1rem;">📄 Generar PDF</button>
+    </section>
+  </div>
+</div>
+
 <!-- Cambios y actualizaciones-->
 <div class="side-content" id="side-cambios">
   <div class="sidebar-content">
@@ -449,7 +779,7 @@
     <h2>Cambios y Actualizaciones</h2>
 
     <p style="text-align: center; margin-bottom: 1.5rem; font-size: 0.875rem; color: var(--text-light);">
-      Versión actual del sistema: <span id="versionActual" style="font-weight: 600; color: var(--primary);">1.0.3</span>
+      Versión actual del sistema: <span id="versionActual" style="font-weight: 600; color: var(--primary);">1.0.4</span>
   </p>
 
     <ul>
@@ -474,11 +804,16 @@
       <div style="text-align: center; margin-bottom: 1.5rem; padding: 1rem; background: var(--card-bg); border-radius: var(--radius); border: 1px solid var(--text-light);">
         <h3 style="margin: 0 0 0.5rem 0; color: var(--text);">Sistema de Finanzas Personales</h3>
         <p style="margin: 0; font-size: 0.875rem; color: var(--text-light);">
-            Versión <span id="versionConfig" style="font-weight: 600; color: var(--primary);">1.0.3</span>
+            Versión <span id="versionConfig" style="font-weight: 600; color: var(--primary);">1.0.4</span>
         </p>
       </div>
 
-        <h2>Reglas de automatización</h2>
+      <h2>Reglas de automatización 
+        <button onclick="mostrarAyudaConfiguracion()" 
+                style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                title="¿Cómo configurar reglas y categorías?">❓</button>
+    </h2>
+
         <ul id="listaReglas"></ul>
 
         <!-- ✅ NUEVA SECCIÓN: Editar Categorías -->
@@ -622,10 +957,10 @@
 </div> <!-- cierre sidebar-content -->
 </div>
 
-  <script src="chart.umd.min.js?v=20250929"></script>
-  <script src="xlsx.full.min.js?v=20250929"></script>
+  <script src="chart.umd.min.js?v=20250930"></script>
+  <script src="xlsx.full.min.js?v=20250930"></script>
   <script src="equivalente-calculator.js"></script>
-  <script src="app.js?v=20250929"></script>
+  <script src="app.js?v=20250930"></script>
   
   
   <!-- Modal de bloqueo -->
@@ -661,6 +996,94 @@
 
 </div>
 
+<!-- MODAL DE AYUDA (PRESUPUESTO)-->
+<div id="modalAyudaPresupuesto" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1002; justify-content:center; align-items:center;">
+  <div style="background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow-lg); padding:2rem; width:90%; max-width:500px; max-height:80vh; overflow-y:auto; position:relative;">
+    <button onclick="cerrarAyudaPresupuesto()" 
+            style="position:absolute; top:1rem; right:1rem; background:none; border:none; font-size:1.5rem; color:var(--text-light); cursor:pointer; padding:0.5rem; border-radius:50%; transition:background 0.2s;"
+            title="Cerrar">✕</button>
+    
+    <h2 style="color:var(--primary); margin-bottom:1.5rem; text-align:center;">🎯 ¿Cómo funciona la pestaña Presupuesto?</h2>
+    
+    <div style="margin-bottom:1.5rem;">
+      <h3 style="color:var(--text); margin-bottom:0.75rem;">📊 ¿Qué puedes hacer aquí?</h3>
+      <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+        <li><strong>Definir meta mensual:</strong> Establece tu presupuesto objetivo para el mes</li>
+        <li><strong>Visualizar progreso:</strong> Ve qué porcentaje has gastado de tu meta</li>
+        <li><strong>Análisis detallado:</strong> Revisa gastos por categoría en los últimos 30 días</li>
+        <li><strong>Control total:</strong> Guarda, elimina o modifica tu meta cuando quieras</li>
+      </ul>
+    </div>
+    
+    <div style="margin-bottom:1.5rem;">
+      <h3 style="color:var(--text); margin-bottom:0.75rem;">💡 Consejos útiles</h3>
+      <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+        <li>Define una meta realista basada en tus gastos históricos</li>
+        <li>Revisa frecuentemente el progreso para mantenerte en control</li>
+        <li>Usa las categorías para identificar áreas de mayor gasto</li>
+        <li>Ajusta tu meta mensualmente según tus necesidades</li>
+      </ul>
+    </div>
+    
+    <div style="background:var(--success-bg); padding:1rem; border-radius:8px; border-left:4px solid var(--success); margin-top:1.5rem;">
+      <p style="margin:0; color:var(--success-text); font-size:0.875rem;">
+        <strong>🎉 Pro tip:</strong> Una buena meta de presupuesto es entre el 50-70% de tus ingresos mensuales, dejando espacio para imprevistos.
+      </p>
+    </div>
+    
+  </div>
+</div>
+
+<!-- MODAL DE AYUDA (INVERSIONES)-->
+<div id="modalAyudaInversiones" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1003; justify-content:center; align-items:center;">
+  <div style="background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow-lg); padding:2rem; width:90%; max-width:500px; max-height:80vh; overflow-y:auto; position:relative;">
+    <button onclick="cerrarAyudaInversiones()" 
+            style="position:absolute; top:1rem; right:1rem; background:none; border:none; font-size:1.5rem; color:var(--text-light); cursor:pointer; padding:0.5rem; border-radius:50%; transition:background 0.2s;"
+            title="Cerrar">✕</button>
+    
+    <h2 style="color:var(--primary); margin-bottom:1.5rem; text-align:center;">📈 ¿Cómo funciona el Simulador de Inversiones?</h2>
+    
+    <div style="margin-bottom:1.5rem;">
+      <h3 style="color:var(--text); margin-bottom:0.75rem;">🎯 ¿Qué es esto?</h3>
+      <p style="color:var(--text-light); line-height:1.6; margin:0 0 1rem 0;">
+        <strong>¡Es un simulador educativo!</strong> No inviertes dinero real, solo simulas inversiones para aprender y experimentar con diferentes estrategias.
+      </p>
+      <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+        <li><strong>Precios simulados:</strong> Los precios cambian automáticamente cada vez que actualizas</li>
+        <li><strong>Sin riesgo:</strong> Puedes experimentar con diferentes activos sin perder dinero</li>
+        <li><strong>Educativo:</strong> Perfecto para aprender conceptos de inversión</li>
+        <li><strong>Gráficos reales:</strong> Visualiza el rendimiento con gráficos profesionales</li>
+      </ul>
+    </div>
+    
+    <div style="margin-bottom:1.5rem;">
+      <h3 style="color:var(--text); margin-bottom:0.75rem;">📊 ¿Qué puedes hacer aquí?</h3>
+      <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+        <li><strong>Agregar inversiones:</strong> Simula compra de acciones, cripto o fondos</li>
+        <li><strong>Seguimiento automático:</strong> Los precios se actualizan periódicamente</li>
+        <li><strong>Análisis visual:</strong> Ve gráficos de rendimiento y ganancias/pérdidas</li>
+        <li><strong>Portafolio simulado:</strong> Gestiona múltiples inversiones como en la vida real</li>
+      </ul>
+    </div>
+    
+    <div style="margin-bottom:1.5rem;">
+      <h3 style="color:var(--text); margin-bottom:0.75rem;">💡 Consejos para usar el simulador</h3>
+      <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+        <li>Empieza con cantidades pequeñas para experimentar</li>
+        <li>Prueba diferentes tipos de activos (acciones, cripto, fondos)</li>
+        <li>Observa cómo cambian los precios y afecta tu portafolio</li>
+        <li>Usa fechas diferentes para simular inversiones a largo plazo</li>
+      </ul>
+    </div>
+    
+    <div style="background:var(--warning-bg); padding:1rem; border-radius:8px; border-left:4px solid var(--warning); margin-top:1.5rem;">
+      <p style="margin:0; color:var(--warning-text); font-size:0.875rem;">
+        <strong>⚠️ Recordatorio:</strong> Esto es solo un simulador educativo. No refleja inversiones reales ni precios de mercado actuales. ¡Es perfecto para aprender sin riesgos!
+      </p>
+    </div>
+    
+  </div>
+</div>
+
 </body>
 </html>
-
