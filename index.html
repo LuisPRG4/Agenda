@@ -3,20 +3,31 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sistema Financiero Personal (SFP)</title>
+  <title>SISTEMA FINANCIERO</title>
   <link rel="icon" type="image/x-icon" href="recursos/ICONO.png">
 
- <link rel="stylesheet" href="styles.css?v=20250930" />
- <link rel="stylesheet" href="deudas.css?v=20250930" />
- <link rel="stylesheet" href="win11-theme.css?v=20250928">
+  <link rel="stylesheet" href="styles.css?v=20251001" />
+  <link rel="stylesheet" href="deudas.css?v=20251001" />
+  <link rel="stylesheet" href="win11-theme.css?v=20251001">
+  <link rel="stylesheet" href="movimientos-cards-fixed.css?v=20251001">
+  
+  <script src="enhanced-cards.js"></script>
 
  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 </head>
 <body>
-  <div style="text-align:right; margin-bottom:.5rem;">
+
+  <!-- ✅ SONIDOS PARA CAMBIO DE PESTAÑAS -->
+  <audio id="sonidoCambioPestana" preload="auto">
+    <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhEUOlV1TFXhAxQ==" type="audio/wav">
+  </audio>
+
+  <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
     <button id="btnTema" title="Cambiar tema">🌓</button>
+    <button id="btnBloqueoManual" title="Bloquear aplicación" style="display: none; background: none; border: none; color: #dc2626; font-size: 1.2rem; cursor: pointer; padding: 0; margin: 0; line-height: 1;">🔒</button>
   </div>
+
   <h1 style="text-align:center; margin-bottom:1rem;">SISTEMA DE FINANZAS</h1>
   
   
@@ -43,7 +54,7 @@
   <svg class="icon" viewBox="0 0 24 24" fill="#4F46E5">
     <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
   </svg>
-  Dashboard
+  Inicio
 </button>
 <button class="side-tab" onclick="mostrarSideTab('movimientos')">
   <svg class="icon" viewBox="0 0 24 24" fill="#059669">
@@ -64,6 +75,29 @@
   Presupuesto
 </button>
 
+<!-- ✅ NUEVAS PESTAÑAS EN FINANZAS -->
+<button class="side-tab" onclick="mostrarSideTab('deudas')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#8B5CF6">
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+  </svg>
+  Deudas
+</button>
+
+<button class="side-tab" onclick="mostrarSideTab('ahorro')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#10B981">
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+  </svg>
+  Ahorro
+</button>
+
+<!-- ✅ MOVER INVERSIONES A FINANZAS -->
+<button class="side-tab" onclick="mostrarSideTab('inversiones')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#16A34A">
+    <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.3L22 12V6z"/>
+  </svg>
+  Inversiones
+</button>
+
 <div class="nav-category-separator"></div>
 
 <!-- HERRAMIENTAS -->
@@ -74,40 +108,55 @@
   </svg>
   Herramientas
 </button>
+
+<!-- ✅ NUEVA PESTAÑA: CALENDARIO VISUAL -->
 <button class="side-tab" onclick="mostrarSideTab('calendario')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#2563EB">
-    <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+  <svg class="icon" viewBox="0 0 24 24" fill="#1a73e8">
+    <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-6 13H9v-2h4v2zm3-4H9V9h7v3z"/>
   </svg>
   Calendario
 </button>
-<button class="side-tab" onclick="mostrarSideTab('inversiones')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#16A34A">
-    <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.3L22 12V6z"/>
+
+<!-- ✅ NUEVA PESTAÑA: ALMACÉN DE BACKUPS -->
+<button class="side-tab" onclick="mostrarSideTab('almacen')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#7C3AED">
+    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
   </svg>
-  Inversiones
+  Almacén
 </button>
-<button class="side-tab" onclick="mostrarSideTab('deudas')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#8B5CF6">
+
+<!-- ✅ NUEVA PESTAÑA: TASAS BCV -->
+<button class="side-tab" onclick="mostrarSideTab('tasas-bcv')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#059669">
     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
   </svg>
-  Deudas
+  Tasas BCV
+</button>
+
+<!-- ✅ NUEVA PESTAÑA: OPTIMIZACIÓN FISCAL -->
+<button class="side-tab" onclick="mostrarSideTab('optimizacion-fiscal')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#059669">
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+  </svg>
+  💰 Optimización Fiscal
 </button>
 
 <div class="nav-category-separator"></div>
 
 <!-- CONFIGURACIÓN -->
 <div class="category-badge">⚙️ CONFIGURACIÓN</div>
-<button class="side-tab" onclick="mostrarSideTab('config')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#6B7280">
-    <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.65 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
-  </svg>
-  Configuración
-</button>
 <button class="side-tab" onclick="mostrarSideTab('cambios')">
   <svg class="icon" viewBox="0 0 24 24" fill="#CA8A04">
     <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
   </svg>
   Cambios
+</button>
+
+<button class="side-tab" onclick="mostrarSideTab('config')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#6B7280">
+    <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.65 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
+  </svg>
+  Configuración
 </button>
       </nav>
 
@@ -228,7 +277,7 @@
   </table>
 
 </section>
-</div> <!-- cierre sidebar-content -->
+</div> <!-- cierre sidebar-content DASHBOARD -->
 </div>
 
 
@@ -314,9 +363,31 @@
     </h2>
 
     <!-- Buscador específico para movimientos -->
-<div style="margin-bottom: 1rem;">
+<div style="margin-bottom: 1rem; position: relative; display: flex; align-items: center; width: 100%;">
   <input type="text" id="buscadorMovimientos" placeholder="🔍 Buscar movimientos por concepto, categoría o banco..." 
-         style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem;" />
+         style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; padding-right: 40px; box-sizing: border-box;" />
+  <button type="button" id="limpiarBusqueda" style="
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--text-light);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: none; /* ¡IMPORTANTE! Oculto por defecto */
+    border-radius: 50%;
+    transition: background 0.2s, color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  " title="Limpiar búsqueda">
+    ✕
+  </button>
 </div>
     
         <div id="listaContenedor" style="display: none;">
@@ -373,7 +444,7 @@
         <button onclick="exportarExcel()">📊 Exportar Excel</button>
 
       </div>
-    </div> <!-- cierre sidebar-content -->
+    </div> <!-- cierre sidebar-content MOVIMIENTOS-->
   </div>
 
 
@@ -402,7 +473,7 @@
 
 
             </section>
-      </div> <!-- cierre sidebar-content -->
+      </div> <!-- cierre sidebar-content ANALISIS -->
     </div>
 
 
@@ -465,7 +536,7 @@
   </p>
 
 </section>
-</div> <!-- cierre sidebar-content -->
+</div> <!-- cierre sidebar-content PRESPUESTO -->
 </div>
 
     <!-- (FORMATEADOR DE NÚMEROS) -->
@@ -546,31 +617,65 @@
   </p>
 
 </section>
-</div> <!-- cierre sidebar-content -->
+</div> <!-- cierre sidebar-content Herramientas-->
 </div>
 
-<!-- CALENDARIO DE MOVIMIENTOS-->
+
+<!-- ✅ NUEVA PESTAÑA: CALENDARIO VISUAL INTERACTIVO -->
 <div class="side-content" id="side-calendario">
   <div class="sidebar-content">
     <section>
+      <h2>📅 Calendario de Movimientos
+        <button onclick="mostrarAyudaCalendario()" 
+                style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                title="¿Cómo funciona este calendario?">❓</button>
+      </h2>
+      <p style="color: var(--text-light); margin-bottom: 1.5rem; font-size: 0.85rem;">
+        Ver tus movimientos por día en un calendario visual moderno. Haz clic en un día para ver sus movimientos.
+      </p>
 
-    <h2>📅 Calendario de Movimientos</h2>
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-      <button onclick="cambiarMes(-1)" style="padding:0.5rem 1rem; background:#0b57d0; color:white; border:none; border-radius:8px; font-size:1rem;">← Mes anterior</button>
-      <h3 id="mesActual" style="font-size:1.5rem; font-weight:600; color:var(--text);">Abril 2025</h3>
-      <button onclick="cambiarMes(1)" style="padding:0.5rem 1rem; background:#0b57d0; color:white; border:none; border-radius:8px; font-size:1rem;">Mes siguiente →</button>
-    </div>
-    <div id="calendario" style="display:grid; grid-template-columns: repeat(7, 1fr); gap:0.25rem; margin-bottom:1.5rem; font-size:0.85rem;">
-      <!-- Se rellena dinámicamente -->
-    </div>
-    
-    <div id="detallesDia" style="background:var(--card-bg); padding:1rem; border-radius:8px; border:1px solid #eee; display:none; margin-top:1rem;">
-  <!-- ✅ Eliminamos el título de fecha -->
-  <ul id="listaMovimientosDia" style="list-style:none; padding:0; margin:0;"></ul>
-</div>
+      <!-- ✅ CALENDARIO VISUAL (solo mes actual) -->
+      <div id="calendarContainer" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.25rem; margin-bottom: 1.5rem; max-width: 300px; margin-left: auto; margin-right: auto;">
+        <!-- Los días se generarán dinámicamente aquí -->
+      </div>
 
-</section>
-</div> <!-- cierre sidebar-content -->
+      <div style="text-align: center; font-size: 0.8rem; color: var(--text-light); margin-top: 0.5rem;">
+        <span id="calendarMonthYear">Septiembre 2025</span>
+      </div>
+
+      <!-- ✅ NAVEGACIÓN POR MES -->
+      <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 1rem; font-size: 0.85rem; color: var(--text-light);">
+        <button onclick="cambiarMes(-1)" style="background: none; border: none; color: var(--primary); cursor: pointer; padding: 0.5rem; border-radius: 50%; font-size: 1.2rem; transition: background 0.2s;">←</button>
+        <span id="calendarMonthYearNav">Septiembre 2025</span>
+        <button onclick="cambiarMes(1)" style="background: none; border: none; color: var(--primary); cursor: pointer; padding: 0.5rem; border-radius: 50%; font-size: 1.2rem; transition: background 0.2s;">→</button>
+      </div>
+
+      <!-- ✅ LEGENDA -->
+      <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 1rem; font-size: 0.75rem; color: var(--text-light);">
+        <div style="display: flex; align-items: center; gap: 0.25rem;">
+          <div style="width: 6px; height: 6px; background: var(--primary); border-radius: 50%;"></div>
+          <span>Movimiento</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.25rem;">
+          <div style="width: 10px; height: 10px; background: var(--primary); border-radius: 50%; border: 1px solid var(--text-light);"></div>
+          <span>Hoy</span>
+        </div>
+      </div>
+
+      <!-- ✅ LISTA DE TARJETAS DE MOVIMIENTOS (oculta al inicio) -->
+      <div id="movimientosDiaContainer" style="margin-top: 2rem; display: none;">
+        <h3 style="margin-bottom: 1rem; color: var(--text); text-align: center;">Movimientos del <span id="fechaSeleccionada">01 de Septiembre 2025</span></h3>
+        <div id="tarjetasMovimientos" class="presupuesto-grid" style="margin-bottom: 1rem;">
+          <!-- Las tarjetas se generarán aquí dinámicamente -->
+        </div>
+        <div id="paginacionTarjetas" class="paginacion-presupuesto" style="justify-content: center; margin-top: 1.5rem; display: none;">
+          <button onclick="cambiarPaginaTarjetas(-1)" id="btnAnteriorTarjetas" disabled>←</button>
+          <span class="paginacion-info" id="infoPaginacion">Página 1 de 1</span>
+          <button onclick="cambiarPaginaTarjetas(1)" id="btnSiguienteTarjetas" disabled>→</button>
+        </div>
+      </div>
+    </section>
+  </div>
 </div>
 
 <!-- INVERSIONES-->
@@ -794,7 +899,124 @@
     </ul>
 
   </section>
-</div> <!-- cierre sidebar-content -->
+</div> <!-- cierre sidebar-content CAMBIOS -->
+</div>
+
+<!-- ✅ NUEVA PESTAÑA: ALMACÉN DE BACKUPS -->
+<div class="side-content" id="side-almacen">
+  <div class="sidebar-content">
+    <section>
+      <h2>📦 Almacén de Backups
+        <button onclick="mostrarAyudaAlmacen()" 
+                style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                title="¿Cómo funciona el almacén?">❓</button>
+      </h2>
+      <p style="color: var(--text-light); margin-bottom: 1rem;">
+        Gestiona tus backups de forma segura. Se almacenan automáticamente cuando creas un backup.
+      </p>
+
+      <!-- Crear nuevo backup -->
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem;">
+        <h3 style="margin-top: 0; color: var(--primary);">💾 Crear Nuevo Backup</h3>
+        <p style="color: var(--text-light); margin-bottom: 1rem; font-size: 0.85rem;">
+          Crea un backup completo de todos tus datos financieros. Se descargará automáticamente y se guardará en el almacén.
+        </p>
+        <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+          <button onclick="exportarBackupConAlmacen()" style="flex: 1; background: #0b57d0; color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1rem;">
+            📦 Crear y Guardar Backup
+          </button>
+          <button onclick="mostrarBackupsAlmacen()" style="flex: 1; background: #018642; color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1rem;">
+            📋 Ver Backups Guardados
+          </button>
+        </div>
+        <div style="background: var(--info-bg); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--info);">
+          <p style="margin: 0; color: var(--info-text); font-size: 0.85rem;">
+            <strong>💡 Información:</strong> Los backups incluyen movimientos, categorías, bancos, reglas, configuración y más. 
+            Se almacenan encriptados en tu navegador para máxima seguridad.
+          </p>
+        </div>
+      </div>
+
+      <!-- Lista de backups almacenados -->
+      <div id="contenedorAlmacen" style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius);">
+        <h3 style="margin-top: 0; color: var(--text);">📋 Backups Almacenados</h3>
+        <p style="color: var(--text-light); margin-bottom: 1rem; font-size: 0.85rem;">
+          Backups disponibles en tu dispositivo:
+        </p>
+        <div id="listaBackupsAlmacen" style="max-height: 300px; overflow-y: auto;">
+          <p style="text-align: center; color: var(--text-light); font-style: italic;">No hay backups almacenados aún. Crea tu primer backup.</p>
+        </div>
+        <div style="margin-top: 1rem; display: flex; gap: 0.75rem;">
+          <button onclick="limpiarAlmacen()" style="flex: 1; background: #ff9800; color: white; border: none; border-radius: 8px; padding: 0.75rem; font-size: 0.9rem;">
+            🗑️ Limpiar Todo
+          </button>
+        </div>
+      </div>
+    </section> <!-- cierre sidebar-content ALMACEN -->
+  </div>
+</div>
+
+<!-- ✅ NUEVA PESTAÑA: TASAS BCV -->
+<div class="side-content" id="side-tasas-bcv">
+  <div class="sidebar-content">
+    <section>
+      <h2>🏦 Tasas BCV del Día
+        <button onclick="mostrarAyudaBCV()" 
+                style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                title="¿Cómo funcionan las tasas BCV?">❓</button>
+      </h2>
+      <p style="color: var(--text-light); margin-bottom: 1rem;">
+        Consulta automáticamente las tasas oficiales del Banco Central de Venezuela (BCV) y mantenlas actualizadas en tu sistema.
+      </p>
+
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem;">
+        <h3 style="margin-top: 0; color: var(--primary);">💱 Tasas Actuales</h3>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+          <div style="text-align: center; padding: 1rem; background: var(--success-bg); border-radius: 8px;">
+            <div style="font-size: 0.8rem; color: var(--success-text); margin-bottom: 0.5rem;">Dólar Oficial (BCV)</div>
+            <div id="tasaBCV" style="font-size: 1.5rem; font-weight: 600; color: var(--success);">--</div>
+            <div id="fechaBCV" style="font-size: 0.7rem; color: var(--success-text); margin-top: 0.25rem;">Actualizado: --</div>
+          </div>
+          
+          <div style="text-align: center; padding: 1rem; background: var(--info-bg); border-radius: 8px;">
+            <div style="font-size: 0.8rem; color: var(--info-text); margin-bottom: 0.5rem;">Euro Oficial (BCV)</div>
+            <div id="tasaBCVEUR" style="font-size: 1.5rem; font-weight: 600; color: var(--info);">--</div>
+            <div id="fechaBCVEUR" style="font-size: 0.7rem; color: var(--info-text); margin-top: 0.25rem;">Actualizado: --</div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+          <button onclick="obtenerTasasBCV()" style="flex: 1; background: #0b57d0; color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1rem;">
+            🔄 Actualizar Tasas
+          </button>
+          <button onclick="usarTasaBCV()" style="flex: 1; background: #018642; color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1rem;">
+            💱 Usar en Sistema
+          </button>
+          <button onclick="limpiarHistorialBCV()" style="flex: 1; background: #ff9800; color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1rem;">
+            🗑️ Limpiar Historial
+          </button>
+        </div>
+
+        <div style="background: var(--warning-bg); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--warning);">
+          <p style="margin: 0; color: var(--warning-text); font-size: 0.85rem;">
+            <strong>⚠️ Nota:</strong> Las tasas se obtienen directamente del sitio oficial del BCV. 
+            Se recomienda verificar la información en la fuente oficial.
+          </p>
+        </div>
+      </div>
+
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius);">
+        <h3 style="margin-top: 0; color: var(--text);">📊 Historial de Tasas</h3>
+        <p style="color: var(--text-light); margin-bottom: 1rem; font-size: 0.85rem;">
+          Últimas 7 tasas consultadas para seguimiento:
+        </p>
+        <div id="historialTasas" style="max-height: 200px; overflow-y: auto;">
+          <p style="text-align: center; color: var(--text-light); font-style: italic;">No hay historial aún. Consulta algunas tasas.</p>
+        </div>
+      </div>
+    </section>
+  </div>
 </div>
 
 <div class="side-content" id="side-config">
@@ -939,7 +1161,28 @@
   </p>
 </details>
 
-
+  <!-- CONTROL DE SONIDOS -->
+  <details style="margin-top: 1.5rem;">
+    <summary>🔊 Control de Sonidos</summary>
+    <p style="color: var(--text-light); margin-bottom: 1rem;">
+      Activa o desactiva los sonidos que se reproducen al cambiar de pestañas. Puedes cambiar esta opción en cualquier momento.
+    </p>
+    <div style="margin-bottom: 1rem;">
+      <label>
+        <input type="checkbox" id="sonidosActivados" checked />
+        <strong>🔊 Sonidos activados</strong><br>
+        <small style="color: var(--text-light);">Reproduce sonidos sutiles al cambiar entre pestañas</small>
+      </label>
+    </div>
+    <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+      <button onclick="probarSonido()" style="flex: 1; background: #0b57d0; color: white; border: none; border-radius: 8px; padding: 0.75rem; font-size: 0.9rem;">🔊 Probar sonido</button>
+      <button onclick="guardarConfiguracionSonidos()" style="flex: 1; background: #018642; color: white; border: none; border-radius: 8px; padding: 0.75rem; font-size: 0.9rem;">💾 Guardar</button>
+    </div>
+    <p style="font-size:0.8rem; color:var(--text-light); margin-top:1rem;">
+      💡 Los sonidos usan la Web Audio API de tu navegador y no requieren archivos externos.
+    </p>
+  </details>
+  
   <!-- ELIMINAR TODOS LOS MOVIMIENTOS -->
   <details style="margin-top: 1.5rem; color: #b00020;">
   <summary style="color: #b00020;">⚠️ Eliminar todos los movimientos</summary>
@@ -954,11 +1197,191 @@
 </details>
 
 </section>
-</div> <!-- cierre sidebar-content -->
+</div> <!-- cierre sidebar-content CONFIGURACIÓN -->
 </div>
 
-  <script src="chart.umd.min.js?v=20250930"></script>
-  <script src="xlsx.full.min.js?v=20250930"></script>
+<!-- ✅ NUEVA PESTAÑA: AHORRO -->
+<div class="side-content" id="side-ahorro">
+  <div class="sidebar-content">
+    <section>
+      <h2>🎯 Mis Metas de Ahorro
+        <button onclick="mostrarAyudaAhorro()" 
+                style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                title="¿Cómo funciona esta pestaña?">❓</button>
+      </h2>
+      
+      <!-- FORMULARIO PARA NUEVA META -->
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem;">
+        <h3 style="margin-top: 0; color: var(--primary);">➕ Nueva Meta</h3>
+        <input type="text" id="nombreMeta" placeholder="Ej: Vacaciones en la playa 2025" 
+               style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; margin-bottom: 1rem;" />
+        <input type="text" id="montoMeta" placeholder="Ej: 50000" 
+               style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; margin-bottom: 1rem;" />
+        <input type="date" id="fechaMeta" 
+               style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; margin-bottom: 1rem;" />
+        <button onclick="crearMetaAhorro()" 
+                style="width: 100%; background: #10B981; color: white; border: none; border-radius: 8px; padding: 0.75rem; font-size: 1rem;">
+          💾 Crear Meta
+        </button>
+      </div>
+
+      <!-- LISTA DE METAS -->
+      <div id="listaMetasAhorro">
+        <!-- Las metas se cargarán aquí -->
+      </div>
+
+      <!-- GRÁFICO TERMÓMETRO -->
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-top: 2rem;">
+        <h3>📊 Progreso General</h3>
+        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+          <div style="flex: 1;">
+            <div style="height: 20px; background: #e0e0e0; border-radius: 10px; overflow: hidden; margin-bottom: 0.5rem;">
+              <div id="barraProgresoGeneral" style="height: 100%; width: 0%; background: linear-gradient(90deg, #10B981, #059669); transition: width 0.5s ease;"></div>
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-light);">
+              <span id="textoProgresoGeneral">Bs. 0 / Bs. 0 (0%)</span>
+            </div>
+          </div>
+          <div style="font-size: 2rem;">🌡️</div>
+        </div>
+      </div>
+
+      <!-- SUGERENCIAS AUTOMÁTICAS -->
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1.5rem; border-radius: var(--radius); margin-top: 2rem; color: white;">
+        <h3 style="margin-top: 0;">💡 Sugerencias de Ahorro</h3>
+        <div id="sugerenciasContainer">
+          <p style="margin: 0; font-style: italic;">Cargando sugerencias...</p>
+        </div>
+        <button onclick="generarNuevasSugerencias()" 
+                style="margin-top: 1rem; background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 6px; padding: 0.5rem 1rem; font-size: 0.9rem;">
+          🔄 Generar Nuevas
+        </button>
+      </div>
+    </section> <!-- Fin sección Ahorro -->
+  </div>
+</div>
+
+<!-- ✅ NUEVA PESTAÑA: OPTIMIZACIÓN FISCAL -->
+<div class="side-content" id="side-optimizacion-fiscal">
+  <div class="sidebar-content">
+    <section>
+      <h2>💰 Optimización Fiscal Simplificada
+        <button onclick="mostrarAyudaOptimizacionFiscal()" 
+                style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                title="¿Cómo funciona la optimización fiscal?">❓</button>
+      </h2>
+      <p style="color: var(--text-light); margin-bottom: 1.5rem;">
+        Maximiza beneficios fiscales dentro del marco legal con herramientas profesionales automáticas.
+      </p>
+
+      <!-- CLASIFICADOR AUTOMÁTICO DE GASTOS DEDUCIBLES -->
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 2rem;">
+        <h3>🔍 Clasificador Automático de Gastos Deducibles</h3>
+        <p style="color: var(--text-light); margin-bottom: 1rem;">
+          Analiza automáticamente tus movimientos para identificar gastos potencialmente deducibles.
+        </p>
+        <button onclick="clasificarGastosDeducibles()" 
+                style="background: #059669; color: white; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; font-size: 1rem; cursor: pointer;">
+          🔍 Analizar Movimientos
+        </button>
+        <div id="resultadoClasificacion" style="margin-top: 1rem; display: none;">
+          <div style="background: var(--success-bg); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--success);">
+            <h4 style="margin: 0 0 0.5rem 0; color: var(--success-text);">📊 Resultados del Análisis</h4>
+            <div id="resumenDeducibles" style="font-size: 0.9rem; color: var(--success-text);"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SIMULADOR DE ESCENARIOS FISCALES -->
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 2rem;">
+        <h3>📊 Simulador de Escenarios Fiscales</h3>
+        <p style="color: var(--text-light); margin-bottom: 1rem;">
+          Simula diferentes escenarios fiscales para optimizar tu estrategia tributaria.
+        </p>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+          <div>
+            <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem;">Ingresos Anuales Proyectados (Bs):</label>
+            <input type="text" id="ingresosProyectados" placeholder="Ej: 500000" style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 6px;">
+          </div>
+          <div>
+            <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem;">Gastos Deducibles Proyectados (Bs):</label>
+            <input type="text" id="gastosDeduciblesProyectados" placeholder="Ej: 150000" style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 6px;">
+          </div>
+        </div>
+
+        <button onclick="simularEscenarioFiscal()" 
+                style="width: 100%; background: #0b57d0; color: white; border: none; border-radius: 8px; padding: 0.75rem; font-size: 1rem; cursor: pointer;">
+          📊 Simular Escenario
+        </button>
+
+        <div id="resultadoSimulacion" style="margin-top: 1rem; display: none;">
+          <div style="background: var(--primary-bg); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--primary);">
+            <h4 style="margin: 0 0 0.5rem 0; color: var(--primary);">📈 Resultado de Simulación</h4>
+            <div id="detalleSimulacion" style="font-size: 0.9rem; color: var(--text);"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROYECCIÓN DE IMPUESTO ANUAL -->
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 2rem;">
+        <h3>📈 Proyección de Impuesto Anual</h3>
+        <p style="color: var(--text-light); margin-bottom: 1rem;">
+          Proyecta tu impuesto anual basado en tendencias actuales de ingresos y gastos.
+        </p>
+        <button onclick="proyectarImpuestoAnual()" 
+                style="background: #ff9800; color: white; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; font-size: 1rem; cursor: pointer;">
+          📊 Calcular Proyección
+        </button>
+        <div id="resultadoProyeccion" style="margin-top: 1rem; display: none;">
+          <div style="background: var(--warning-bg); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--warning);">
+            <h4 style="margin: 0 0 0.5rem 0; color: var(--warning-text);">💰 Proyección Anual Estimada</h4>
+            <div id="detalleProyeccion" style="font-size: 0.9rem; color: var(--warning-text);"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPTIMIZACIÓN DE DEDUCCIONES -->
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 2rem;">
+        <h3>🎯 Optimización de Deducciones</h3>
+        <p style="color: var(--text-light); margin-bottom: 1rem;">
+          Identifica oportunidades para maximizar deducciones fiscales legales.
+        </p>
+        <button onclick="optimizarDeducciones()" 
+                style="background: #8B5CF6; color: white; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; font-size: 1rem; cursor: pointer;">
+          🎯 Optimizar Deducciones
+        </button>
+        <div id="resultadoOptimizacion" style="margin-top: 1rem; display: none;">
+          <div style="background: var(--secondary-bg); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--secondary);">
+            <h4 style="margin: 0 0 0.5rem 0; color: var(--secondary);">💡 Oportunidades de Optimización</h4>
+            <div id="detalleOptimizacion" style="font-size: 0.9rem; color: var(--text);"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECOMENDACIONES DE TIMING -->
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 2rem;">
+        <h3>⏰ Recomendaciones de Timing de Gastos</h3>
+        <p style="color: var(--text-light); margin-bottom: 1rem;">
+          Sugerencias sobre cuándo realizar gastos para maximizar beneficios fiscales.
+        </p>
+        <button onclick="generarRecomendacionesTiming()" 
+                style="background: #10B981; color: white; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; font-size: 1rem; cursor: pointer;">
+          ⏰ Generar Recomendaciones
+        </button>
+        <div id="resultadoTiming" style="margin-top: 1rem; display: none;">
+          <div style="background: var(--info-bg); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--info);">
+            <h4 style="margin: 0 0 0.5rem 0; color: var(--info-text);">📅 Recomendaciones de Timing</h4>
+            <div id="detalleTiming" style="font-size: 0.9rem; color: var(--info-text);"></div>
+          </div>
+        </div>
+      </div>
+    </section> <!-- Fin sección Optimización Fiscal -->
+  </div>
+</div>
+
+  <script src="chart.umd.min.js?v=20251001"></script>
+  <script src="xlsx.full.min.js?v=20251001"></script>
   <script src="equivalente-calculator.js"></script>
   <script src="app.js?v=20250930"></script>
   
@@ -966,7 +1389,7 @@
   <!-- Modal de bloqueo -->
   <div id="modalBloqueo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1001; justify-content:center; align-items:center;">
   <div style="background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow-lg); padding:2rem; width:90%; max-width:350px; text-align:center;">
-    <h2>🔒 Bloqueo de App</h2>
+    <h2>🔒 SISTEMA DE FINANZAS</h2>
     <p style="color:var(--text-light); margin-bottom:1.5rem;">Ingresa tu PIN de 4 dígitos para acceder.</p>
     <input type="password" id="pinInput" maxlength="4" minlength="4" placeholder="PIN de 4 dígitos" 
            style="width:100%; padding:1rem; font-size:1.5rem; text-align:center; margin-bottom:1.5rem; border:1px solid var(--text-light); border-radius:8px;"
@@ -1082,6 +1505,64 @@
       </p>
     </div>
     
+  </div>
+</div>
+
+<!-- MODAL DE AYUDA (CALENDARIO)-->
+<div id="modalAyudaCalendario" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1004; justify-content:center; align-items:center;">
+  <div style="background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow-lg); padding:2rem; width:90%; max-width:500px; max-height:80vh; overflow-y:auto; position:relative;">
+    <button onclick="cerrarAyudaCalendario()" 
+            style="position:absolute; top:1rem; right:1rem; background:none; border:none; font-size:1.5rem; color:var(--text-light); cursor:pointer; padding:0.5rem; border-radius:50%; transition:background 0.2s;"
+            title="Cerrar">✕</button>
+    <h2 style="color:var(--primary); margin-bottom:1.5rem; text-align:center;">📅 ¿Cómo funciona el Calendario Interactivo?</h2>
+    <div style="margin-bottom:1.5rem;">
+      <h3 style="color:var(--text); margin-bottom:0.75rem;">✨ ¿Qué ves aquí?</h3>
+      <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+        <li><strong>Calendario del mes actual:</strong> Solo muestras los días de este mes. Nada de días de otros meses.</li>
+        <li><strong>Puntos pulsantes:</strong> Los días con movimientos tienen un pequeño punto azul que parpadea.</li>
+        <li><strong>Hoy resaltado:</strong> El día actual tiene un punto más grande y un fondo sutil.</li>
+        <li><strong>Tarjetas detalladas:</strong> Haz clic en un día para ver sus movimientos como tarjetas horizontales.</li>
+        <li><strong>Paginación inteligente:</strong> Si hay más de 6 movimientos en un día, navega con ← →</li>
+      </ul>
+    </div>
+    <div style="margin-bottom:1.5rem;">
+      <h3 style="color:var(--text); margin-bottom:0.75rem;">💡 Consejo</h3>
+      <p style="color:var(--text-light); line-height:1.6; margin:0;">
+        Usa este calendario para ver rápidamente en qué días tienes más actividad. ¡Ideal para planificar tus ingresos y gastos semanales!
+      </p>
+    </div>
+    <div style="background:var(--info-bg); padding:1rem; border-radius:8px; border-left:4px solid var(--info); margin-top:1.5rem;">
+      <p style="margin:0; color:var(--info-text); font-size:0.875rem;">
+        <strong>✨ Diseño moderno:</strong> Este calendario fue creado con el estilo Windows 11: transparencias, blur y elegancia.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DE AYUDA (ALMACÉN)-->
+<div id="modalAyudaAlmacen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1005; justify-content:center; align-items:center;">
+  <div style="background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow-lg); padding:2rem; width:90%; max-width:500px; max-height:80vh; overflow-y:auto; position:relative;">
+    <button onclick="cerrarAyudaAlmacen()" 
+            style="position:absolute; top:1rem; right:1rem; background:none; border:none; font-size:1.5rem; color:var(--text-light); cursor:pointer; padding:0.5rem; border-radius:50%; transition:background 0.2s;"
+            title="Cerrar">✕</button>
+    
+    <h2 style="color:var(--primary); margin-bottom:1.5rem; text-align:center;">📦 ¿Cómo funciona el Almacén de Backups?</h2>
+    
+    <div style="margin-bottom:1.5rem;">
+      <h3 style="color:var(--text); margin-bottom:0.75rem;">✨ ¿Qué es el Almacén?</h3>
+      <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+        <li><strong>Doble almacenamiento:</strong> Cuando creas un backup, se descarga automáticamente Y se guarda en tu navegador</li>
+        <li><strong>Acceso inmediato:</strong> No necesitas buscar en tu carpeta de descargas, todo está aquí</li>
+        <li><strong>Gestión completa:</strong> Puedes descargar, eliminar o limpiar backups individuales</li>
+        <li><strong>Almacenamiento limitado:</strong> Máximo 20 backups para evitar exceso de datos</li>
+      </ul>
+    </div>
+    
+    <div style="background:var(--success-bg); padding:1rem; border-radius:8px; border-left:4px solid var(--success); margin-top:1.5rem;">
+      <p style="margin:0; color:var(--success-text); font-size:0.875rem;">
+        <strong>🎉 Pro tip:</strong> El almacén es perfecto para mantener múltiples versiones de tus datos financieros sin ocupar espacio en tu computadora.
+      </p>
+    </div>
   </div>
 </div>
 
