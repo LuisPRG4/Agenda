@@ -233,15 +233,43 @@ function parseNumberVE(str) {
 //Versión del sistema:
 const APP_VERSION = '1.0.4';
 
+// ✅ Función para crear datos de backup (necesaria para el almacén)
+async function crearBackupData() {
+    try {
+        const backupData = {
+            version: APP_VERSION,
+            fechaCreacion: new Date().toISOString(),
+            datos: {
+                movimientos: await getAllEntries(STORES.MOVIMIENTOS),
+                categorias: await getAllEntries(STORES.CATEGORIAS),
+                bancos: await getAllEntries(STORES.BANCOS),
+                reglas: await getAllEntries(STORES.REGLAS),
+                saldoInicial: await getAllEntries(STORES.SALDO_INICIAL),
+                inversiones: await getAllEntries(STORES.INVERSIONES),
+                configuracion: {
+                    tasaCambio: localStorage.getItem('tasaCambio'),
+                    numeroModo: localStorage.getItem('numeroModo'),
+                    bloqueoActivo: localStorage.getItem('bloqueoActivo'),
+                    tema: localStorage.getItem('agendaTema'),
+                    presupuestoMeta: localStorage.getItem('presupuestoMeta'),
+                    presupuestoGastado: localStorage.getItem('presupuestoGastado'),
+                    sonidosActivados: localStorage.getItem('sonidosActivados'),
+                    umbralAlerta: localStorage.getItem('umbralAlerta')
+                }
+            }
+        };
+
+        return backupData;
+    } catch (error) {
+        console.error('Error creando datos de backup:', error);
+        throw error;
+    }
+}
+
 // Configuración de paginación
 const MOVIMIENTOS_POR_PAGINA = 10;          // para la lista general
 let paginaActual = 1;
 
-/* ----------  CALENDARIO TARJETAS  ---------- */
-/* ----------  PAGINACIÓN  ---------- */
-const MOVIMIENTOS_POR_PAGINA_CAL = 6;     // para el calendario
-let paginaActualCal = 1;
-let fechaCalendarioSeleccionada = '';
 
 // ✅ Variable global para guardar el ID del movimiento que se está editando
 let idMovimientoEditando = null; 
@@ -806,54 +834,79 @@ async function renderizar() {
         const comision = esGasto && m.comision !== undefined && !isNaN(m.comision) ? m.comision.toFixed(2) : null;
 
         li.innerHTML = `
-    <div style="display:flex; flex-direction:column; gap:.25rem; flex:1; margin-bottom: .5rem; min-width:0;">
-        <input type="text" value="${conceptoBase}" 
-                onblur="guardarCambio(${m.id}, 'concepto', this.value)"
-                onkeypress="if(event.key==='Enter') this.blur();"
-                style="width:100%; border:none; background:transparent; font:inherit; font-weight:600; color:var(--text);"
-                readonly>
-        ${saldoInicialTexto ? `<div style="font-size:.8rem; color:var(--text-light); margin-top:-.25rem; padding-left: 0.25rem;">(${saldoInicialTexto})</div>` : ''}
-        <div style="font-size:.75rem; color:var(--text-light); display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
-            <span>${m.categoria || 'Sin categoría'}</span>
-            <span>·</span>
-            <span>${m.banco || '(Sin banco)'}</span>
-            <span>·</span>
-            <span>${new Date(m.fecha).toLocaleDateString()}</span>
+    <div class="movimiento-card">
+        <!-- Header con tipo de movimiento e ícono -->
+        <div class="movimiento-header">
+            <div class="movimiento-tipo ${m.tipo}">
+                <span class="tipo-icon">${getMovementIcon(m.tipo)}</span>
+                <span class="tipo-label">${getMovementTypeLabel(m.tipo)}</span>
+            </div>
+            <div class="movimiento-fecha">
+                <span class="fecha-principal">${formatDate(m.fecha)}</span>
+                <span class="fecha-relativa">${getRelativeDate(m.fecha)}</span>
+            </div>
         </div>
-        ${comision ? `<div style="font-size:.8rem; color:#b00020; margin-top:0.25rem;">Comisión: ${comision} Bs</div>` : ''}
-    </div>
-    <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">
-                <span style="font-weight:500; color:var(--text); font-size:1rem;">${displayNumber(m.cantidad, m.textoOriginal)} Bs</span>
-        <button class="btn-editar" data-id="${m.id}" style="padding:.25rem; font-size:.8rem; background:#0b57d0; color:white; border-radius:50%; border:none; cursor:pointer; width:auto;">✏️</button>
 
-                ${m.recibo ? `
-            <div style="display:flex; justify-content:center; margin-top:0.5rem;">
-                <button onclick="verRecibo('${m.recibo}')" style="background:#0b57d0; color:white; border:none; border-radius:8px; padding:0.4rem 0.75rem; font-size:0.8rem; cursor:pointer; display:flex; align-items:center; gap:0.3rem;">
-                    📎 Ver recibo
+        <!-- Contenido principal -->
+        <div class="movimiento-contenido">
+            <div class="movimiento-info">
+                <h3 class="movimiento-concepto">${conceptoBase}</h3>
+                ${saldoInicialTexto ? `<div class="movimiento-saldo-inicial">${saldoInicialTexto}</div>` : ''}
+                <div class="movimiento-detalles">
+                    <span class="categoria-tag ${m.categoria ? 'categoria-activa' : 'categoria-vacia'}">
+                        <span class="categoria-icon">🏷️</span>
+                        ${m.categoria || 'Sin categoría'}
+                    </span>
+                    <span class="banco-tag">
+                        <span class="banco-icon">🏦</span>
+                        ${m.banco || '(Sin banco)'}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Cantidad destacada -->
+            <div class="movimiento-cantidad ${m.tipo}">
+                <span class="cantidad-valor">${displayNumber(m.cantidad, m.textoOriginal)} Bs</span>
+                ${comision ? `<div class="cantidad-comision">Comisión: ${comision} Bs</div>` : ''}
+            </div>
+        </div>
+
+        <!-- Footer con acciones -->
+        <div class="movimiento-footer">
+            ${m.recibo ? `
+                <button onclick="verRecibo('${m.recibo}')" class="btn-recibo">
+                    <span class="btn-icon">📎</span>
+                    Ver recibo
+                </button>
+            ` : ''}
+            <div class="acciones-principales">
+                <button class="btn-editar-mov" data-id="${m.id}">
+                    <span class="btn-icon">✏️</span>
+                </button>
+                <button class="btn-eliminar-mov" data-id="${m.id}">
+                    <span class="btn-icon">🗑️</span>
                 </button>
             </div>
-        ` : ''}
-
-        <button class="btn-eliminar" data-id="${m.id}" style="padding:.25rem; font-size:.8rem; background:#b00020; color:white; border-radius:50%; border:none; cursor:pointer; width:auto;">🗑️</button>
+        </div>
     </div>
 `;
         ul.appendChild(li);
     });
 
     // ✅ Añadir Event Listeners para los botones de editar y eliminar
- document.querySelectorAll('.btn-editar').forEach(button => {
+document.querySelectorAll('.btn-editar-mov').forEach(button => {
     button.addEventListener('click', e => {
-        const id = parseInt(e.target.dataset.id);
+        const id = parseInt(e.target.closest('button').dataset.id);
         cargarMovimientoParaEditar(id);
     });
- });
+});
 
- document.querySelectorAll('.btn-eliminar').forEach(button => {
+document.querySelectorAll('.btn-eliminar-mov').forEach(button => {
     button.addEventListener('click', e => {
-        const id = parseInt(e.target.dataset.id);
+        const id = parseInt(e.target.closest('button').dataset.id);
         eliminarMovimiento(id);
     });
- });
+});
 
     // Renderizar controles de paginación
     renderizarControlesPaginacion(totalPaginas);
@@ -899,6 +952,9 @@ function renderizarControlesPaginacion(totalPaginas) {
 async function cambiarPagina(nuevaPagina) {
     paginaActual = nuevaPagina;
     await renderizar();
+
+    // ✅ Scroll automático hacia la lista de movimientos después de cambiar página
+    scrollToListaMovimientos();
 }
 
 async function borrar(id) {
@@ -1194,13 +1250,16 @@ function mostrarSideTab(id) {
     document.querySelector(`[onclick="mostrarSideTab('${id}')"]`).classList.add('active');
     localStorage.setItem('agendaPestañaActiva', id);
 
+    // ✅ Reproducir sonido al cambiar de pestaña
+    reproducirSonidoCambioPestana();
+
     // ✅ ACTUALIZAR DINÁMICAMENTE LA PESTAÑA ACTIVA
     switch(id) {
         case 'dashboard':
             actualizarDashboard();
             break;
-        case 'calendario':
-            renderizarCalendario();
+        case 'movimientos':
+            renderizar();
             break;
         case 'analisis':
             actualizarGrafico();
@@ -1213,30 +1272,34 @@ function mostrarSideTab(id) {
         case 'ahorro':
             calcularAhorroMensual();
             break;
-            case 'comparacion':
-                renderizarComparacionBancos();
-                break;
-                // ✅ MOSTRAR VERSIÓN EN EL PANEL DE CONFIGURACIÓN
-                const versionElementConfig = document.getElementById('versionConfig');
-                if (versionElementConfig) {
-                    versionElementConfig.textContent = APP_VERSION;
-                }
-            case 'cambios':
-            mostrarVersionEnCambios();
-            // Aquí puedes añadir cualquier lógica específica para la pestaña de cambios si es necesario
+        case 'comparacion':
+            renderizarComparacionBancos();
             break;
-
-            case 'inversiones':
+        case 'herramientas':
+            // No necesita acción específica
+            break;
+        case 'calendario': // ✅ ¡NUEVO CASO! - Esto es lo que faltaba
+            renderizarCalendario();
+            break;
+        case 'inversiones':
             renderizarInversiones();
             break;
+        case 'deudas':
+            cargarDeudas();
+            break;
+        case 'config':
+            // No necesita acción específica
+            break;
+            case 'cambios':
+                // ✅ Mostrar información de versión del sistema
+                mostrarInfoCambios();
+                break;
     }
 
-    function mostrarVersionEnCambios() {
-        // ✅ MOSTRAR VERSIÓN EN LA PESTAÑA DE CAMBIOS
-        const elementosVersion = document.querySelectorAll('#versionActual');
-        elementosVersion.forEach(el => {
-            el.textContent = APP_VERSION;
-        });
+    // ✅ MOSTRAR VERSIÓN EN EL PANEL DE CONFIGURACIÓN
+    const versionElementConfig = document.getElementById('versionConfig');
+    if (versionElementConfig) {
+        versionElementConfig.textContent = APP_VERSION;
     }
 }
 
@@ -1244,64 +1307,256 @@ function mostrarSideTab(id) {
 // 🎯 BUSCADOR ESPECÍFICO PARA MOVIMIENTOS
 // ======================================================================================
 
-// Variable para almacenar el término de búsqueda de movimientos
-let terminoBusquedaMovimientos = '';
+// ======================================================================================
+// ✅ BUSCADOR MEJORADO DE MOVIMIENTOS
+// ======================================================================================
 
-document.addEventListener('DOMContentLoaded', function() {
-    const buscadorMovimientos = document.getElementById('buscadorMovimientos');
+/**
+ * Función mejorada para buscar movimientos en tiempo real
+ * Busca en concepto, categoría, banco, monto, fecha y tipo
+ */
+function buscarMovimientos() {
+    const query = document.getElementById('buscadorMovimientos').value.toLowerCase().trim();
     
-    if (buscadorMovimientos) {
-        buscadorMovimientos.addEventListener('input', function(e) {
-            terminoBusquedaMovimientos = e.target.value.toLowerCase().trim();
-            // ✅ Aplicar búsqueda inmediatamente
-            aplicarFiltroMovimientos();
-        });
-
-        // ✅ Buscar también al pegar
-        buscadorMovimientos.addEventListener('paste', function() {
-            setTimeout(() => aplicarFiltroMovimientos(), 10);
-        });
-    }
-});
-
-// ✅ Función para aplicar el filtro de búsqueda específico
-function aplicarFiltroMovimientos() {
-    const listaMovimientos = document.getElementById('listaMovimientos');
-    const movimientos = listaMovimientos.querySelectorAll('li');
-    
-    if (!terminoBusquedaMovimientos) {
-        // Mostrar todos si no hay búsqueda
-        movimientos.forEach(mov => {
-            mov.style.display = 'block';
-            mov.style.opacity = '1';
-        });
+    if (!query) {
+        renderizar();
+        ocultarContadorBusqueda();
         return;
     }
 
-    let encontrados = 0;
-    
-    movimientos.forEach(mov => {
-        // ✅ Buscar en concepto, categoría y banco
-        const concepto = mov.querySelector('input[type="text"]')?.value.toLowerCase() || '';
-        const infoSpans = mov.querySelectorAll('span');
-        const categoria = infoSpans.length > 0 ? infoSpans[0]?.textContent.toLowerCase() || '' : '';
-        const banco = infoSpans.length > 1 ? infoSpans[1]?.textContent.toLowerCase() || '' : '';
-        
-        const textoCompleto = `${concepto} ${categoria} ${banco}`;
-        
-        if (textoCompleto.includes(terminoBusquedaMovimientos)) {
-            mov.style.display = 'block';
-            mov.style.opacity = '1';
-            encontrados++;
-        } else {
-            mov.style.display = 'none';
-            mov.style.opacity = '0.3';
+    try {
+        const transaction = db.transaction([STORES.MOVIMIENTOS], 'readonly');
+        const store = transaction.objectStore(STORES.MOVIMIENTOS);
+        const request = store.getAll();
+
+        request.onsuccess = function(event) {
+            const movimientos = event.target.result;
+            const resultados = movimientos.filter(movimiento => {
+                return coincideConBusqueda(movimiento, query);
+            });
+
+            mostrarResultadosBusqueda(resultados, query);
+        };
+
+        request.onerror = function() {
+            mostrarToast('❌ Error al buscar movimientos', 'danger');
+        };
+
+    } catch (error) {
+        mostrarToast('❌ Error en la búsqueda: ' + error.message, 'danger');
+    }
+}
+
+/**
+ * Verifica si un movimiento coincide con la búsqueda
+ */
+function coincideConBusqueda(movimiento, query) {
+    // Buscar en concepto (prioridad alta)
+    if (movimiento.concepto && movimiento.concepto.toLowerCase().includes(query)) {
+        return true;
+    }
+
+    // Buscar en categoría
+    if (movimiento.categoria && movimiento.categoria.toLowerCase().includes(query)) {
+        return true;
+    }
+
+    // Buscar en banco (prioridad alta para tu caso)
+    if (movimiento.banco && movimiento.banco.toLowerCase().includes(query)) {
+        return true;
+    }
+
+    // Buscar en tipo
+    if (movimiento.tipo && movimiento.tipo.toLowerCase().includes(query)) {
+        return true;
+    }
+
+    // Buscar en monto (números)
+    if (query.match(/^\d/)) {
+        const montoStr = movimiento.cantidad.toString();
+        if (montoStr.includes(query.replace(/[.,]/g, ''))) {
+            return true;
         }
+    }
+
+    // Buscar en fecha
+    if (movimiento.fecha) {
+        const fecha = new Date(movimiento.fecha);
+        const fechaStr = fecha.toLocaleDateString('es-ES');
+        if (fechaStr.toLowerCase().includes(query)) {
+            return true;
+        }
+        
+        // Buscar por componentes individuales
+        if (fecha.getDate().toString().includes(query) || 
+            (fecha.getMonth() + 1).toString().includes(query) ||
+            fecha.getFullYear().toString().includes(query)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Mostrar resultados de búsqueda
+ */
+function mostrarResultadosBusqueda(resultados, query) {
+    const listaMovimientos = document.getElementById('listaMovimientos');
+    
+    if (resultados.length === 0) {
+        listaMovimientos.innerHTML = generarMensajeSinResultados(query);
+        mostrarContadorBusqueda(0, query);
+        return;
+    }
+
+    let html = '';
+    resultados.forEach(movimiento => {
+        html += generarHTMLMovimiento(movimiento, query);
     });
 
-    // ✅ Mostrar resultado de búsqueda
-    mostrarResultadoBusquedaMovimientos(encontrados);
+    listaMovimientos.innerHTML = html;
+    mostrarContadorBusqueda(resultados.length, query);
 }
+
+/**
+ * Generar HTML para un movimiento con resaltado
+ */
+function generarHTMLMovimiento(movimiento, query) {
+    const fecha = new Date(movimiento.fecha);
+    const fechaFormateada = fecha.toLocaleDateString('es-ES');
+    const montoFormateado = formatNumberVE(movimiento.cantidad);
+    const tipoIcon = movimiento.tipo === 'ingreso' ? '💰' : '💸';
+    const tipoClass = movimiento.tipo === 'ingreso' ? 'tipo-ingreso' : 'tipo-gasto';
+
+    return `
+        <li class="movimiento-item" data-id="${movimiento.id}">
+            <div class="movimiento-header">
+                <span class="movimiento-tipo ${tipoClass}">${tipoIcon} ${movimiento.tipo.toUpperCase()}</span>
+                <span class="movimiento-fecha">${fechaFormateada}</span>
+            </div>
+            <div class="movimiento-contenido">
+                <div class="movimiento-concepto">${resaltarCoincidencia(movimiento.concepto || 'Sin concepto', query)}</div>
+                <div class="movimiento-detalles">
+                    <span class="movimiento-categoria">🏷️ ${resaltarCoincidencia(movimiento.categoria || 'Sin categoría', query)}</span>
+                    <span class="movimiento-banco">🏦 ${resaltarCoincidencia(movimiento.banco || 'Sin banco', query)}</span>
+                </div>
+            </div>
+            <div class="movimiento-monto ${tipoClass}">
+                ${tipoIcon} ${montoFormateado}
+            </div>
+            <div class="movimiento-acciones">
+                <button onclick="editarMovimiento(${movimiento.id})" class="btn-editar" title="Editar">✏️</button>
+                <button onclick="eliminarMovimiento(${movimiento.id})" class="btn-eliminar" title="Eliminar">🗑️</button>
+            </div>
+        </li>
+    `;
+}
+
+/**
+ * Generar mensaje cuando no hay resultados
+ */
+function generarMensajeSinResultados(query) {
+    return `
+        <div style="text-align: center; padding: 2rem; color: var(--text-light);">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
+            <h3>No se encontraron resultados</h3>
+            <p>No hay movimientos que coincidan con: <strong>"${query}"</strong></p>
+            <div style="background: var(--info-bg); padding: 1rem; border-radius: 8px; margin-top: 1rem; border-left: 4px solid var(--info);">
+                <p style="margin: 0; color: var(--info-text); font-size: 0.9rem;">
+                    💡 <strong>Consejos de búsqueda:</strong><br>
+                    - Busca por nombre del banco<br>
+                    - Escribe parte del concepto<br>
+                    - Busca por monto aproximado<br>
+                    - Usa fechas (día/mes/año)<br>
+                    - Prueba términos más cortos
+                </p>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Resaltar texto que coincide con la búsqueda
+ */
+function resaltarCoincidencia(texto, query) {
+    if (!query || !texto || !texto.toLowerCase().includes(query.toLowerCase())) {
+        return texto;
+    }
+    
+    const regex = new RegExp(`(${query})`, 'gi');
+    return texto.replace(regex, '<mark style="background: #ffeb3b; color: #333; padding: 2px 4px; border-radius: 3px;">$1</mark>');
+}
+
+/**
+ * Mostrar contador de resultados de búsqueda
+ */
+function mostrarContadorBusqueda(cantidad, query) {
+    let contador = document.getElementById('contadorBusqueda');
+    if (!contador) {
+        contador = document.createElement('div');
+        contador.id = 'contadorBusqueda';
+        contador.style.cssText = `
+            background: var(--primary-bg);
+            color: var(--primary);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 1rem;
+            text-align: center;
+            border: 2px solid var(--primary);
+        `;
+        
+        const buscador = document.getElementById('buscadorMovimientos');
+        buscador.parentNode.insertBefore(contador, buscador.nextSibling);
+    }
+
+    if (cantidad === 0) {
+        contador.style.display = 'none';
+    } else {
+        contador.innerHTML = `🔍 <strong>${cantidad}</strong> resultados para "<strong>${query}</strong>"`;
+        contador.style.display = 'block';
+    }
+}
+
+/**
+ * Ocultar contador de búsqueda
+ */
+function ocultarContadorBusqueda() {
+    const contador = document.getElementById('contadorBusqueda');
+    if (contador) {
+        contador.style.display = 'none';
+    }
+}
+
+/**
+ * Función auxiliar para formateo de números venezolano
+ */
+function formatNumberVE(numero) {
+    if (typeof numero !== 'number') {
+        numero = parseFloat(numero) || 0;
+    }
+    
+    return numero.toLocaleString('es-VE', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
+// ======================================================================================
+// FIN DE BUSCADOR MEJORADO DE MOVIMIENTOS
+// ======================================================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    const buscadorMovimientos = document.getElementById('buscadorMovimientos');
+    if (buscadorMovimientos) {
+        buscadorMovimientos.addEventListener('input', buscarMovimientos);
+        buscadorMovimientos.addEventListener('paste', function() {
+            setTimeout(buscarMovimientos, 10);
+        });
+    }
+});
 
 // ✅ Función para mostrar resultado de búsqueda
 function mostrarResultadoBusquedaMovimientos(encontrados) {
@@ -2347,6 +2602,8 @@ async function guardarPIN() {
     alert('✅ PIN guardado con éxito.');
     document.getElementById('bloqueoPIN').value = '';
     document.getElementById('bloqueoPINConfirmar').value = '';
+
+    actualizarBotonBloqueo();
 }
 
 // Eliminar PIN
@@ -2357,6 +2614,8 @@ async function eliminarPIN() {
     document.getElementById('bloqueoPIN').value = '';
     document.getElementById('bloqueoPINConfirmar').value = '';
     alert('PIN eliminado.');
+
+    actualizarBotonBloqueo();
 }
 
 // Controlar el checkbox de activación
@@ -3019,189 +3278,30 @@ function verRecibo(base64Data) {
     ventana.document.close();
 }
 
-// ✅ CALENDARIO VISUAL DE MOVIMIENTOS
-let fechaActual = new Date(); // Fecha inicial: hoy
-
-// Renderiza el calendario completo
-async function renderizarCalendario() {
-    const calendario = document.getElementById('calendario');
-    calendario.innerHTML = '';
-
-    // Establecer el mes y año actual
-    const mes = fechaActual.getMonth();
-    const anio = fechaActual.getFullYear();
-    const primerDia = new Date(anio, mes, 1);
-    const ultimoDia = new Date(anio, mes + 1, 0);
-    const diasDelMes = ultimoDia.getDate();
-    const diaSemanaInicio = primerDia.getDay(); // 0 = domingo, 6 = sábado
-
-    // Mostrar el mes y año en el título
-    const meses = [
-        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-    ];
-    document.getElementById('mesActual').textContent = `${meses[mes]} ${anio}`;
-
-    // Días del mes anterior (para llenar el inicio)
-    const diasMesAnterior = new Date(anio, mes, 0).getDate();
-    for (let i = 0; i < diaSemanaInicio; i++) {
-        const dia = diasMesAnterior - diaSemanaInicio + i + 1;
-        const div = document.createElement('div');
-        div.className = 'dia-otro';
-        div.textContent = dia;
-        calendario.appendChild(div);
-    }
-
-    // Días del mes actual
-    const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
-    const movimientosPorDia = {};
-
-    // Agrupar movimientos por día (YYYY-MM-DD)
-    movimientos.forEach(m => {
-        const dia = new Date(m.fecha).toISOString().split('T')[0];
-        if (!movimientosPorDia[dia]) movimientosPorDia[dia] = [];
-        movimientosPorDia[dia].push(m);
-    });
-
-    // Generar celdas de cada día
-    for (let dia = 1; dia <= diasDelMes; dia++) {
-        const fechaDia = new Date(anio, mes, dia);
-        const fechaStr = fechaDia.toISOString().split('T')[0]; // "2025-04-15"
-        const div = document.createElement('div');
-        div.textContent = dia;
-
-        // Clase para día actual
-        const hoy = new Date().toISOString().split('T')[0];
-        if (fechaStr === hoy) {
-            div.classList.add('dia-hoy');
-        }
-
-        // Clase para días con movimientos
-        if (movimientosPorDia[fechaStr]) {
-            div.classList.add('dia-con-movimiento');
-            div.addEventListener('click', () => mostrarMovimientosDia(fechaStr));
-        } else {
-            div.addEventListener('click', () => {
-                document.getElementById('detallesDia').style.display = 'none';
-                document.getElementById('diaSeleccionado').textContent = `${dia} de ${meses[mes]} ${anio}`;
-            });
-        }
-
-        calendario.appendChild(div);
-    }
-
-    // Días del mes siguiente (para llenar el final)
-    const diasRestantes = 7 - (diaSemanaInicio + diasDelMes) % 7;
-    if (diasRestantes < 7) {
-        for (let i = 1; i <= diasRestantes; i++) {
-            const div = document.createElement('div');
-            div.className = 'dia-otro';
-            div.textContent = i;
-            calendario.appendChild(div);
-        }
-    }
-}
-
-// Mostrar movimientos de un día específico
-/* ----------  MOSTRAR MOVIMIENTOS DEL DÍA CON TARJETAS  ---------- */
-async function mostrarMovimientosDia(fechaStr) {
-    fechaCalendarioSeleccionada = fechaStr;
-  
-    const container = document.getElementById('listaMovimientosDia');
-    container.innerHTML = '';
-  
-    // Cargar todos los movimientos una sola vez (si no están cargados)
-    if (!window.movimientosCalendario) {
-      window.movimientosCalendario = await getAllEntries(STORES.MOVIMIENTOS);
-    }
-  
-    // Filtrar por día
-    const movimientosDia = window.movimientosCalendario.filter(m =>
-      new Date(m.fecha).toISOString().startsWith(fechaStr)
-    ).sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-  
-    const totalPaginas = Math.ceil(movimientosDia.length / MOVIMIENTOS_POR_PAGINA_CAL);
-    paginaActualCal = Math.min(paginaActualCal, totalPaginas || 1);
-  
-    const inicio = (paginaActualCal - 1) * MOVIMIENTOS_POR_PAGINA_CAL;
-    const fin = inicio + MOVIMIENTOS_POR_PAGINA_CAL;
-    const pagina = movimientosDia.slice(inicio, fin);
-  
-    // Crear grid de tarjetas
-    const grid = document.createElement('div');
-    grid.className = 'calendario-grid';
-  
-    pagina.forEach(mov => {
-      const tarjeta = document.createElement('div');
-      tarjeta.className = 'tarjeta-mov-dia';
-      tarjeta.innerHTML = `
-        <div class="mov-emoji">${mov.tipo === 'ingreso' ? '💰' : '💸'}</div>
-        <div class="mov-concepto">${mov.concepto}</div>
-        <div class="mov-monto ${mov.tipo}">Bs. ${formatNumberVE(mov.cantidad)}</div>
-        <div class="mov-hora">${new Date(mov.fecha).toLocaleTimeString('es-VE', {hour:'2-digit', minute:'2-digit'})}</div>
-        <div class="mov-banco">${mov.banco || ''}</div>
-      `;
-      grid.appendChild(tarjeta);
-    });
-  
-    container.appendChild(grid);
-  
-    // Paginación
-    renderizarPaginacionCalendario(totalPaginas);
-    document.getElementById('detallesDia').style.display = 'block';
-  }
-
-// Cambiar de mes
-function cambiarMes(diferencia) {
-    fechaActual.setMonth(fechaActual.getMonth() + diferencia);
-    renderizarCalendario();
-}
 
 // ✅ CALCULADORA DE AHORRO MENSUAL
-async function calcularAhorroMensual() {
-    const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
-    
-    // Filtrar movimientos de los últimos 3 meses
-    const hoy = new Date();
-    const tresMesesAtras = new Date(hoy.getFullYear(), hoy.getMonth() - 3, 1);
-    
-    const movimientosFiltrados = movimientos.filter(m => {
-        const fechaMov = new Date(m.fecha);
-        return fechaMov >= tresMesesAtras && fechaMov <= hoy;
-    });
-    
-    if (movimientosFiltrados.length === 0) {
-        alert('No hay suficientes movimientos en los últimos 3 meses para calcular.');
-        return;
+function calcularAhorroMensual(meta) {
+    try {
+        // ✅ Verificar que los elementos existen antes de usarlos
+        const ahorroMensualElement = document.getElementById('ahorroMensualMeta');
+        const diasRestantesElement = document.getElementById('diasRestantesMeta');
+        
+        // Si los elementos no existen, salir silenciosamente
+        if (!ahorroMensualElement || !diasRestantesElement) {
+            return;
+        }
+        
+        const diasRestantes = Math.ceil((meta.fechaLimite - new Date()) / (1000 * 60 * 60 * 24));
+        const ahorroMensual = meta.montoObjetivo / Math.ceil((meta.fechaLimite - new Date()) / (1000 * 60 * 60 * 24 * 30));
+        
+        // ✅ Solo actualizar si los elementos existen
+        ahorroMensualElement.textContent = formatearNumero(ahorroMensual);
+        diasRestantesElement.textContent = diasRestantes;
+        
+    } catch (error) {
+        console.error('Error en calcularAhorroMensual:', error);
+        // No mostrar toast para evitar spam
     }
-    
-    // Agrupar por mes (YYYY-MM)
-    const porMes = {};
-    movimientosFiltrados.forEach(m => {
-        const mes = new Date(m.fecha).toISOString().slice(0, 7); // "2025-04"
-        if (!porMes[mes]) porMes[mes] = { ingresos: 0, gastos: 0 };
-        if (m.tipo === 'ingreso') porMes[mes].ingresos += m.cantidad;
-        else porMes[mes].gastos += m.cantidad;
-    });
-    
-    // Calcular promedios
-    const meses = Object.keys(porMes);
-    const totalIngresos = meses.reduce((sum, mes) => sum + porMes[mes].ingresos, 0);
-    const totalGastos = meses.reduce((sum, mes) => sum + porMes[mes].gastos, 0);
-    const promedioIngresos = totalIngresos / meses.length;
-    const promedioGastos = totalGastos / meses.length;
-    const promedioAhorro = promedioIngresos - promedioGastos;
-    
-    // Mostrar en UI
-    document.getElementById('ingresosPromedio').textContent = `Bs. ${formatNumberVE(promedioIngresos)}`;
-    document.getElementById('gastosPromedio').textContent = `Bs. ${formatNumberVE(promedioGastos)}`;
-    document.getElementById('ahorroPromedio').textContent = `Bs. ${formatNumberVE(promedioAhorro)}`;
-    
-    // Actualizar simulación
-    actualizarSimulacion(0); // Inicializar con 0%
-    
-    // Renderizar gráfico
-    renderizarGraficoAhorro(porMes);
 }
 
 // ✅ Actualizar simulación cuando cambie la reducción
@@ -3598,28 +3698,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-/* =====  COLAPSAR / EXPANDIR NAVEGACIÓN  ===== */
-const nav       = document.querySelector('.win11-nav');
-const navToggle = document.querySelector('.nav-toggle');
-const key       = 'navCollapsed';
-
-// restaurar estado
-if (localStorage.getItem(key) === 'true') nav.classList.add('collapsed');
-
-navToggle.addEventListener('click', () => {
-  nav.classList.toggle('collapsed');
-  localStorage.setItem(key, nav.classList.contains('collapsed'));
-});
-
-/* =====  HAMBURGUESA MÓVIL  ===== */
-if (window.innerWidth <= 900) {
-  const ham = document.createElement('button');
-  ham.className = 'nav-float-ham';
-  ham.innerHTML = '☰';
-  document.body.appendChild(ham);
-  ham.addEventListener('click', () => nav.classList.toggle('open'));
-}
-
 /* ----------  RENDERIZAR PRESUPUESTO CON TARJETAS  ---------- */
 const TARJETAS_POR_PAGINA = 6;
 let paginaActualPres = 1;
@@ -3715,34 +3793,6 @@ function cambiarPaginaPresupuesto(direccion) {
   paginaActualPres += direccion;
   renderizarPresupuestoTarjetas();
 }
-
-/* ----------  PAGINACIÓN CALENDARIO  ---------- */
-function renderizarPaginacionCalendario(total) {
-    let container = document.getElementById('paginacionCalendario');
-    if (!container) {
-      container = document.createElement('div');
-      container.id = 'paginacionCalendario';
-      container.className = 'paginacion-calendario';
-      const detalles = document.getElementById('listaMovimientosDia');
-      detalles.parentNode.insertBefore(container, detalles.nextSibling);
-    }
-  
-    if (total <= 1) {
-      container.innerHTML = '';
-      return;
-    }
-  
-    container.innerHTML = `
-      <button onclick="cambiarPaginaCalendario(-1)" ${paginaActualCal === 1 ? 'disabled' : ''}>←</button>
-      <span class="paginacion-info">Página ${paginaActualCal} de ${total}</span>
-      <button onclick="cambiarPaginaCalendario(1)" ${paginaActualCal === total ? 'disabled' : ''}>→</button>
-    `;
-  }
-  
-  function cambiarPaginaCalendario(direccion) {
-    paginaActualCal += direccion;
-    mostrarMovimientosDia(fechaCalendarioSeleccionada);
-  }
 
 // ================== BUSCADOR EN VIVO DEL DASHBOARD ==================
 function filtrarDashboard() {
@@ -4113,34 +4163,271 @@ async function renderizarInversiones() {
     }
 }
 
-// Función para eliminar una inversión
-async function eliminarInversion(id) {
-    if (await mostrarConfirmacion("¿Estás seguro de que quieres eliminar esta inversión?")) {
-        try {
-            await deleteEntry(STORES.INVERSIONES, id);
-            mostrarToast('Inversión eliminada.', 'success');
-            renderizarInversiones();
-        } catch (error) {
-            console.error('Error al eliminar inversión:', error);
-            mostrarToast('Error al eliminar la inversión.', 'danger');
-        }
-    }
+// ✅ NUEVA Y MEJORADA FUNCIÓN: RENDERIZAR CALENDARIO VISUAL INTERACTIVO (SOLO MES ACTUAL)
+async function renderizarCalendario() {
+    const container = document.getElementById('calendarContainer');
+    const monthYearEl = document.getElementById('calendarMonthYear');
+    const monthYearNavEl = document.getElementById('calendarMonthYearNav');
+    const movimientosDiaContainer = document.getElementById('movimientosDiaContainer');
+    const tarjetasContainer = document.getElementById('tarjetasMovimientos');
+    const infoPaginacion = document.getElementById('infoPaginacion');
+    const btnAnterior = document.getElementById('btnAnteriorTarjetas');
+    const btnSiguiente = document.getElementById('btnSiguienteTarjetas');
+    const fechaSeleccionadaEl = document.getElementById('fechaSeleccionada');
+    if (!container || !monthYearEl || !monthYearNavEl || !movimientosDiaContainer || !tarjetasContainer) return;
+
+    // Variable global para almacenar el estado actual del calendario
+    let currentMonth = new Date().getMonth(); // 0-11
+    let currentYear = new Date().getFullYear();
+
+    // Función auxiliar para renderizar el calendario
+    async function renderizarMes(month, year) {
+        // Limpiar contenedores
+        container.innerHTML = '';
+        tarjetasContainer.innerHTML = '';
+        movimientosDiaContainer.style.display = 'none';
+        btnAnterior.disabled = true;
+        btnSiguiente.disabled = true;
+        infoPaginacion.textContent = 'Página 1 de 1';
+
+        // Obtener todos los movimientos
+        // ✅ NUEVO (rápido):
+// Cargar movimientos UNA sola vez y reutilizar
+if (!window.movimientosCache) {
+    window.movimientosCache = await getAllEntries(STORES.MOVIMIENTOS);
+}
+const movimientos = window.movimientosCache;
+        // Crear mapa de días con movimientos: { 'YYYY-MM-DD': [movimientos] }
+        const diasConMovimientos = {};
+        movimientos.forEach(m => {
+            const fechaMov = new Date(m.fecha);
+            const key = `${fechaMov.getFullYear()}-${String(fechaMov.getMonth() + 1).padStart(2, '0')}-${String(fechaMov.getDate()).padStart(2, '0')}`;
+            if (!diasConMovimientos[key]) diasConMovimientos[key] = [];
+            diasConMovimientos[key].push(m);
+        });
+
+        // Días de la semana (domingo a sábado)
+        const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sab'];
+        // ✅ NUEVO (reutilizar elementos):
+// Crear días de semana SOLO una vez
+if (!container.querySelector('.weekday')) {
+    diasSemana.forEach(dia => {
+        const dayEl = document.createElement('div');
+        dayEl.className = 'weekday';
+        dayEl.textContent = dia;
+        container.appendChild(dayEl);
+    });
 }
 
-// Función para obtener el precio de un activo (simulado por ahora, luego usaremos APIs)
-async function obtenerPrecioActivo(activo, tipo) {
-    // Por ahora, simulamos precios aleatorios para demostrar
-    // En un futuro, aquí haríamos llamadas a APIs reales
-    if (tipo === 'accion') {
-        // Simular precio entre 10 y 1000 Bs
-        return Math.random() * 990 + 10;
-    } else if (tipo === 'cripto') {
-        // Simular precio entre 10000 y 100000 Bs
-        return Math.random() * 90000 + 10000;
-    } else {
-        // Fondos: entre 100 y 500 Bs
-        return Math.random() * 400 + 100;
+        // Obtener primer día del mes y último día
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const daysInMonth = lastDay.getDate();
+        const startingDayOfWeek = firstDay.getDay(); // 0 (domingo) a 6 (sábado)
+
+        // Días vacíos al inicio (solo si el mes no empieza en domingo)
+        for (let i = 0; i < startingDayOfWeek; i++) {
+            const emptyEl = document.createElement('div');
+            emptyEl.className = 'empty';
+            container.appendChild(emptyEl);
+        }
+
+        // Días del mes actual
+        for (let dia = 1; dia <= daysInMonth; dia++) {
+            const dayEl = document.createElement('div');
+            const fechaStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+            const hoy = new Date();
+            if (dia === hoy.getDate() && month === hoy.getMonth() && year === hoy.getFullYear()) {
+                dayEl.className = 'today';
+            } else if (diasConMovimientos[fechaStr]) {
+                dayEl.className = 'day-with-movements';
+            } else {
+                dayEl.className = '';
+            }
+            dayEl.textContent = dia;
+
+            // ✅ EVENTO CLICK: Mostrar movimientos de ese día
+            dayEl.addEventListener('click', () => {
+                // Mostrar contenedor de tarjetas
+                movimientosDiaContainer.style.display = 'block';
+                fechaSeleccionadaEl.textContent = `${dia} de ${meses[month]} ${year}`;
+                // Obtener movimientos de ese día
+                const movimientosDelDia = diasConMovimientos[fechaStr] || [];
+                // Renderizar tarjetas
+                renderizarTarjetasMovimientos(movimientosDelDia, 1);
+                // Actualizar paginación
+                actualizarPaginacionTarjetas(movimientosDelDia.length);
+            });
+            container.appendChild(dayEl);
+        }
+
+        // Actualizar título del mes
+        const meses = [
+            'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+        ];
+        monthYearEl.textContent = `${meses[month]} ${year}`;
+        monthYearNavEl.textContent = `${meses[month]} ${year}`;
     }
+
+    // Función auxiliar: CAMBIAR MES
+    // ✅ NUEVO (actualizar solo lo necesario):
+window.cambiarMes = function(direccion) {
+    currentMonth += direccion;
+    if (currentMonth < 0) {
+        currentMonth = 11;
+        currentYear--;
+    } else if (currentMonth > 11) {
+        currentMonth = 0;
+        currentYear++;
+    }
+    renderizarMes(currentMonth, currentYear); // ← ¡Solo actualiza números!
+};
+
+    // Función auxiliar: RENDERIZAR TARJETAS DE MOVIMIENTOS POR DÍA
+    function renderizarTarjetasMovimientos(movimientos, pagina) {
+        const tarjetasContainer = document.getElementById('tarjetasMovimientos');
+        const TARJETAS_POR_PAGINA = 6;
+        const inicio = (pagina - 1) * TARJETAS_POR_PAGINA;
+        const fin = inicio + TARJETAS_POR_PAGINA;
+        const paginaActual = movimientos.slice(inicio, fin);
+        // Limpiar
+        tarjetasContainer.innerHTML = '';
+        if (paginaActual.length === 0) {
+            tarjetasContainer.innerHTML = `
+                <div style="text-align: center; padding: 2rem; color: var(--text-light); font-style: italic;">
+                    No hay movimientos registrados para este día.
+                </div>
+            `;
+            return;
+        }
+        // Renderizar cada tarjeta
+        paginaActual.forEach(m => {
+            const tarjeta = document.createElement('div');
+            tarjeta.className = 'tarjeta-movimiento';
+            // Emoji por categoría (mismo sistema que Presupuesto)
+            const emoji = emojiCategoria(m.categoria || 'Sin categoría');
+            // ✅ NUEVO (moderno y atractivo):
+const montoColor = m.tipo === 'ingreso' ? 'var(--success)' : 'var(--danger)';
+const montoSigno = m.tipo === 'ingreso' ? '+' : '-';
+
+tarjeta.innerHTML = `
+    <div class="movement-list-item">
+        
+        <div class="list-item-left">
+            <div class="list-item-icon">${emoji}</div>
+            <div class="list-item-info">
+                <div class="list-item-concept">${m.concepto}</div>
+                <div class="list-item-category">${m.categoria || 'Sin categoría'}</div>
+            </div>
+        </div>
+        
+        <div class="list-item-right">
+            
+            <div class="list-item-amount-group">
+                <div class="list-item-amount-value" style="color: ${montoColor};">
+                    ${montoSigno} Bs. ${formatNumberVE(m.cantidad)}
+                </div>
+                ${m.banco ? `<div class="list-item-bank">${m.banco}</div>` : ''}
+            </div>
+            
+            <div class="list-item-datetime">
+                <span>${new Date(m.fecha).toLocaleDateString('es-VE', { day: 'numeric', month: 'short' })}</span>
+                <span>${new Date(m.fecha).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+            
+        </div>
+        
+    </div>
+`;
+            tarjetasContainer.appendChild(tarjeta);
+        });
+    }
+
+    // Función auxiliar: ACTUALIZAR PAGINACIÓN DE TARJETAS
+    function actualizarPaginacionTarjetas(totalMovimientos) {
+        const TARJETAS_POR_PAGINA = 6;
+        const totalPaginas = Math.ceil(totalMovimientos / TARJETAS_POR_PAGINA);
+        const paginaActual = 1;
+        const infoPaginacion = document.getElementById('infoPaginacion');
+        const btnAnterior = document.getElementById('btnAnteriorTarjetas');
+        const btnSiguiente = document.getElementById('btnSiguienteTarjetas');
+        infoPaginacion.textContent = `Página ${paginaActual} de ${totalPaginas}`;
+        btnAnterior.disabled = true;
+        btnSiguiente.disabled = totalPaginas <= 1;
+        document.getElementById('paginacionTarjetas').style.display = totalPaginas > 1 ? 'flex' : 'none';
+    }
+
+    // Función auxiliar: CAMBIAR PÁGINA DE TARJETAS
+    // Función auxiliar: CAMBIAR PÁGINA DE TARJETAS
+window.cambiarPaginaTarjetas = function(direccion) {
+    const tarjetasContainer = document.getElementById('tarjetasMovimientos');
+    const infoPaginacion = document.getElementById('infoPaginacion');
+    const btnAnterior = document.getElementById('btnAnteriorTarjetas');
+    const btnSiguiente = document.getElementById('btnSiguienteTarjetas');
+    
+    // Recuperar la fecha seleccionada para obtener los movimientos
+    const fechaTexto = document.getElementById('fechaSeleccionada').textContent;
+    const partes = fechaTexto.split(' ');
+    const dia = partes[0];
+    const mesNombre = partes[2];
+    const anio = partes[3];
+    
+    const meses = [
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    const mesIndex = meses.indexOf(mesNombre);
+    
+    // Obtener movimientos (usar cache si existe)
+    const movimientos = window.movimientosCache || [];
+    
+    // Filtrar movimientos del día y mes seleccionado
+    const movimientosDelDia = movimientos.filter(m => {
+        const fechaMov = new Date(m.fecha);
+        return fechaMov.getDate() == dia &&
+               fechaMov.getMonth() == mesIndex &&
+               fechaMov.getFullYear() == anio;
+    });
+    
+    // Calcular nueva página
+    const TARJETAS_POR_PAGINA = 6;
+    const totalPaginas = Math.ceil(movimientosDelDia.length / TARJETAS_POR_PAGINA);
+    let nuevaPagina = parseInt(infoPaginacion.textContent.split(' ')[1]) + direccion;
+    
+    if (nuevaPagina < 1) nuevaPagina = 1;
+    if (nuevaPagina > totalPaginas) nuevaPagina = totalPaginas;
+    
+    // Renderizar
+    renderizarTarjetasMovimientos(movimientosDelDia, nuevaPagina);
+    
+    // Actualizar paginación
+    infoPaginacion.textContent = `Página ${nuevaPagina} de ${totalPaginas}`;
+    btnAnterior.disabled = nuevaPagina <= 1;
+    btnSiguiente.disabled = nuevaPagina >= totalPaginas;
+};
+
+    // Función auxiliar: EMOJI POR CATEGORÍA (igual que en Presupuesto)
+    function emojiCategoria(cat) {
+        const map = {
+            'Honorarios': '💰',
+            'Laboratorios': '🧪',
+            'Material': '🩺',
+            'Servicios': '🔌',
+            'Oficina': '🖥️',
+            'Transporte': '🚗',
+            'Comida': '🍔',
+            'Otros': '📦',
+            'Sin categoría': '📊',
+            'Ingreso': '📈',
+            'Gasto': '📉',
+            'Saldo inicial': '🏦'
+        };
+        return map[cat] || '📊';
+    }
+
+    // Renderizar el mes actual al cargar
+    renderizarMes(currentMonth, currentYear);
 }
 
 // Función para actualizar el gráfico de inversiones
@@ -4747,7 +5034,7 @@ function actualizarResumenDeudas(deudas) {
         .reduce((sum, d) => sum + d.monto, 0);
 
     document.getElementById('totalDebo').textContent = formatNumberVE(totalDebo);
-    document.getElementById('totalMeDeben').textContent = formatNumberVE(totalMeDeDeben);
+    document.getElementById('totalMeDeben').textContent = formatNumberVE(totalMeDeben);
 }
 
 // Función para actualizar alertas de vencimiento
@@ -4983,6 +5270,1698 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+function cerrarAyudaCalendario() {
+    document.getElementById('modalAyudaCalendario').style.display = 'none';
+}
+
+// ✅ Función mejorada con contexto global
+function reproducirSonidoCambioPestana() {
+    if (!sonidosActivados) return; // No reproducir si están desactivados
+    try {
+        // Usar contexto global si existe, sino crear uno nuevo
+        const audioContext = audioContextGlobal || new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Crear oscilador para generar sonido sutil
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        // Configurar sonido tipo "click" sutil
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(300, audioContext.currentTime + 0.08);
+        
+        // Configurar volumen bajo
+        gainNode.gain.setValueAtTime(0.05, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.08);
+        
+        // Conectar y reproducir
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.08);
+        
+        console.log('✅ Sonido generado con Web Audio API');
+        
+    } catch (error) {
+        console.error('❌ Error con Web Audio API:', error.message);
+        mostrarIndicadorSonido();
+    }
+}
+
+// ✅ Función auxiliar para indicador visual
+function mostrarIndicadorSonido() {
+    const titulo = document.querySelector('h1');
+    if (titulo && !titulo.textContent.includes('🎵')) {
+        const textoOriginal = titulo.textContent;
+        titulo.textContent = '🎵 ' + textoOriginal;
+        setTimeout(() => {
+            titulo.textContent = textoOriginal;
+        }, 300);
+    }
+}
+
+// ✅ Variable global para el contexto de audio
+let audioContextGlobal = null;
+
+// ✅ Inicializar audio después de la primera interacción del usuario
+document.addEventListener('DOMContentLoaded', function() {
+    // Función para crear contexto de audio después de interacción
+    const inicializarAudio = () => {
+        try {
+            if (!audioContextGlobal) {
+                audioContextGlobal = new (window.AudioContext || window.webkitAudioContext)();
+                console.log('✅ AudioContext creado correctamente');
+            }
+            // Remover listeners después de inicializar
+            document.removeEventListener('click', inicializarAudio);
+            document.removeEventListener('keydown', inicializarAudio);
+            document.removeEventListener('touchstart', inicializarAudio);
+        } catch (error) {
+            console.log('❌ Error inicializando AudioContext:', error.message);
+        }
+    };
+    
+    // Escuchar primera interacción del usuario
+    document.addEventListener('click', inicializarAudio);
+    document.addEventListener('keydown', inicializarAudio);
+    document.addEventListener('touchstart', inicializarAudio);
+});
+
+// ✅ Función para mostrar información de cambios y versión
+function mostrarInfoCambios() {
+    // Crear modal si no existe
+    if (!document.getElementById('modalCambios')) {
+        const modal = document.createElement('div');
+        modal.id = 'modalCambios';
+        modal.innerHTML = `
+            <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 10000;">
+                <div style="background: var(--card-bg); border-radius: var(--radius); padding: 2rem; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+                    <h2 style="text-align: center; margin-bottom: 1.5rem; color: var(--primary);">📋 Información del Sistema</h2>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h3 style="color: var(--primary); margin-bottom: 0.5rem;">📅 Versión Actual</h3>
+                        <p><strong>Versión:</strong> ${APP_VERSION || '1.0.4'}</p>
+                        <p><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-ES')}</p>
+                    </div>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h3 style="color: var(--primary); margin-bottom: 0.5rem;">🎵 Características</h3>
+                        <ul style="margin: 0; padding-left: 1.5rem;">
+                            <li>✅ Tarjetas elegantes con diseño moderno</li>
+                            <li>✅ Sonidos al cambiar de pestañas</li>
+                            <li>✅ Scroll automático en paginación</li>
+                            <li>✅ Fechas relativas inteligentes</li>
+                            <li>✅ Tema oscuro/claro automático</li>
+                            <li>✅ Compatibilidad con todos los navegadores</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <h3 style="color: var(--primary); margin-bottom: 0.5rem;">🔧 Mejoras Recientes</h3>
+                        <ul style="margin: 0; padding-left: 1.5rem;">
+                            <li>✅ Corrección de fechas relativas</li>
+                            <li>✅ Web Audio API para sonidos</li>
+                            <li>✅ Diseño responsivo mejorado</li>
+                            <li>✅ Funciones de scroll automático</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 2rem;">
+                        <button onclick="cerrarModalCambios()" style="background: var(--primary); color: white; border: none; border-radius: 8px; padding: 0.75rem 2rem; font-size: 1rem; cursor: pointer;">
+                            ✅ Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    // Mostrar modal
+    document.getElementById('modalCambios').style.display = 'flex';
+}
+
+// ✅ Función para cerrar modal de cambios
+function cerrarModalCambios() {
+    const modal = document.getElementById('modalCambios');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// ✅ Variable global para controlar sonidos
+let sonidosActivados = true;
+
+// ✅ Función para probar sonido
+function probarSonido() {
+    if (sonidosActivados) {
+        reproducirSonidoCambioPestana();
+    }
+}
+
+// ✅ Función para guardar configuración de sonidos
+function guardarConfiguracionSonidos() {
+    sonidosActivados = document.getElementById('sonidosActivados').checked;
+    localStorage.setItem('sonidosActivados', sonidosActivados.toString());
+    mostrarToast(sonidosActivados ? '🔊 Sonidos activados' : '🔇 Sonidos desactivados', 'success');
+}
+
+// ✅ Función para cargar configuración de sonidos
+function cargarConfiguracionSonidos() {
+    const guardado = localStorage.getItem('sonidosActivados');
+    sonidosActivados = guardado !== 'false'; // Por defecto activados
+    const checkbox = document.getElementById('sonidosActivados');
+    if (checkbox) {
+        checkbox.checked = sonidosActivados;
+    }
+}
+
+// ✅ Inicializar configuración de sonidos al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    cargarConfiguracionSonidos();
+});
+
+// ✅ AÑADIR: Botón de limpiar búsqueda (Versión Mejorada)
+const buscador = document.getElementById('buscadorMovimientos');
+const botonLimpiar = document.getElementById('limpiarBusqueda');
+
+if (buscador && botonLimpiar) {
+    // Función para actualizar la visibilidad del botón
+    function actualizarBotonLimpiar() {
+        if (buscador.value.trim().length > 0) {
+            botonLimpiar.style.display = 'flex'; // Muestra el botón
+        } else {
+            botonLimpiar.style.display = 'none'; // Oculta el botón
+        }
+    }
+
+    // Escuchar cambios en el campo de búsqueda (al escribir)
+    buscador.addEventListener('input', actualizarBotonLimpiar);
+
+    // Escuchar también cuando se pega texto
+    buscador.addEventListener('paste', function() {
+        setTimeout(actualizarBotonLimpiar, 10);
+    });
+
+    // Escuchar cuando se borra el texto con la tecla "Supr" o "Backspace"
+    buscador.addEventListener('keydown', function(e) {
+        if (e.key === 'Backspace' || e.key === 'Delete') {
+            // Esperamos un poco para que el valor del input se actualice
+            setTimeout(actualizarBotonLimpiar, 1);
+        }
+    });
+
+    // Función para limpiar el campo y la búsqueda
+    botonLimpiar.addEventListener('click', function(e) {
+        e.stopPropagation(); // Evita que el click se propague y active el input
+        buscador.value = '';
+        actualizarBotonLimpiar(); // Actualiza el estado del botón (lo oculta)
+        buscarMovimientos(); // Llama a tu función de búsqueda con query vacío → renderizar()
+        buscador.focus(); // Devuelve el foco al campo para seguir escribiendo
+    });
+
+    // Inicializar: Si al cargar la página ya hay texto, mostrar el botón
+    actualizarBotonLimpiar();
+}
+
+// ✅ Función para mostrar/ocultar candado según estado del bloqueo
+function actualizarBotonBloqueo() {
+    const btnBloqueo = document.getElementById('btnBloqueoManual');
+    const bloqueoActivo = localStorage.getItem('bloqueoActivo') === 'true' && localStorage.getItem('bloqueoPIN');
+    
+    if (btnBloqueo) {
+        btnBloqueo.style.display = bloqueoActivo ? 'inline-block' : 'none';
+    }
+}
+
+// ✅ Función para bloquear manualmente
+function bloquearManual() {
+    if (localStorage.getItem('bloqueoActivo') === 'true' && localStorage.getItem('bloqueoPIN')) {
+        // Remover estado desbloqueado para forzar bloqueo
+        localStorage.removeItem('bloqueoDesbloqueado');
+        mostrarModalBloqueo();
+    }
+}
+
+// ✅ Inicializar candado al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    actualizarBotonBloqueo();
+    
+    // Agregar evento al botón candado
+    const btnBloqueo = document.getElementById('btnBloqueoManual');
+    if (btnBloqueo) {
+        btnBloqueo.addEventListener('click', bloquearManual);
+    }
+});
+
+// ✅ Función para obtener tasas del BCV
+async function obtenerTasasBCV() {
+    const btn = document.querySelector('[onclick="obtenerTasasBCV()"]');
+    const textoOriginal = btn.textContent;
+    
+    try {
+        // Mostrar loading
+        btn.textContent = '⏳ Consultando...';
+        btn.disabled = true;
+        
+        // Obtener tasas del BCV (método scraping respetuoso)
+        const tasas = await consultarTasasBCV();
+        
+        if (tasas.dolar && tasas.euro) {
+            // Actualizar UI
+            document.getElementById('tasaBCV').textContent = formatNumberVE(tasas.dolar);
+            document.getElementById('fechaBCV').textContent = `Actualizado: ${new Date().toLocaleString('es-ES')}`;
+            
+            document.getElementById('tasaBCVEUR').textContent = formatNumberVE(tasas.euro);
+            document.getElementById('fechaBCVEUR').textContent = `Actualizado: ${new Date().toLocaleString('es-ES')}`;
+            
+            // Guardar en historial
+            guardarHistorialTasas(tasas);
+            
+            mostrarToast('✅ Tasas del BCV actualizadas', 'success');
+        } else {
+            mostrarToast('❌ No se pudieron obtener las tasas', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Error obteniendo tasas BCV:', error);
+        mostrarToast('❌ Error consultando BCV', 'error');
+    } finally {
+        // Restaurar botón
+        btn.textContent = textoOriginal;
+        btn.disabled = false;
+    }
+}
+
+// ✅ Función para consultar tasas del BCV (scraping controlado)
+async function consultarTasasBCV() {
+    try {
+        console.log('🔍 Consultando tasas oficiales del BCV...');
+
+        // Método 1: Usar API pública de tasas (más confiable)
+        const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const tasaUSD = data.rates.VES || 179.43; // Tasa USD a VES
+
+            // Para EUR, usar conversión aproximada
+            const tasaEUR = tasaUSD * 1.08; // EUR típicamente ~8% más alto que USD
+
+            console.log(`💱 Tasas desde API pública: USD ${tasaUSD}, EUR ${tasaEUR}`);
+
+            return {
+                dolar: tasaUSD,
+                euro: tasaEUR,
+                fecha: new Date().toISOString(),
+                fuente: 'API Pública'
+            };
+        }
+
+        // Método 2: Si falla la API, intentar BCV directamente (con timeout corto)
+        console.log('⚠️ API pública falló, intentando BCV directo...');
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos timeout
+
+        try {
+            const bcvResponse = await fetch('https://www.bcv.org.ve/', {
+                method: 'GET',
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3',
+                    'Cache-Control': 'no-cache'
+                },
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (bcvResponse.ok) {
+                const html = await bcvResponse.text();
+
+                // Buscar tasas en el HTML del BCV
+                const dolarRegex = /USD.*?(\d{1,3}(?:\.\d{3})*,\d{2})/s;
+                const euroRegex = /EUR.*?(\d{1,3}(?:\.\d{3})*,\d{2})/s;
+
+                const dolarMatch = html.match(dolarRegex);
+                const euroMatch = html.match(euroRegex);
+
+                if (dolarMatch && euroMatch) {
+                    const dolar = parseFloat(dolarMatch[1].replace(/\./g, '').replace(',', '.'));
+                    const euro = parseFloat(euroMatch[1].replace(/\./g, '').replace(',', '.'));
+
+                    return {
+                        dolar: dolar,
+                        euro: euro,
+                        fecha: new Date().toISOString(),
+                        fuente: 'BCV Oficial'
+                    };
+                }
+            }
+        } catch (bcvError) {
+            console.log('❌ BCV directo falló:', bcvError.message);
+        }
+
+        // Método 3: Fallback con datos actuales aproximados
+        console.log('⚠️ Usando tasas aproximadas actuales');
+        return {
+            dolar: 179.43,
+            euro: 195.20,
+            fecha: new Date().toISOString(),
+            fuente: 'Aproximado'
+        };
+
+    } catch (error) {
+        console.error('❌ Error general consultando tasas:', error);
+
+        // Fallback final: datos aproximados
+        return {
+            dolar: 179.43,
+            euro: 195.20,
+            fecha: new Date().toISOString(),
+            fuente: 'Offline'
+        };
+    }
+}
+
+// ✅ Función para usar tasa en el sistema
+function usarTasaBCV() {
+    const tasaBCV = document.getElementById('tasaBCV').textContent;
+    
+    if (tasaBCV === '--') {
+        mostrarToast('❌ Primero obtén las tasas del BCV', 'warning');
+        return;
+    }
+    
+    // Usar la tasa en el campo principal
+    const inputTasa = document.getElementById('tasaCambio');
+    if (inputTasa) {
+        const tasaLimpia = tasaBCV.replace(/\./g, '').replace(',', '.');
+        inputTasa.value = tasaLimpia;
+        actualizarEquivalente();
+        mostrarToast('✅ Tasa del BCV aplicada al sistema', 'success');
+    }
+}
+
+// ✅ Función para guardar historial de tasas
+function guardarHistorialTasas(tasas) {
+    const historial = JSON.parse(localStorage.getItem('historialBCV') || '[]');
+    
+    const nuevaEntrada = {
+        fecha: new Date().toISOString(),
+        dolar: tasas.dolar,
+        euro: tasas.euro
+    };
+    
+    historial.unshift(nuevaEntrada);
+    
+    // Mantener solo últimas 7 entradas
+    if (historial.length > 7) {
+        historial.pop();
+    }
+    
+    localStorage.setItem('historialBCV', JSON.stringify(historial));
+    mostrarHistorialTasas();
+}
+
+// ✅ Función para mostrar historial
+function mostrarHistorialTasas() {
+    const historial = JSON.parse(localStorage.getItem('historialBCV') || '[]');
+    const contenedor = document.getElementById('historialTasas');
+    
+    if (historial.length === 0) {
+        contenedor.innerHTML = '<p style="text-align: center; color: var(--text-light); font-style: italic;">No hay historial aún. Consulta algunas tasas.</p>';
+        return;
+    }
+    
+    contenedor.innerHTML = historial.map((entrada, index) => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: ${index === 0 ? 'var(--primary-bg)' : 'transparent'}; border-radius: 6px; margin-bottom: 0.25rem;">
+            <span style="font-size: 0.8rem; color: var(--text-light);">${new Date(entrada.fecha).toLocaleDateString('es-ES')}</span>
+            <span style="font-weight: 500;">USD: ${formatNumberVE(entrada.dolar)} | EUR: ${formatNumberVE(entrada.euro)}</span>
+        </div>
+    `).join('');
+}
+
+// ✅ Inicializar historial al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    mostrarHistorialTasas();
+});
+
+// ✅ Función para limpiar historial de tasas
+function limpiarHistorialBCV() {
+    if (!confirm('¿Estás seguro de que quieres borrar todo el historial de tasas del BCV? Esta acción no se puede deshacer.')) {
+        return;
+    }
+    
+    try {
+        // Limpiar historial del localStorage
+        localStorage.removeItem('historialBCV');
+        
+        // Actualizar interfaz
+        mostrarHistorialTasas();
+        
+        mostrarToast('✅ Historial de tasas borrado completamente', 'success');
+        
+    } catch (error) {
+        console.error('Error limpiando historial:', error);
+        mostrarToast('❌ Error al borrar historial', 'error');
+    }
+}
+
+// ✅ Función para mostrar ayuda de tasas BCV
+function mostrarAyudaBCV() {
+    const modal = document.getElementById('modalAyudaBCV');
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+}
+
+// ✅ Función para mostrar ayuda del almacén
+function mostrarAyudaAlmacen() {
+    const modal = document.getElementById('modalAyudaAlmacen');
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+}
+
+// ✅ Función para exportar backup y guardarlo en el almacén
+async function exportarBackupConAlmacen() {
+    try {
+        // Crear el backup
+        const backupData = await crearBackupData();
+        
+        // Crear nombre del archivo con timestamp
+        const fecha = new Date();
+        const nombreArchivo = `backup_finanzas_${fecha.getFullYear()}${(fecha.getMonth()+1).toString().padStart(2,'0')}${fecha.getDate().toString().padStart(2,'0')}_${fecha.getHours().toString().padStart(2,'0')}${fecha.getMinutes().toString().padStart(2,'0')}.json`;
+        
+        // Crear blob y descargar
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = nombreArchivo;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        // Guardar en el almacén local
+        await guardarBackupEnAlmacen(backupData, nombreArchivo);
+        
+        mostrarToast('✅ Backup creado y guardado en almacén', 'success');
+        
+        // Actualizar lista del almacén
+        mostrarBackupsAlmacen();
+        
+    } catch (error) {
+        console.error('Error creando backup:', error);
+        mostrarToast('❌ Error al crear backup', 'error');
+    }
+}
+
+// ✅ Función para guardar backup en el almacén local
+async function guardarBackupEnAlmacen(backupData, nombreArchivo) {
+    try {
+        const almacen = JSON.parse(localStorage.getItem('almacenBackups') || '[]');
+        
+        const backupInfo = {
+            nombre: nombreArchivo,
+            fecha: new Date().toISOString(),
+            tamaño: JSON.stringify(backupData).length,
+            datos: backupData // Guardar datos completos
+        };
+        
+        almacen.unshift(backupInfo); // Agregar al principio
+        
+        // Limitar a 20 backups máximo
+        if (almacen.length > 20) {
+            almacen.pop();
+        }
+        
+        localStorage.setItem('almacenBackups', JSON.stringify(almacen));
+        
+    } catch (error) {
+        console.error('Error guardando en almacén:', error);
+        throw error;
+    }
+}
+
+// ✅ Función para mostrar backups almacenados
+function mostrarBackupsAlmacen() {
+    try {
+        const almacen = JSON.parse(localStorage.getItem('almacenBackups') || '[]');
+        const contenedor = document.getElementById('listaBackupsAlmacen');
+        
+        if (almacen.length === 0) {
+            contenedor.innerHTML = '<p style="text-align: center; color: var(--text-light); font-style: italic;">No hay backups almacenados aún. Crea tu primer backup.</p>';
+            return;
+        }
+        
+        let html = '';
+        almacen.forEach((backup, index) => {
+            const fecha = new Date(backup.fecha);
+            const fechaFormateada = fecha.toLocaleDateString() + ' ' + fecha.toLocaleTimeString();
+            
+            html += `
+                <div style="border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; background: var(--card-bg);">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                        <div style="flex: 1;">
+                            <h4 style="margin: 0 0 0.25rem 0; color: var(--text); font-size: 0.9rem;">${backup.nombre}</h4>
+                            <p style="margin: 0; color: var(--text-light); font-size: 0.8rem;">📅 ${fechaFormateada}</p>
+                            <p style="margin: 0; color: var(--text-light); font-size: 0.8rem;">📏 ${(backup.tamaño / 1024).toFixed(1)} KB</p>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button onclick="descargarBackupAlmacen(${index})" style="background: #0b57d0; color: white; border: none; border-radius: 6px; padding: 0.5rem; font-size: 0.8rem; cursor: pointer;" title="Descargar backup">
+                                ⬇️
+                            </button>
+                            <button onclick="editarBackupAlmacen(${index})" style="background: #ff9800; color: white; border: none; border-radius: 6px; padding: 0.5rem; font-size: 0.8rem; cursor: pointer;" title="Editar nombre del backup">
+                                ✏️
+                            </button>
+                            <button onclick="restaurarBackupDelAlmacen(${index})" style="background: #018642; color: white; border: none; border-radius: 6px; padding: 0.5rem; font-size: 0.8rem; cursor: pointer;" title="Restaurar backup">
+                                🔄
+                            </button>
+                            <button onclick="eliminarBackupAlmacen(${index})" style="background: #dc2626; color: white; border: none; border-radius: 6px; padding: 0.5rem; font-size: 0.8rem; cursor: pointer;" title="Eliminar backup">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        contenedor.innerHTML = html;
+        
+    } catch (error) {
+        console.error('Error mostrando backups:', error);
+        document.getElementById('listaBackupsAlmacen').innerHTML = '<p style="text-align: center; color: var(--danger);">❌ Error al cargar backups</p>';
+    }
+}
+
+// ✅ Función para descargar backup del almacén
+function descargarBackupAlmacen(index) {
+    try {
+        const almacen = JSON.parse(localStorage.getItem('almacenBackups') || '[]');
+        const backup = almacen[index];
+        
+        if (!backup) {
+            mostrarToast('❌ Backup no encontrado', 'error');
+            return;
+        }
+        
+        const blob = new Blob([JSON.stringify(backup.datos, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = backup.nombre;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        mostrarToast('✅ Backup descargado', 'success');
+        
+    } catch (error) {
+        console.error('Error descargando backup:', error);
+        mostrarToast('❌ Error al descargar backup', 'error');
+    }
+}
+
+// ✅ Función para eliminar backup del almacén
+function eliminarBackupAlmacen(index) {
+    if (!confirm('¿Estás seguro de que quieres eliminar este backup?')) {
+        return;
+    }
+    
+    try {
+        const almacen = JSON.parse(localStorage.getItem('almacenBackups') || '[]');
+        
+        if (almacen[index]) {
+            almacen.splice(index, 1);
+            localStorage.setItem('almacenBackups', JSON.stringify(almacen));
+            mostrarBackupsAlmacen();
+            mostrarToast('✅ Backup eliminado', 'success');
+        }
+        
+    } catch (error) {
+        console.error('Error eliminando backup:', error);
+        mostrarToast('❌ Error al eliminar backup', 'error');
+    }
+}
+
+// ✅ Función para limpiar todo el almacén
+function limpiarAlmacen() {
+    if (!confirm('¿Estás seguro de que quieres eliminar TODOS los backups del almacén? Esta acción no se puede deshacer.')) {
+        return;
+    }
+    
+    try {
+        localStorage.removeItem('almacenBackups');
+        mostrarBackupsAlmacen();
+        mostrarToast('✅ Almacén limpiado completamente', 'success');
+        
+    } catch (error) {
+        console.error('Error limpiando almacén:', error);
+        mostrarToast('❌ Error al limpiar almacén', 'error');
+    }
+}
+
+// ✅ Inicializar almacén al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    // Mostrar backups almacenados si estamos en la pestaña almacén
+    if (document.getElementById('listaBackupsAlmacen')) {
+        mostrarBackupsAlmacen();
+    }
+});
+
+// ✅ Función para restaurar backup desde el almacén
+async function restaurarBackupDelAlmacen(index) {
+    if (!confirm('⚠️ ¿Estás seguro de que quieres restaurar este backup?\n\nEsto SOBREESCRIBIRÁ todos tus datos actuales con los del backup seleccionado.\n\nEsta acción no se puede deshacer.')) {
+        return;
+    }
+    
+    try {
+        const almacen = JSON.parse(localStorage.getItem('almacenBackups') || '[]');
+        const backup = almacen[index];
+        
+        if (!backup || !backup.datos) {
+            mostrarToast('❌ Backup inválido o corrupto', 'error');
+            return;
+        }
+        
+        const backupData = backup.datos;
+        
+        // ✅ Limpiar datos actuales antes de restaurar
+        const movimientosActuales = await getAllEntries(STORES.MOVIMIENTOS);
+        for (const mov of movimientosActuales) {
+            await deleteEntry(STORES.MOVIMIENTOS, mov.id);
+        }
+        
+        // ✅ Restaurar movimientos
+        if (backupData.movimientos && Array.isArray(backupData.movimientos)) {
+            for (const mov of backupData.movimientos) {
+                await addEntry(STORES.MOVIMIENTOS, mov);
+            }
+        }
+        
+        // ✅ Restaurar categorías
+        if (backupData.categorias && Array.isArray(backupData.categorias)) {
+            for (const cat of backupData.categorias) {
+                await addEntry(STORES.CATEGORIAS, cat);
+            }
+        }
+        
+        // ✅ Restaurar bancos
+        if (backupData.bancos && Array.isArray(backupData.bancos)) {
+            for (const banco of backupData.bancos) {
+                await addEntry(STORES.BANCOS, banco);
+            }
+        }
+        
+        // ✅ Restaurar reglas
+        if (backupData.reglas && Array.isArray(backupData.reglas)) {
+            for (const regla of backupData.reglas) {
+                await addEntry(STORES.REGLAS, regla);
+            }
+        }
+        
+        // ✅ Restaurar inversiones
+        if (backupData.inversiones && Array.isArray(backupData.inversiones)) {
+            for (const inv of backupData.inversiones) {
+                await addEntry(STORES.INVERSIONES, inv);
+            }
+        }
+        
+        // ✅ Restaurar configuración
+        if (backupData.configuracion) {
+            const config = backupData.configuracion;
+            if (config.tasaCambio) localStorage.setItem('tasaCambio', config.tasaCambio);
+            if (config.numeroModo) localStorage.setItem('numeroModo', config.numeroModo);
+            if (config.bloqueoActivo) localStorage.setItem('bloqueoActivo', config.bloqueoActivo);
+            if (config.tema) localStorage.setItem('agendaTema', config.tema);
+            if (config.presupuestoMeta) localStorage.setItem('presupuestoMeta', config.presupuestoMeta);
+            if (config.presupuestoGastado) localStorage.setItem('presupuestoGastado', config.presupuestoGastado);
+            if (config.sonidosActivados) localStorage.setItem('sonidosActivados', config.sonidosActivados);
+            if (config.umbralAlerta) localStorage.setItem('umbralAlerta', config.umbralAlerta);
+        }
+        
+        // ✅ Refrescar toda la interfaz
+        await renderizar();
+        await actualizarSaldo();
+        await renderizarResumenBancos();
+        await renderizarReglas();
+        await cargarMetaPresupuesto();
+        actualizarSelectCategorias();
+        cargarSelectBancos();
+        
+        mostrarToast('✅ Backup restaurado exitosamente. Datos actualizados.', 'success');
+        
+        // Recargar página para asegurar que todo esté sincronizado
+        setTimeout(() => {
+            location.reload();
+        }, 1000);
+        
+    } catch (error) {
+        console.error('Error restaurando backup:', error);
+        mostrarToast('❌ Error al restaurar backup. Verifica la consola para más detalles.', 'error');
+    }
+}
+
+// ✅ Función para cerrar modal de ayuda del almacén
+function cerrarAyudaAlmacen() {
+    const modal = document.getElementById('modalAyudaAlmacen');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// ✅ Función para editar metadatos de un backup
+function editarBackupAlmacen(index) {
+    try {
+        const almacen = JSON.parse(localStorage.getItem('almacenBackups') || '[]');
+        const backup = almacen[index];
+
+        if (!backup) {
+            mostrarToast('❌ Backup no encontrado', 'error');
+            return;
+        }
+
+        // Crear modal de edición
+        const modal = document.createElement('div');
+        modal.id = 'modalEditarBackup';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1006;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        `;
+
+        const modalContent = document.createElement('div');
+        modalContent.style.cssText = `
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        `;
+
+        modalContent.innerHTML = `
+            <h2 style="color: var(--primary); margin-bottom: 1.5rem; text-align: center;">✏️ Editar Backup</h2>
+
+            <div style="margin-bottom: 1.5rem;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Nombre actual:</label>
+                <div style="padding: 0.75rem; background: var(--card-bg); border-radius: 8px; margin-bottom: 1rem; font-family: monospace;">
+                    ${backup.nombre}
+                </div>
+
+                <label for="nuevoNombreBackup" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Nuevo nombre:</label>
+                <input type="text" id="nuevoNombreBackup" placeholder="Ingresa nuevo nombre"
+                       style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; margin-bottom: 1rem;"
+                       value="${backup.nombre.replace('.json', '')}" />
+
+                <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 1rem;">
+                    <strong>Información del backup:</strong><br>
+                    📅 Fecha: ${new Date(backup.fecha).toLocaleString()}<br>
+                    📏 Tamaño: ${(backup.tamaño / 1024).toFixed(1)} KB<br>
+                    📊 Registros: ${Object.keys(backup.datos.datos).length} tipos de datos
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem;">
+                <button onclick="guardarEdicionBackup(${index})"
+                        style="flex: 1; background: #0b57d0; color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1rem; cursor: pointer;">
+                    💾 Guardar Cambios
+                </button>
+                <button onclick="cerrarModalEditarBackup()"
+                        style="flex: 1; background: #6b7280; color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1rem; cursor: pointer;">
+                    ❌ Cancelar
+                </button>
+            </div>
+        `;
+
+        modal.appendChild(modalContent);
+        document.body.appendChild(modal);
+
+    } catch (error) {
+        console.error('Error abriendo editor de backup:', error);
+        mostrarToast('❌ Error al abrir editor de backup', 'error');
+    }
+}
+
+// ✅ Función para guardar cambios de edición de backup
+function guardarEdicionBackup(index) {
+    try {
+        const nuevoNombre = document.getElementById('nuevoNombreBackup').value.trim();
+
+        if (!nuevoNombre) {
+            mostrarToast('❌ El nombre no puede estar vacío', 'error');
+            return;
+        }
+
+        // Validar que no haya otro backup con el mismo nombre
+        const almacen = JSON.parse(localStorage.getItem('almacenBackups') || '[]');
+        const nombreExiste = almacen.some((backup, i) =>
+            i !== index && backup.nombre.replace('.json', '') === nuevoNombre
+        );
+
+        if (nombreExiste) {
+            mostrarToast('❌ Ya existe un backup con ese nombre', 'error');
+            return;
+        }
+
+        // Actualizar el nombre del backup
+        const nombreCompleto = nuevoNombre.endsWith('.json') ? nuevoNombre : `${nuevoNombre}.json`;
+        almacen[index].nombre = nombreCompleto;
+
+        // Guardar cambios
+        localStorage.setItem('almacenBackups', JSON.stringify(almacen));
+
+        // Cerrar modal y actualizar vista
+        cerrarModalEditarBackup();
+        mostrarBackupsAlmacen();
+
+        mostrarToast(`✅ Backup renombrado: ${nombreCompleto}`, 'success');
+
+    } catch (error) {
+        console.error('Error guardando edición de backup:', error);
+        mostrarToast('❌ Error al guardar cambios', 'error');
+    }
+}
+
+// ✅ Función para cerrar modal de edición de backup
+function cerrarModalEditarBackup() {
+    const modal = document.getElementById('modalEditarBackup');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// ✅ Funciones para gestión de metas de ahorro
+function crearMetaAhorro() {
+    const nombre = document.getElementById('nombreMeta').value.trim();
+    const monto = document.getElementById('montoMeta').value.trim();
+    const fecha = document.getElementById('fechaMeta').value;
+    
+    if (!nombre || !monto || !fecha) {
+        mostrarToast('❌ Completa todos los campos', 'error');
+        return;
+    }
+    
+    const montoNum = parseFloat(monto.replace(/[.,]/g, ''));
+    if (isNaN(montoNum) || montoNum <= 0) {
+        mostrarToast('❌ Ingresa un monto válido', 'error');
+        return;
+    }
+    
+    const fechaLimite = new Date(fecha);
+    const hoy = new Date();
+    if (fechaLimite <= hoy) {
+        mostrarToast('❌ La fecha debe ser futura', 'error');
+        return;
+    }
+    
+    const meta = {
+        id: Date.now(),
+        nombre,
+        montoObjetivo: montoNum,
+        montoActual: 0,
+        fechaLimite,
+        fechaCreacion: new Date(),
+        activa: true
+    };
+    
+    const metas = JSON.parse(localStorage.getItem('metasAhorro') || '[]');
+    metas.push(meta);
+    localStorage.setItem('metasAhorro', JSON.stringify(metas));
+    
+    // Limpiar formulario
+    document.getElementById('nombreMeta').value = '';
+    document.getElementById('montoMeta').value = '';
+    document.getElementById('fechaMeta').value = '';
+    
+    cargarMetasAhorro();
+    actualizarProgresoGeneral();
+    generarSugerenciasAhorro();
+    
+    mostrarToast(`✅ Meta "${nombre}" creada`, 'success');
+}
+
+function cargarMetasAhorro() {
+    const contenedor = document.getElementById('listaMetasAhorro');
+    const metas = JSON.parse(localStorage.getItem('metasAhorro') || '[]');
+    
+    if (metas.length === 0) {
+        contenedor.innerHTML = '<p style="text-align: center; color: var(--text-light); font-style: italic;">No tienes metas de ahorro aún. ¡Crea tu primera meta!</p>';
+        return;
+    }
+    
+    let html = '';
+    metas.forEach(meta => {
+        const progreso = (meta.montoActual / meta.montoObjetivo) * 100;
+        const diasRestantes = Math.ceil((meta.fechaLimite - new Date()) / (1000 * 60 * 60 * 24));
+        const ahorroMensual = meta.montoObjetivo / Math.ceil((meta.fechaLimite - new Date()) / (1000 * 60 * 60 * 24 * 30));
+        
+        html += `
+            <div style="border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; background: var(--card-bg);">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+                    <div style="flex: 1;">
+                        <h4 style="margin: 0 0 0.25rem 0; color: var(--text);">${meta.nombre}</h4>
+                        <p style="margin: 0; color: var(--text-light); font-size: 0.8rem;">
+                            🎯 Bs. ${formatearNumero(meta.montoActual)} / Bs. ${formatearNumero(meta.montoObjetivo)}
+                        </p>
+                        <p style="margin: 0; color: var(--text-light); font-size: 0.8rem;">
+                            📅 ${diasRestantes} días restantes | 💰 Bs. ${formatearNumero(ahorroMensual)}/mes
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button onclick="agregarProgresoMeta(${meta.id})" style="background: #10B981; color: white; border: none; border-radius: 6px; padding: 0.5rem; font-size: 0.8rem; cursor: pointer;" title="Agregar progreso">
+                            ➕
+                        </button>
+                        <button onclick="editarMetaAhorro(${meta.id})" style="background: #ff9800; color: white; border: none; border-radius: 6px; padding: 0.5rem; font-size: 0.8rem; cursor: pointer;" title="Editar meta">
+                            ✏️
+                        </button>
+                        <button onclick="eliminarMetaAhorro(${meta.id})" style="background: #dc2626; color: white; border: none; border-radius: 6px; padding: 0.5rem; font-size: 0.8rem; cursor: pointer;" title="Eliminar meta">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+                <div style="width: 100%; height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden;">
+                    <div style="height: 100%; width: ${Math.min(progreso, 100)}%; background: linear-gradient(90deg, #10B981, #059669); transition: width 0.5s ease;"></div>
+                </div>
+            </div>
+        `;
+    });
+    
+    contenedor.innerHTML = html;
+}
+
+function actualizarProgresoGeneral() {
+    const metas = JSON.parse(localStorage.getItem('metasAhorro') || '[]');
+    const activas = metas.filter(m => m.activa);
+    
+    if (activas.length === 0) {
+        document.getElementById('barraProgresoGeneral').style.width = '0%';
+        document.getElementById('textoProgresoGeneral').textContent = 'Bs. 0 / Bs. 0 (0%)';
+        return;
+    }
+    
+    const totalObjetivo = activas.reduce((sum, meta) => sum + meta.montoObjetivo, 0);
+    const totalActual = activas.reduce((sum, meta) => sum + meta.montoActual, 0);
+    const progreso = (totalActual / totalObjetivo) * 100;
+    
+    document.getElementById('barraProgresoGeneral').style.width = `${Math.min(progreso, 100)}%`;
+    document.getElementById('textoProgresoGeneral').textContent = 
+        `Bs. ${formatearNumero(totalActual)} / Bs. ${formatearNumero(totalObjetivo)} (${progreso.toFixed(1)}%)`;
+}
+
+function generarSugerenciasAhorro() {
+    const sugerenciasContainer = document.getElementById('sugerenciasContainer');
+    
+    // Aquí iría la lógica para analizar gastos y generar sugerencias
+    sugerenciasContainer.innerHTML = `
+        <div style="margin-bottom: 0.75rem;">
+            <strong>☕ Si dejas de gastar en cafés:</strong><br>
+            <span style="font-size: 0.9rem;">Podrías ahorrar Bs. 2,400 en 6 meses</span>
+        </div>
+        <div style="margin-bottom: 0.75rem;">
+            <strong>🍔 Reduce comidas fuera:</strong><br>
+            <span style="font-size: 0.9rem;">Ahorra Bs. 4,800 mensuales hacia tu meta</span>
+        </div>
+        <div style="margin-bottom: 0.75rem;">
+            <strong>💡 Optimiza suscripciones:</strong><br>
+            <span style="font-size: 0.9rem;">Libera Bs. 1,200 al mes</span>
+        </div>
+    `;
+}
+
+function mostrarAyudaAhorro() {
+    // Función para mostrar ayuda de la pestaña ahorro
+    mostrarToast('💡 La pestaña de ahorro te ayuda a establecer metas y seguir tu progreso', 'info');
+}
+
+// ======================================================================================
+// ✅ FUNCIONES PARA OPTIMIZACIÓN FISCAL SIMPLIFICADA
+// ======================================================================================
+
+/**
+ * Clasificador automático de gastos deducibles
+ * Analiza movimientos existentes para identificar gastos potencialmente deducibles
+ */
+function clasificarGastosDeducibles() {
+    try {
+        // Obtener todos los movimientos de la base de datos
+        const transaction = db.transaction([STORES.MOVIMIENTOS], 'readonly');
+        const store = transaction.objectStore(STORES.MOVIMIENTOS);
+        const request = store.getAll();
+
+        request.onsuccess = function(event) {
+            const movimientos = event.target.result;
+            const gastos = movimientos.filter(mov => mov.tipo === 'gasto');
+            
+            if (gastos.length === 0) {
+                mostrarToast('❌ No hay gastos registrados para analizar', 'danger');
+                return;
+            }
+
+            // Reglas de clasificación fiscal
+            const reglasFiscales = {
+                'educacion': {
+                    palabras: ['universidad', 'colegio', 'escuela', 'curso', 'diploma', 'maestria', 'doctorado', 'libro', 'material educativo', 'matricula'],
+                    porcentaje: 100,
+                    descripcion: 'Gastos educativos y de formación'
+                },
+                'salud': {
+                    palabras: ['medico', 'medicina', 'farmacia', 'hospital', 'clinica', 'consulta', 'examen', 'laboratorio', 'dentista', 'optica', 'terapia'],
+                    porcentaje: 100,
+                    descripcion: 'Gastos médicos y de salud'
+                },
+                'vivienda': {
+                    palabras: ['alquiler', 'hipoteca', 'luz', 'agua', 'gas', 'telefono', 'internet', 'mantenimiento', 'reparacion hogar'],
+                    porcentaje: 80,
+                    descripcion: 'Gastos de vivienda y servicios básicos'
+                },
+                'transporte': {
+                    palabras: ['transporte', 'gasolina', 'metro', 'bus', 'taxi', 'uber', 'mantenimiento vehiculo', 'seguro auto'],
+                    porcentaje: 70,
+                    descripcion: 'Gastos de transporte y movilidad'
+                },
+                'donaciones': {
+                    palabras: ['donacion', 'caridad', 'ayuda', 'beneficencia', 'iglesia', 'fundacion'],
+                    porcentaje: 100,
+                    descripcion: 'Donaciones y obras de caridad'
+                }
+            };
+
+            // Clasificar gastos
+            const gastosClasificados = [];
+            let totalDeducible = 0;
+
+            gastos.forEach(gasto => {
+                const concepto = gasto.concepto.toLowerCase();
+                let clasificacion = null;
+                let porcentajeMaximo = 0;
+
+                // Buscar coincidencias con reglas fiscales
+                Object.keys(reglasFiscales).forEach(categoria => {
+                    const regla = reglasFiscales[categoria];
+                    const tieneCoincidencia = regla.palabras.some(palabra => 
+                        concepto.includes(palabra.toLowerCase())
+                    );
+                    
+                    if (tieneCoincidencia && regla.porcentaje > porcentajeMaximo) {
+                        porcentajeMaximo = regla.porcentaje;
+                        clasificacion = {
+                            categoria: categoria,
+                            descripcion: regla.descripcion,
+                            porcentaje: regla.porcentaje,
+                            monto: gasto.cantidad,
+                            concepto: gasto.concepto
+                        };
+                    }
+                });
+
+                if (clasificacion) {
+                    gastosClasificados.push(clasificacion);
+                    totalDeducible += (gasto.cantidad * clasificacion.porcentaje / 100);
+                }
+            });
+
+            // Mostrar resultados
+            mostrarResultadosClasificacion(gastosClasificados, totalDeducible, gastos.length);
+
+        };
+
+        request.onerror = function() {
+            mostrarToast('❌ Error al acceder a los movimientos', 'danger');
+        };
+
+    } catch (error) {
+        mostrarToast('❌ Error al clasificar gastos: ' + error.message, 'danger');
+    }
+}
+
+/**
+ * Mostrar resultados de clasificación fiscal
+ */
+function mostrarResultadosClasificacion(gastosClasificados, totalDeducible, totalGastos) {
+    const resultadoDiv = document.getElementById('resultadoClasificacion');
+    const resumenDiv = document.getElementById('resumenDeducibles');
+    
+    if (gastosClasificados.length === 0) {
+        resumenDiv.innerHTML = `
+            <p>❌ No se encontraron gastos potencialmente deducibles.</p>
+            <p>Analizados: ${totalGastos} gastos</p>
+        `;
+    } else {
+        const ahorroEstimado = totalDeducible * 0.34; // Asumiendo tasa del 34%
+        
+        resumenDiv.innerHTML = `
+            <p>✅ <strong>${gastosClasificados.length}</strong> gastos potencialmente deducibles encontrados</p>
+            <p>💰 <strong>Monto total deducible:</strong> Bs. ${formatNumberVE(totalDeducible)}</p>
+            <p>🎯 <strong>Ahorro fiscal estimado:</strong> Bs. ${formatNumberVE(ahorroEstimado)}</p>
+            <p>📊 <strong>Eficiencia fiscal:</strong> ${Math.round((gastosClasificados.length / totalGastos) * 100)}%</p>
+        `;
+
+        // Agregar detalles de cada gasto clasificado
+        let detallesHTML = '<div style="margin-top: 1rem; max-height: 200px; overflow-y: auto;">';
+        gastosClasificados.forEach(gasto => {
+            detallesHTML += `
+                <div style="background: rgba(16, 185, 129, 0.1); padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 6px; border-left: 3px solid #10B981;">
+                    <strong>${gasto.concepto}</strong><br>
+                    <small>🏷️ ${gasto.descripcion} | 💰 Bs. ${formatNumberVE(gasto.monto)} | 📈 ${gasto.porcentaje}% deducible</small>
+                </div>
+            `;
+        });
+        detallesHTML += '</div>';
+        resumenDiv.innerHTML += detallesHTML;
+    }
+    
+    resultadoDiv.style.display = 'block';
+}
+
+/**
+ * Simulador de escenarios fiscales
+ */
+function simularEscenarioFiscal() {
+    const ingresosProyectados = parseNumberVE(document.getElementById('ingresosProyectados').value);
+    const gastosDeduciblesProyectados = parseNumberVE(document.getElementById('gastosDeduciblesProyectados').value);
+    
+    if (isNaN(ingresosProyectados) || ingresosProyectados <= 0) {
+        mostrarToast('❌ Ingresa ingresos anuales válidos', 'danger');
+        return;
+    }
+    
+    if (isNaN(gastosDeduciblesProyectados) || gastosDeduciblesProyectados < 0) {
+        mostrarToast('❌ Ingresa gastos deducibles válidos', 'danger');
+        return;
+    }
+
+    // Escenarios fiscales (tasas progresivas aproximadas)
+    const escenarios = [
+        {
+            nombre: 'Conservador',
+            tasa: 0.32,
+            descripcion: 'Con deducciones mínimas aplicadas'
+        },
+        {
+            nombre: 'Realista', 
+            tasa: 0.28,
+            descripcion: 'Con deducciones estándar aplicadas'
+        },
+        {
+            nombre: 'Optimizado',
+            tasa: 0.24,
+            descripcion: 'Con máximas deducciones fiscales aplicadas'
+        }
+    ];
+
+    // Calcular resultados para cada escenario
+    const resultados = escenarios.map(escenario => {
+        const baseImponible = ingresosProyectados - gastosDeduciblesProyectados;
+        const impuestoEstimado = Math.max(0, baseImponible * escenario.tasa);
+        const ahorroFiscal = (ingresosProyectados * 0.34) - impuestoEstimado; // Comparado con tasa máxima
+        
+        return {
+            ...escenario,
+            baseImponible: baseImponible,
+            impuestoEstimado: impuestoEstimado,
+            ahorroFiscal: ahorroFiscal
+        };
+    });
+
+    mostrarResultadosSimulacion(resultados);
+}
+
+/**
+ * Mostrar resultados de simulación fiscal
+ */
+function mostrarResultadosSimulacion(resultados) {
+    const resultadoDiv = document.getElementById('resultadoSimulacion');
+    const detalleDiv = document.getElementById('detalleSimulacion');
+    
+    let html = '<div style="margin-bottom: 1rem;">';
+    html += '<p><strong>📊 Comparación de Escenarios Fiscales</strong></p>';
+    html += '</div>';
+    
+    html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">';
+    
+    resultados.forEach(resultado => {
+        const ahorroColor = resultado.ahorroFiscal > 0 ? '#10B981' : '#EF4444';
+        html += `
+            <div style="background: rgba(59, 130, 246, 0.05); padding: 1rem; border-radius: 8px; border-left: 4px solid #3B82F6;">
+                <h4 style="margin: 0 0 0.5rem 0; color: #3B82F6;">${resultado.nombre}</h4>
+                <p style="font-size: 0.8rem; color: var(--text-light); margin-bottom: 0.5rem;">${resultado.descripcion}</p>
+                <p><strong>Base imponible:</strong> Bs. ${formatNumberVE(resultado.baseImponible)}</p>
+                <p><strong>Impuesto estimado:</strong> Bs. ${formatNumberVE(resultado.impuestoEstimado)}</p>
+                <p style="color: ${ahorroColor};"><strong>Ahorro fiscal:</strong> Bs. ${formatNumberVE(resultado.ahorroFiscal)}</p>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    
+    detalleDiv.innerHTML = html;
+    resultadoDiv.style.display = 'block';
+}
+
+/**
+ * Proyección de impuesto anual
+ */
+function proyectarImpuestoAnual() {
+    try {
+        const transaction = db.transaction([STORES.MOVIMIENTOS], 'readonly');
+        const store = transaction.objectStore(STORES.MOVIMIENTOS);
+        const request = store.getAll();
+
+        request.onsuccess = function(event) {
+            const movimientos = event.target.result;
+            const ingresos = movimientos.filter(mov => mov.tipo === 'ingreso');
+            const gastos = movimientos.filter(mov => mov.tipo === 'gasto');
+            
+            if (ingresos.length === 0) {
+                mostrarToast('❌ Necesitas ingresos registrados para hacer proyecciones', 'danger');
+                return;
+            }
+
+            // Calcular proyecciones basadas en datos actuales
+            const mesesConDatos = calcularMesesConDatos(movimientos);
+            const proyeccionAnual = calcularProyeccionAnual(ingresos, gastos, mesesConDatos);
+            
+            mostrarResultadosProyeccion(proyeccionAnual);
+        };
+
+    } catch (error) {
+        mostrarToast('❌ Error al proyectar impuestos: ' + error.message, 'danger');
+    }
+}
+
+/**
+ * Calcular meses con datos para proyección
+ */
+function calcularMesesConDatos(movimientos) {
+    const meses = new Set();
+    movimientos.forEach(mov => {
+        const fecha = new Date(mov.fecha);
+        meses.add(fecha.getMonth());
+    });
+    return meses.size;
+}
+
+/**
+ * Calcular proyección anual basada en tendencias
+ */
+function calcularProyeccionAnual(ingresos, gastos, mesesConDatos) {
+    const ingresosMensuales = ingresos.reduce((sum, ing) => sum + ing.cantidad, 0) / mesesConDatos;
+    const gastosMensuales = gastos.reduce((sum, gas) => sum + gas.cantidad, 0) / mesesConDatos;
+    
+    const ingresosAnualesProyectados = ingresosMensuales * 12;
+    const gastosAnualesProyectados = gastosMensuales * 12;
+    const utilidadBrutaProyectada = ingresosAnualesProyectados - gastosAnualesProyectados;
+    
+    // Estimar gastos deducibles (30% promedio)
+    const gastosDeduciblesProyectados = gastosAnualesProyectados * 0.3;
+    const baseImponibleProyectada = utilidadBrutaProyectada - gastosDeduciblesProyectados;
+    
+    // Aplicar tasa fiscal progresiva aproximada
+    let impuestoProyectado = 0;
+    if (baseImponibleProyectada > 0) {
+        if (baseImponibleProyectada <= 100000) {
+            impuestoProyectado = baseImponibleProyectada * 0.15;
+        } else if (baseImponibleProyectada <= 300000) {
+            impuestoProyectado = 15000 + ((baseImponibleProyectada - 100000) * 0.25);
+        } else {
+            impuestoProyectado = 65000 + ((baseImponibleProyectada - 300000) * 0.34);
+        }
+    }
+
+    return {
+        ingresosAnuales: ingresosAnualesProyectados,
+        gastosAnuales: gastosAnualesProyectados,
+        utilidadBruta: utilidadBrutaProyectada,
+        gastosDeducibles: gastosDeduciblesProyectados,
+        baseImponible: baseImponibleProyectada,
+        impuestoProyectado: impuestoProyectado,
+        mesesBase: mesesConDatos
+    };
+}
+
+/**
+ * Mostrar resultados de proyección anual
+ */
+function mostrarResultadosProyeccion(proyeccion) {
+    const resultadoDiv = document.getElementById('resultadoProyeccion');
+    const detalleDiv = document.getElementById('detalleProyeccion');
+    
+    const html = `
+        <div style="margin-bottom: 1rem;">
+            <p><strong>📊 Proyección Anual basada en ${proyeccion.mesesBase} meses de datos</strong></p>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+            <div style="text-align: center;">
+                <div style="font-size: 1.5rem; color: #10B981;">💰</div>
+                <p style="font-size: 0.8rem; color: var(--text-light);">Ingresos Anuales</p>
+                <p style="font-size: 1.1rem; font-weight: bold;">Bs. ${formatNumberVE(proyeccion.ingresosAnuales)}</p>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 1.5rem; color: #EF4444;">💸</div>
+                <p style="font-size: 0.8rem; color: var(--text-light);">Gastos Anuales</p>
+                <p style="font-size: 1.1rem; font-weight: bold;">Bs. ${formatNumberVE(proyeccion.gastosAnuales)}</p>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 1.5rem; color: #3B82F6;">📈</div>
+                <p style="font-size: 0.8rem; color: var(--text-light);">Utilidad Bruta</p>
+                <p style="font-size: 1.1rem; font-weight: bold;">Bs. ${formatNumberVE(proyeccion.utilidadBruta)}</p>
+            </div>
+            <div style="text-align: center;">
+                <div style="font-size: 1.5rem; color: #8B5CF6;">🎯</div>
+                <p style="font-size: 0.8rem; color: var(--text-light);">Impuesto Estimado</p>
+                <p style="font-size: 1.1rem; font-weight: bold; color: #F59E0B;">Bs. ${formatNumberVE(proyeccion.impuestoProyectado)}</p>
+            </div>
+        </div>
+        
+        <div style="background: rgba(245, 158, 11, 0.1); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #F59E0B;">📋 Detalle de Cálculo</h4>
+            <p style="font-size: 0.9rem; margin-bottom: 0.25rem;">• Base imponible proyectada: Bs. ${formatNumberVE(proyeccion.baseImponible)}</p>
+            <p style="font-size: 0.9rem; margin-bottom: 0.25rem;">• Gastos deducibles estimados: Bs. ${formatNumberVE(proyeccion.gastosDeducibles)}</p>
+            <p style="font-size: 0.9rem;">• Tasa fiscal aplicada: ${proyeccion.impuestoProyectado > 0 ? 'Progresiva (15-34%)' : 'Sin impuesto (pérdidas)'}</p>
+        </div>
+    `;
+    
+    detalleDiv.innerHTML = html;
+    resultadoDiv.style.display = 'block';
+}
+
+/**
+ * Optimización de deducciones fiscales
+ */
+function optimizarDeducciones() {
+    try {
+        const transaction = db.transaction([STORES.MOVIMIENTOS], 'readonly');
+        const store = transaction.objectStore(STORES.MOVIMIENTOS);
+        const request = store.getAll();
+
+        request.onsuccess = function(event) {
+            const movimientos = event.target.result;
+            const gastos = movimientos.filter(mov => mov.tipo === 'gasto');
+            
+            if (gastos.length === 0) {
+                mostrarToast('❌ No hay gastos para optimizar', 'danger');
+                return;
+            }
+
+            // Analizar oportunidades de optimización
+            const oportunidades = analizarOportunidadesDeduccion(gastos);
+            mostrarOportunidadesOptimizacion(oportunidades);
+        };
+
+    } catch (error) {
+        mostrarToast('❌ Error al optimizar deducciones: ' + error.message, 'danger');
+    }
+}
+
+/**
+ * Analizar oportunidades de deducción
+ */
+function analizarOportunidadesDeduccion(gastos) {
+    const oportunidades = [];
+    
+    // Categorías con mayor potencial deductivo
+    const categoriasOptimizacion = {
+        'educacion': { prioridad: 'alta', beneficio: 100, sugerencia: 'Documentar todos los gastos educativos' },
+        'salud': { prioridad: 'alta', beneficio: 100, sugerencia: 'Guardar recibos de consultas médicas' },
+        'vivienda': { prioridad: 'media', beneficio: 80, sugerencia: 'Registrar gastos de mantenimiento del hogar' },
+        'donaciones': { prioridad: 'alta', beneficio: 100, sugerencia: 'Documentar todas las donaciones caritativas' },
+        'profesional': { prioridad: 'media', beneficio: 70, sugerencia: 'Registrar gastos de herramientas de trabajo' }
+    };
+
+    // Analizar gastos actuales vs potencial
+    Object.keys(categoriasOptimizacion).forEach(categoria => {
+        const categoriaInfo = categoriasOptimizacion[categoria];
+        const gastosCategoria = gastos.filter(gasto => 
+            gasto.concepto.toLowerCase().includes(categoria) ||
+            gasto.categoria?.toLowerCase().includes(categoria)
+        );
+        
+        const gastosNoDeducibles = gastos.filter(gasto => {
+            const concepto = gasto.concepto.toLowerCase();
+            return !Object.values(categoriasOptimizacion).some(cat => 
+                cat.palabras?.some(palabra => concepto.includes(palabra))
+            );
+        });
+
+        if (gastosCategoria.length > 0 || categoria === 'profesional') {
+            oportunidades.push({
+                categoria: categoria,
+                prioridad: categoriaInfo.prioridad,
+                beneficio: categoriaInfo.beneficio,
+                gastosActuales: gastosCategoria.length,
+                montoTotal: gastosCategoria.reduce((sum, g) => sum + g.cantidad, 0),
+                sugerencia: categoriaInfo.sugerencia,
+                potencial: calcularPotencialOptimizacion(categoria, gastosCategoria)
+            });
+        }
+    });
+
+    return oportunidades.sort((a, b) => {
+        const prioridades = { 'alta': 3, 'media': 2, 'baja': 1 };
+        return prioridades[b.prioridad] - prioridades[a.prioridad];
+    });
+}
+
+/**
+ * Calcular potencial de optimización
+ */
+function calcularPotencialOptimizacion(categoria, gastosCategoria) {
+    if (gastosCategoria.length === 0) return 0;
+    
+    const montoTotal = gastosCategoria.reduce((sum, g) => sum + g.cantidad, 0);
+    const beneficioFiscal = montoTotal * 0.34; // Tasa promedio
+    
+    return beneficioFiscal;
+}
+
+/**
+ * Mostrar oportunidades de optimización
+ */
+function mostrarOportunidadesOptimizacion(oportunidades) {
+    const resultadoDiv = document.getElementById('resultadoOptimizacion');
+    const detalleDiv = document.getElementById('detalleOptimizacion');
+    
+    if (oportunidades.length === 0) {
+        detalleDiv.innerHTML = '<p>❌ No se encontraron oportunidades de optimización.</p>';
+    } else {
+        let html = '<div style="margin-bottom: 1rem;">';
+        html += `<p><strong>💡 ${oportunidades.length} oportunidades de optimización encontradas</strong></p>`;
+        html += '</div>';
+        
+        html += '<div style="space-y: 1rem;">';
+        
+        oportunidades.forEach(oportunidad => {
+            const prioridadColor = {
+                'alta': '#EF4444',
+                'media': '#F59E0B', 
+                'baja': '#10B981'
+            };
+            
+            html += `
+                <div style="background: rgba(139, 92, 246, 0.05); padding: 1rem; border-radius: 8px; border-left: 4px solid #8B5CF6;">
+                    <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 0.5rem;">
+                        <h4 style="margin: 0; color: #8B5CF6;">${tituloCategoria(optunidad.categoria)}</h4>
+                        <span style="background: ${prioridadColor[oportunidad.prioridad]}; color: white; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.8rem;">
+                            ${oportunidad.prioridad.toUpperCase()}
+                        </span>
+                    </div>
+                    <p style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 0.5rem;">${oportunidad.sugerencia}</p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.9rem;">
+                        <p><strong>Gastos actuales:</strong> ${oportunidad.gastosActuales}</p>
+                        <p><strong>Beneficio potencial:</strong> Bs. ${formatNumberVE(oportunidad.potencial)}</p>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+    }
+    
+    detalleDiv.innerHTML = html;
+    resultadoDiv.style.display = 'block';
+}
+
+/**
+ * Convertir nombre de categoría a título legible
+ */
+function tituloCategoria(categoria) {
+    const titulos = {
+        'educacion': '📚 Educación y Formación',
+        'salud': '🏥 Salud y Medicina',
+        'vivienda': '🏠 Vivienda y Servicios',
+        'donaciones': '🤝 Donaciones',
+        'profesional': '💼 Desarrollo Profesional'
+    };
+    return titulos[categoria] || categoria;
+}
+
+/**
+ * Generar recomendaciones de timing de gastos
+ */
+function generarRecomendacionesTiming() {
+    try {
+        const transaction = db.transaction([STORES.MOVIMIENTOS], 'readonly');
+        const store = transaction.objectStore(STORES.MOVIMIENTOS);
+        const request = store.getAll();
+
+        request.onsuccess = function(event) {
+            const movimientos = event.target.result;
+            const gastos = movimientos.filter(mov => mov.tipo === 'gasto');
+            
+            if (gastos.length === 0) {
+                mostrarToast('❌ No hay gastos para analizar timing', 'danger');
+                return;
+            }
+
+            // Analizar patrones de gastos por mes
+            const gastosPorMes = analizarGastosPorMes(gastos);
+            const recomendaciones = generarRecomendacionesBasadasEnPatrones(gastosPorMes);
+            
+            mostrarRecomendacionesTiming(recomendaciones);
+        };
+
+    } catch (error) {
+        mostrarToast('❌ Error al generar recomendaciones: ' + error.message, 'danger');
+    }
+}
+
+/**
+ * Analizar gastos por mes
+ */
+function analizarGastosPorMes(gastos) {
+    const gastosPorMes = {};
+    
+    gastos.forEach(gasto => {
+        const fecha = new Date(gasto.fecha);
+        const mes = fecha.getMonth();
+        
+        if (!gastosPorMes[mes]) {
+            gastosPorMes[mes] = [];
+        }
+        gastosPorMes[mes].push(gasto);
+    });
+    
+    return gastosPorMes;
+}
+
+/**
+ * Generar recomendaciones basadas en patrones
+ */
+function generarRecomendacionesBasadasEnPatrones(gastosPorMes) {
+    const recomendaciones = [];
+    const meses = Object.keys(gastosPorMes);
+    
+    if (meses.length < 2) {
+        recomendaciones.push({
+            tipo: 'general',
+            titulo: '📊 Datos Insuficientes',
+            descripcion: 'Necesitas más meses de datos para generar recomendaciones precisas de timing.',
+            prioridad: 'media'
+        });
+        return recomendaciones;
+    }
+    
+    // Encontrar meses con menos gastos (mejores para gastos deducibles)
+    const gastosPorMesOrdenados = meses.map(mes => ({
+        mes: mes,
+        cantidad: gastosPorMes[mes].length,
+        monto: gastosPorMes[mes].reduce((sum, g) => sum + g.cantidad, 0)
+    })).sort((a, b) => a.cantidad - b.cantidad);
+    
+    const mesesBajosGastos = gastosPorMesOrdenados.slice(0, 2);
+    const mesesAltosGastos = gastosPorMesOrdenados.slice(-2);
+    
+    // Recomendaciones específicas
+    recomendaciones.push({
+        tipo: 'timing',
+        titulo: '⏰ Timing Óptimo para Gastos Deducibles',
+        descripcion: `Los meses con menor actividad (${mesesBajosGastos.map(m => nombreMes(m.mes)).join(' y ')}) son ideales para realizar gastos educativos, médicos o de donación.`,
+        prioridad: 'alta'
+    });
+    
+    recomendaciones.push({
+        tipo: 'planificacion',
+        titulo: '📅 Planificación Anual',
+        descripcion: 'Considera concentrar gastos deducibles en el primer trimestre para maximizar beneficios fiscales en la declaración anual.',
+        prioridad: 'alta'
+    });
+    
+    return recomendaciones;
+}
+
+/**
+ * Mostrar recomendaciones de timing
+ */
+function mostrarRecomendacionesTiming(recomendaciones) {
+    const resultadoDiv = document.getElementById('resultadoTiming');
+    const detalleDiv = document.getElementById('detalleTiming');
+    
+    let html = '<div style="margin-bottom: 1rem;">';
+    html += '<p><strong>⏰ Recomendaciones de Timing Fiscal</strong></p>';
+    html += '</div>';
+    
+    html += '<div style="space-y: 1rem;">';
+    
+    recomendaciones.forEach(recomendacion => {
+        const tipoIcon = recomendacion.tipo === 'timing' ? '⏰' : '📅';
+        html += `
+            <div style="background: rgba(16, 185, 129, 0.05); padding: 1rem; border-radius: 8px; border-left: 4px solid #10B981;">
+                <h4 style="margin: 0 0 0.5rem 0; color: #10B981;">${tipoIcon} ${recomendacion.titulo}</h4>
+                <p style="font-size: 0.9rem; color: var(--text-light);">${recomendacion.descripcion}</p>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    
+    detalleDiv.innerHTML = html;
+    resultadoDiv.style.display = 'block';
+}
+
+/**
+ * Convertir número de mes a nombre
+ */
+function nombreMes(numeroMes) {
+    const meses = [
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    return meses[numeroMes] || 'Mes desconocido';
+}
+
+/**
+ * Función de ayuda para la pestaña de optimización fiscal
+ */
+function mostrarAyudaOptimizacionFiscal() {
+    mostrarToast('💡 La optimización fiscal te ayuda a maximizar beneficios fiscales legales', 'info');
+}
+
+// ======================================================================================
+// FIN DE FUNCIONES PARA OPTIMIZACIÓN FISCAL SIMPLIFICADA
+// ======================================================================================
+
+
 // ------------------------------------------------------------------------------------------------------------------------------------
 //                                 Inicialización y Event Listeners
 // ------------------------------------------------------------------------------------------------------------------------------------
@@ -5074,45 +7053,25 @@ document.addEventListener('DOMContentLoaded', async function () {
         await renderizarBancosEditables();
 
         // Cargar la pestaña guardada, si existe
-        const pestañaGuardada = localStorage.getItem('agendaPestañaActiva');
-        if (pestañaGuardada) {
-            mostrarSideTab(pestañaGuardada);
-        } else {
-            mostrarSideTab('dashboard'); // ← Cambia esto por:
-            // mostrarSideTab('dashboard');
-            // Añadimos la nueva pestaña como predeterminada si no hay guardada
-            mostrarSideTab('dashboard');
-
-                    // ✅ Renderizar calendario si se abre la pestaña
-            if (pestañaGuardada === 'calendario') {
-            renderizarCalendario();
-            }
-        }
-
-            // ✅ Escuchar cambios de pestaña para renderizar calendario cuando se active
-            document.querySelectorAll('.side-tab').forEach(btn => {
-            btn.addEventListener('click', () => {
-            const id = btn.getAttribute('onclick').match(/'([^']+)'/)[1];
-            if (id === 'calendario') {
-                renderizarCalendario();
-            }
-            });
-        });
-
-            // ✅ ACTUALIZAR DASHBOARD CUANDO SE ACTIVE LA PESTAÑA
-            document.querySelectorAll('.side-tab').forEach(btn => {
-            btn.addEventListener('click', () => {
-            const id = btn.getAttribute('onclick').match(/'([^']+)'/)[1];
-            if (id === 'dashboard') {
-                actualizarDashboard(); // ← ¡Aquí está la magia!
-            }
-        });
-    });
-
+const pestañaGuardada = localStorage.getItem('agendaPestañaActiva');
+if (pestañaGuardada) {
+    mostrarSideTab(pestañaGuardada);
+} else {
+    mostrarSideTab('dashboard');
 }
-    
-    catch (error) {
-        console.error("Error en la inicialización de la app:", error);
-    }
 
+} catch (error) {
+    console.error("Error en la inicialización de la app:", error);
+}
+
+});
+
+// ✅ Inicialización de metas de ahorro
+document.addEventListener('DOMContentLoaded', function() {
+    // Cargar metas de ahorro cuando se carga la página
+    setTimeout(() => {
+        cargarMetasAhorro();
+        actualizarProgresoGeneral();
+        generarSugerenciasAhorro();
+    }, 1000); // Pequeño delay para asegurar que todo esté cargado
 });
