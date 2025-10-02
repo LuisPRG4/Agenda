@@ -1,0 +1,353 @@
+/* ========== NUEVAS TARJETAS DE MOVIMIENTOS ELEGANTES ========== */
+
+/* Contenedor principal de tarjetas */
+#listaMovimientos li {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  #listaMovimientos li:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    border-color: #cbd5e0;
+  }
+  
+  #listaMovimientos li::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #4299e1, #38a169);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  #listaMovimientos li:hover::before {
+    opacity: 1;
+  }
+  
+  /* Layout interno de la tarjeta */
+  #listaMovimientos li > div:first-child {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+  }
+  
+  #listaMovimientos li > div:last-child {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  
+  /* Header con tipo de movimiento e ícono */
+  .movimiento-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+  }
+  
+  .movimiento-tipo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  
+  .movimiento-tipo.ingreso {
+    background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+    color: #166534;
+  }
+  
+  .movimiento-tipo.gasto {
+    background: linear-gradient(135deg, #fef2f2, #fecaca);
+    color: #991b1b;
+  }
+  
+  .movimiento-tipo.saldo_inicial {
+    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    color: #1e40af;
+  }
+  
+  .tipo-icon {
+    font-size: 0.875rem;
+  }
+  
+  .tipo-label {
+    font-weight: 600;
+  }
+  
+  .movimiento-fecha {
+    text-align: right;
+    font-size: 0.75rem;
+    color: #64748b;
+  }
+  
+  .fecha-principal {
+    display: block;
+    font-weight: 500;
+    color: #334155;
+  }
+  
+  .fecha-relativa {
+    display: block;
+    font-size: 0.6875rem;
+    color: #94a3b8;
+    margin-top: 0.125rem;
+  }
+  
+  /* Contenido principal */
+  .movimiento-contenido {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .movimiento-info {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .movimiento-concepto {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0 0 0.5rem 0;
+    line-height: 1.4;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    /* ✅ Propiedades estándar para mejor compatibilidad */
+    line-clamp: 2;
+    box-orient: vertical;
+  }
+  
+  .movimiento-saldo-inicial {
+    font-size: 0.8125rem;
+    color: #64748b;
+    font-style: italic;
+    margin-bottom: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    background: #f1f5f9;
+    border-radius: 8px;
+    border-left: 3px solid #3b82f6;
+  }
+  
+  .movimiento-detalles {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+  }
+  
+  .categoria-tag, .banco-tag {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.625rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    color: #475569;
+    font-weight: 500;
+  }
+  
+  .categoria-tag.categoria-activa {
+    background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+    border-color: #0ea5e9;
+    color: #0c4a6e;
+  }
+  
+  .categoria-tag.categoria-vacia {
+    color: #94a3b8;
+    font-style: italic;
+  }
+  
+  .categoria-icon, .banco-icon {
+    font-size: 0.6875rem;
+  }
+  
+  /* Cantidad destacada */
+  .movimiento-cantidad {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+    min-width: 120px;
+  }
+  
+  .cantidad-valor {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.375rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  
+  .movimiento-cantidad.ingreso .cantidad-valor {
+    color: #059669;
+  }
+  
+  .movimiento-cantidad.gasto .cantidad-valor {
+    color: #dc2626;
+  }
+  
+  .movimiento-cantidad.saldo_inicial .cantidad-valor {
+    color: #2563eb;
+  }
+  
+  .cantidad-comision {
+    font-size: 0.6875rem;
+    color: #dc2626;
+    font-weight: 500;
+    background: #fef2f2;
+    padding: 0.125rem 0.375rem;
+    border-radius: 6px;
+  }
+  
+  /* Footer con acciones */
+  .movimiento-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f1f5f9;
+    gap: 1rem;
+  }
+  
+  .btn-recibo {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 0.875rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }
+  
+  .btn-recibo:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+  
+  .btn-icon {
+    font-size: 0.75rem;
+  }
+  
+  .acciones-principales {
+    display: flex;
+    gap: 0.5rem;
+  }
+  
+  .btn-editar-mov, .btn-eliminar-mov {
+    width: 2.25rem;
+    height: 2.25rem;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }
+  
+  .btn-editar-mov {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+  }
+  
+  .btn-editar-mov:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    transform: scale(1.05);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+  
+  .btn-eliminar-mov {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+  }
+  
+  .btn-eliminar-mov:hover {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    transform: scale(1.05);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Responsive */
+  @media (max-width: 768px) {
+    #listaMovimientos li {
+      padding: 1rem;
+    }
+  
+    .movimiento-header {
+      flex-direction: column;
+      gap: 0.5rem;
+      align-items: flex-start;
+    }
+  
+    .movimiento-fecha {
+      text-align: left;
+    }
+  
+    .movimiento-contenido {
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+  
+    .movimiento-cantidad {
+      align-items: flex-start;
+      min-width: auto;
+    }
+  
+    .movimiento-footer {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.75rem;
+    }
+  
+    .acciones-principales {
+      justify-content: center;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .movimiento-detalles {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+  
+    .categoria-tag, .banco-tag {
+      justify-content: center;
+    }
+  }
