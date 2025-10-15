@@ -1269,6 +1269,14 @@ function mostrarSideTab(id) {
         case 'presupuesto':
             actualizarPresupuesto();
             break;
+        case 'presupuesto-sugerido':
+                cargarCategoriasPresupuesto();
+                setTimeout(() => {
+                cargarPresupuestoSugeridoGuardado();
+                mostrarHistorialPresupuestos();
+                }, 300);
+        break;
+
         case 'ahorro':
             calcularAhorroMensual();
             break;
@@ -1294,6 +1302,7 @@ function mostrarSideTab(id) {
                 // ✅ Mostrar información de versión del sistema
                 mostrarInfoCambios();
                 break;
+
     }
 
     // ✅ MOSTRAR VERSIÓN EN EL PANEL DE CONFIGURACIÓN
@@ -1301,6 +1310,11 @@ function mostrarSideTab(id) {
     if (versionElementConfig) {
         versionElementConfig.textContent = APP_VERSION;
     }
+
+    if (id === 'presupuesto-sugerido') {
+    cargarCategoriasPresupuesto();
+}
+
 }
 
 // ======================================================================================
@@ -3008,7 +3022,10 @@ Se actualizó${afectados !== 1 ? 'ron' : ''} ${afectados} movimiento${afectados 
 // ✅ EXPORTAR BACKUP COMPLETO (todo el estado de la app)
 async function exportarBackup() {
     try {
-        // Recopilar todos los datos
+        // Primero, guardar localmente
+        await guardarBackupActual();
+        
+        // Luego, proceder con la descarga
         const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
         const categorias = await getAllEntries(STORES.CATEGORIAS);
         const bancos = await getAllEntries(STORES.BANCOS);
@@ -3045,10 +3062,58 @@ async function exportarBackup() {
         downloadAnchorNode.click();
         downloadAnchorNode.remove();
 
-        alert("✅ Backup exportado con éxito. Archivo guardado como 'SFP_Backup_YYYY-MM-DD.json'");
     } catch (error) {
         console.error("Error al exportar backup:", error);
         alert("❌ Error al exportar el backup. Revisa la consola.");
+    }
+}
+
+// Función auxiliar para guardar el backup localmente
+async function guardarBackupActual() {
+    try {
+        // Obtener todos los datos actuales
+        const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+        const categorias = await getAllEntries(STORES.CATEGORIAS);
+        const bancos = await getAllEntries(STORES.BANCOS);
+        const reglas = await getAllEntries(STORES.REGLAS);
+        const saldoInicial = await getAllEntries(STORES.SALDO_INICIAL);
+        const metaPresupuesto = localStorage.getItem('metaPresupuesto');
+        const tasaCambio = localStorage.getItem('tasaCambio');
+        const bloqueoActivo = localStorage.getItem('bloqueoActivo') === 'true';
+        const bloqueoPIN = localStorage.getItem('bloqueoPIN');
+        const tema = localStorage.getItem('agendaTema');
+
+        // Crear objeto de backup
+        const backup = {
+            version: '1.0',
+            fecha: new Date().toISOString(),
+            movimientos: movimientos,
+            categorias: categorias,
+            bancos: bancos,
+            reglas: reglas,
+            saldoInicial: saldoInicial.length > 0 ? saldoInicial[0] : null,
+            metaPresupuesto: metaPresupuesto,
+            tasaCambio: tasaCambio,
+            bloqueoActivo: bloqueoActivo,
+            bloqueoPIN: bloqueoPIN,
+            tema: tema
+        };
+
+        // Generar nombre único para el backup
+        const fecha = new Date();
+        const nombreBackup = `backup_${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}_${String(fecha.getHours()).padStart(2, '0')}${String(fecha.getMinutes()).padStart(2, '0')}.json`;
+        
+        // Guardar en localStorage
+        localStorage.setItem(nombreBackup, JSON.stringify(backup));
+        
+        // Mostrar notificación
+        alert(`✅ Backup guardado correctamente como \"${nombreBackup.replace('backup_', '').replace('.json', '')}\"`);
+        return true;
+        
+    } catch (error) {
+        console.error('Error al guardar backup:', error);
+        alert('❌ Error al guardar el backup. Revisa la consola para más detalles.');
+        return false;
     }
 }
 
@@ -5743,433 +5808,6 @@ function mostrarAyudaBCV() {
     }
 }
 
-// ✅ Función para mostrar ayuda del almacén
-function mostrarAyudaAlmacen() {
-    const modal = document.getElementById('modalAyudaAlmacen');
-    if (modal) {
-        modal.style.display = 'flex';
-    }
-}
-
-// ✅ Función para exportar backup y guardarlo en el almacén
-async function exportarBackupConAlmacen() {
-    try {
-        // Crear el backup
-        const backupData = await crearBackupData();
-        
-        // Crear nombre del archivo con timestamp
-        const fecha = new Date();
-        const nombreArchivo = `backup_finanzas_${fecha.getFullYear()}${(fecha.getMonth()+1).toString().padStart(2,'0')}${fecha.getDate().toString().padStart(2,'0')}_${fecha.getHours().toString().padStart(2,'0')}${fecha.getMinutes().toString().padStart(2,'0')}.json`;
-        
-        // Crear blob y descargar
-        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = nombreArchivo;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        // Guardar en el almacén local
-        await guardarBackupEnAlmacen(backupData, nombreArchivo);
-        
-        mostrarToast('✅ Backup creado y guardado en almacén', 'success');
-        
-        // Actualizar lista del almacén
-        mostrarBackupsAlmacen();
-        
-    } catch (error) {
-        console.error('Error creando backup:', error);
-        mostrarToast('❌ Error al crear backup', 'error');
-    }
-}
-
-// ✅ Función para guardar backup en el almacén local
-async function guardarBackupEnAlmacen(backupData, nombreArchivo) {
-    try {
-        const almacen = JSON.parse(localStorage.getItem('almacenBackups') || '[]');
-        
-        const backupInfo = {
-            nombre: nombreArchivo,
-            fecha: new Date().toISOString(),
-            tamaño: JSON.stringify(backupData).length,
-            datos: backupData // Guardar datos completos
-        };
-        
-        almacen.unshift(backupInfo); // Agregar al principio
-        
-        // Limitar a 20 backups máximo
-        if (almacen.length > 20) {
-            almacen.pop();
-        }
-        
-        localStorage.setItem('almacenBackups', JSON.stringify(almacen));
-        
-    } catch (error) {
-        console.error('Error guardando en almacén:', error);
-        throw error;
-    }
-}
-
-// ✅ Función para mostrar backups almacenados
-function mostrarBackupsAlmacen() {
-    try {
-        const almacen = JSON.parse(localStorage.getItem('almacenBackups') || '[]');
-        const contenedor = document.getElementById('listaBackupsAlmacen');
-        
-        if (almacen.length === 0) {
-            contenedor.innerHTML = '<p style="text-align: center; color: var(--text-light); font-style: italic;">No hay backups almacenados aún. Crea tu primer backup.</p>';
-            return;
-        }
-        
-        let html = '';
-        almacen.forEach((backup, index) => {
-            const fecha = new Date(backup.fecha);
-            const fechaFormateada = fecha.toLocaleDateString() + ' ' + fecha.toLocaleTimeString();
-            
-            html += `
-                <div style="border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; background: var(--card-bg);">
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
-                        <div style="flex: 1;">
-                            <h4 style="margin: 0 0 0.25rem 0; color: var(--text); font-size: 0.9rem;">${backup.nombre}</h4>
-                            <p style="margin: 0; color: var(--text-light); font-size: 0.8rem;">📅 ${fechaFormateada}</p>
-                            <p style="margin: 0; color: var(--text-light); font-size: 0.8rem;">📏 ${(backup.tamaño / 1024).toFixed(1)} KB</p>
-                        </div>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button onclick="descargarBackupAlmacen(${index})" style="background: #0b57d0; color: white; border: none; border-radius: 6px; padding: 0.5rem; font-size: 0.8rem; cursor: pointer;" title="Descargar backup">
-                                ⬇️
-                            </button>
-                            <button onclick="editarBackupAlmacen(${index})" style="background: #ff9800; color: white; border: none; border-radius: 6px; padding: 0.5rem; font-size: 0.8rem; cursor: pointer;" title="Editar nombre del backup">
-                                ✏️
-                            </button>
-                            <button onclick="restaurarBackupDelAlmacen(${index})" style="background: #018642; color: white; border: none; border-radius: 6px; padding: 0.5rem; font-size: 0.8rem; cursor: pointer;" title="Restaurar backup">
-                                🔄
-                            </button>
-                            <button onclick="eliminarBackupAlmacen(${index})" style="background: #dc2626; color: white; border: none; border-radius: 6px; padding: 0.5rem; font-size: 0.8rem; cursor: pointer;" title="Eliminar backup">
-                                🗑️
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-        
-        contenedor.innerHTML = html;
-        
-    } catch (error) {
-        console.error('Error mostrando backups:', error);
-        document.getElementById('listaBackupsAlmacen').innerHTML = '<p style="text-align: center; color: var(--danger);">❌ Error al cargar backups</p>';
-    }
-}
-
-// ✅ Función para descargar backup del almacén
-function descargarBackupAlmacen(index) {
-    try {
-        const almacen = JSON.parse(localStorage.getItem('almacenBackups') || '[]');
-        const backup = almacen[index];
-        
-        if (!backup) {
-            mostrarToast('❌ Backup no encontrado', 'error');
-            return;
-        }
-        
-        const blob = new Blob([JSON.stringify(backup.datos, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = backup.nombre;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        mostrarToast('✅ Backup descargado', 'success');
-        
-    } catch (error) {
-        console.error('Error descargando backup:', error);
-        mostrarToast('❌ Error al descargar backup', 'error');
-    }
-}
-
-// ✅ Función para eliminar backup del almacén
-function eliminarBackupAlmacen(index) {
-    if (!confirm('¿Estás seguro de que quieres eliminar este backup?')) {
-        return;
-    }
-    
-    try {
-        const almacen = JSON.parse(localStorage.getItem('almacenBackups') || '[]');
-        
-        if (almacen[index]) {
-            almacen.splice(index, 1);
-            localStorage.setItem('almacenBackups', JSON.stringify(almacen));
-            mostrarBackupsAlmacen();
-            mostrarToast('✅ Backup eliminado', 'success');
-        }
-        
-    } catch (error) {
-        console.error('Error eliminando backup:', error);
-        mostrarToast('❌ Error al eliminar backup', 'error');
-    }
-}
-
-// ✅ Función para limpiar todo el almacén
-function limpiarAlmacen() {
-    if (!confirm('¿Estás seguro de que quieres eliminar TODOS los backups del almacén? Esta acción no se puede deshacer.')) {
-        return;
-    }
-    
-    try {
-        localStorage.removeItem('almacenBackups');
-        mostrarBackupsAlmacen();
-        mostrarToast('✅ Almacén limpiado completamente', 'success');
-        
-    } catch (error) {
-        console.error('Error limpiando almacén:', error);
-        mostrarToast('❌ Error al limpiar almacén', 'error');
-    }
-}
-
-// ✅ Inicializar almacén al cargar la página
-document.addEventListener('DOMContentLoaded', function() {
-    // Mostrar backups almacenados si estamos en la pestaña almacén
-    if (document.getElementById('listaBackupsAlmacen')) {
-        mostrarBackupsAlmacen();
-    }
-});
-
-// ✅ Función para restaurar backup desde el almacén
-async function restaurarBackupDelAlmacen(index) {
-    if (!confirm('⚠️ ¿Estás seguro de que quieres restaurar este backup?\n\nEsto SOBREESCRIBIRÁ todos tus datos actuales con los del backup seleccionado.\n\nEsta acción no se puede deshacer.')) {
-        return;
-    }
-    
-    try {
-        const almacen = JSON.parse(localStorage.getItem('almacenBackups') || '[]');
-        const backup = almacen[index];
-        
-        if (!backup || !backup.datos) {
-            mostrarToast('❌ Backup inválido o corrupto', 'error');
-            return;
-        }
-        
-        const backupData = backup.datos;
-        
-        // ✅ Limpiar datos actuales antes de restaurar
-        const movimientosActuales = await getAllEntries(STORES.MOVIMIENTOS);
-        for (const mov of movimientosActuales) {
-            await deleteEntry(STORES.MOVIMIENTOS, mov.id);
-        }
-        
-        // ✅ Restaurar movimientos
-        if (backupData.movimientos && Array.isArray(backupData.movimientos)) {
-            for (const mov of backupData.movimientos) {
-                await addEntry(STORES.MOVIMIENTOS, mov);
-            }
-        }
-        
-        // ✅ Restaurar categorías
-        if (backupData.categorias && Array.isArray(backupData.categorias)) {
-            for (const cat of backupData.categorias) {
-                await addEntry(STORES.CATEGORIAS, cat);
-            }
-        }
-        
-        // ✅ Restaurar bancos
-        if (backupData.bancos && Array.isArray(backupData.bancos)) {
-            for (const banco of backupData.bancos) {
-                await addEntry(STORES.BANCOS, banco);
-            }
-        }
-        
-        // ✅ Restaurar reglas
-        if (backupData.reglas && Array.isArray(backupData.reglas)) {
-            for (const regla of backupData.reglas) {
-                await addEntry(STORES.REGLAS, regla);
-            }
-        }
-        
-        // ✅ Restaurar inversiones
-        if (backupData.inversiones && Array.isArray(backupData.inversiones)) {
-            for (const inv of backupData.inversiones) {
-                await addEntry(STORES.INVERSIONES, inv);
-            }
-        }
-        
-        // ✅ Restaurar configuración
-        if (backupData.configuracion) {
-            const config = backupData.configuracion;
-            if (config.tasaCambio) localStorage.setItem('tasaCambio', config.tasaCambio);
-            if (config.numeroModo) localStorage.setItem('numeroModo', config.numeroModo);
-            if (config.bloqueoActivo) localStorage.setItem('bloqueoActivo', config.bloqueoActivo);
-            if (config.tema) localStorage.setItem('agendaTema', config.tema);
-            if (config.presupuestoMeta) localStorage.setItem('presupuestoMeta', config.presupuestoMeta);
-            if (config.presupuestoGastado) localStorage.setItem('presupuestoGastado', config.presupuestoGastado);
-            if (config.sonidosActivados) localStorage.setItem('sonidosActivados', config.sonidosActivados);
-            if (config.umbralAlerta) localStorage.setItem('umbralAlerta', config.umbralAlerta);
-        }
-        
-        // ✅ Refrescar toda la interfaz
-        await renderizar();
-        await actualizarSaldo();
-        await renderizarResumenBancos();
-        await renderizarReglas();
-        await cargarMetaPresupuesto();
-        actualizarSelectCategorias();
-        cargarSelectBancos();
-        
-        mostrarToast('✅ Backup restaurado exitosamente. Datos actualizados.', 'success');
-        
-        // Recargar página para asegurar que todo esté sincronizado
-        setTimeout(() => {
-            location.reload();
-        }, 1000);
-        
-    } catch (error) {
-        console.error('Error restaurando backup:', error);
-        mostrarToast('❌ Error al restaurar backup. Verifica la consola para más detalles.', 'error');
-    }
-}
-
-// ✅ Función para cerrar modal de ayuda del almacén
-function cerrarAyudaAlmacen() {
-    const modal = document.getElementById('modalAyudaAlmacen');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-}
-
-// ✅ Función para editar metadatos de un backup
-function editarBackupAlmacen(index) {
-    try {
-        const almacen = JSON.parse(localStorage.getItem('almacenBackups') || '[]');
-        const backup = almacen[index];
-
-        if (!backup) {
-            mostrarToast('❌ Backup no encontrado', 'error');
-            return;
-        }
-
-        // Crear modal de edición
-        const modal = document.createElement('div');
-        modal.id = 'modalEditarBackup';
-        modal.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 1006;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        `;
-
-        const modalContent = document.createElement('div');
-        modalContent.style.cssText = `
-            background: var(--card-bg);
-            border-radius: var(--radius);
-            padding: 2rem;
-            max-width: 500px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-        `;
-
-        modalContent.innerHTML = `
-            <h2 style="color: var(--primary); margin-bottom: 1.5rem; text-align: center;">✏️ Editar Backup</h2>
-
-            <div style="margin-bottom: 1.5rem;">
-                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Nombre actual:</label>
-                <div style="padding: 0.75rem; background: var(--card-bg); border-radius: 8px; margin-bottom: 1rem; font-family: monospace;">
-                    ${backup.nombre}
-                </div>
-
-                <label for="nuevoNombreBackup" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Nuevo nombre:</label>
-                <input type="text" id="nuevoNombreBackup" placeholder="Ingresa nuevo nombre"
-                       style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; margin-bottom: 1rem;"
-                       value="${backup.nombre.replace('.json', '')}" />
-
-                <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 1rem;">
-                    <strong>Información del backup:</strong><br>
-                    📅 Fecha: ${new Date(backup.fecha).toLocaleString()}<br>
-                    📏 Tamaño: ${(backup.tamaño / 1024).toFixed(1)} KB<br>
-                    📊 Registros: ${Object.keys(backup.datos.datos).length} tipos de datos
-                </div>
-            </div>
-
-            <div style="display: flex; gap: 0.75rem;">
-                <button onclick="guardarEdicionBackup(${index})"
-                        style="flex: 1; background: #0b57d0; color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1rem; cursor: pointer;">
-                    💾 Guardar Cambios
-                </button>
-                <button onclick="cerrarModalEditarBackup()"
-                        style="flex: 1; background: #6b7280; color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1rem; cursor: pointer;">
-                    ❌ Cancelar
-                </button>
-            </div>
-        `;
-
-        modal.appendChild(modalContent);
-        document.body.appendChild(modal);
-
-    } catch (error) {
-        console.error('Error abriendo editor de backup:', error);
-        mostrarToast('❌ Error al abrir editor de backup', 'error');
-    }
-}
-
-// ✅ Función para guardar cambios de edición de backup
-function guardarEdicionBackup(index) {
-    try {
-        const nuevoNombre = document.getElementById('nuevoNombreBackup').value.trim();
-
-        if (!nuevoNombre) {
-            mostrarToast('❌ El nombre no puede estar vacío', 'error');
-            return;
-        }
-
-        // Validar que no haya otro backup con el mismo nombre
-        const almacen = JSON.parse(localStorage.getItem('almacenBackups') || '[]');
-        const nombreExiste = almacen.some((backup, i) =>
-            i !== index && backup.nombre.replace('.json', '') === nuevoNombre
-        );
-
-        if (nombreExiste) {
-            mostrarToast('❌ Ya existe un backup con ese nombre', 'error');
-            return;
-        }
-
-        // Actualizar el nombre del backup
-        const nombreCompleto = nuevoNombre.endsWith('.json') ? nuevoNombre : `${nuevoNombre}.json`;
-        almacen[index].nombre = nombreCompleto;
-
-        // Guardar cambios
-        localStorage.setItem('almacenBackups', JSON.stringify(almacen));
-
-        // Cerrar modal y actualizar vista
-        cerrarModalEditarBackup();
-        mostrarBackupsAlmacen();
-
-        mostrarToast(`✅ Backup renombrado: ${nombreCompleto}`, 'success');
-
-    } catch (error) {
-        console.error('Error guardando edición de backup:', error);
-        mostrarToast('❌ Error al guardar cambios', 'error');
-    }
-}
-
-// ✅ Función para cerrar modal de edición de backup
-function cerrarModalEditarBackup() {
-    const modal = document.getElementById('modalEditarBackup');
-    if (modal) {
-        modal.remove();
-    }
-}
-
 // ✅ Funciones para gestión de metas de ahorro
 function crearMetaAhorro() {
     const nombre = document.getElementById('nombreMeta').value.trim();
@@ -6960,6 +6598,316 @@ function mostrarAyudaOptimizacionFiscal() {
 // ======================================================================================
 // FIN DE FUNCIONES PARA OPTIMIZACIÓN FISCAL SIMPLIFICADA
 // ======================================================================================
+
+// =============================================================
+// 💰 FUNCIONALIDAD: PRESUPUESTO SUGERIDO
+// =============================================================
+
+// Cargar categorías disponibles en un <select multiple>
+async function cargarCategoriasPresupuesto() {
+    const categorias = await getAllEntries(STORES.CATEGORIAS);
+    const select = document.getElementById('selectCategoriasPresupuesto');
+    if (!select) return;
+
+    select.innerHTML = ''; // Limpia las opciones previas
+    categorias.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+    
+    categorias.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat.nombre;
+        opt.textContent = cat.nombre;
+        select.appendChild(opt);
+    });
+}
+
+const REGISTROS_POR_PAGINA = 5;
+let paginaHistorial = 1;
+
+
+// ✅ Calcular promedio, total y sugerencia
+async function calcularPresupuestoSugerido() {
+    const presupuestoInput = document.getElementById('presupuestoInicial');
+    const valorPresupuesto = parseNumberVE(presupuestoInput.value);
+
+    if (isNaN(valorPresupuesto) || valorPresupuesto <= 0) {
+        mostrarToast('Por favor, ingresa un presupuesto inicial válido.', 'danger');
+        return;
+    }
+
+    const select = document.getElementById('selectCategoriasPresupuesto');
+    const seleccionadas = Array.from(select.selectedOptions).map(opt => opt.value);
+
+    if (seleccionadas.length === 0) {
+        mostrarToast('Selecciona al menos una categoría para calcular.', 'danger');
+        return;
+    }
+
+    const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+    const gastosSeleccionados = movimientos.filter(m =>
+        m.tipo === 'gasto' && seleccionadas.includes(m.categoria)
+    );
+
+    if (gastosSeleccionados.length === 0) {
+        mostrarToast('No hay gastos registrados en las categorías seleccionadas.', 'info');
+        return;
+    }
+
+    // Calcular totales
+    const totalGastos = gastosSeleccionados.reduce((s, m) => s + m.cantidad, 0);
+    const promedioGastos = totalGastos / gastosSeleccionados.length;
+    const presupuestoParaGastos = promedioGastos * 1.05;
+    const restante = valorPresupuesto - presupuestoParaGastos;
+
+    // Mostrar resultados
+    const resultado = document.getElementById('resultadoPresupuesto');
+    if (resultado) {
+        resultado.innerHTML = `
+            <p><strong>Total de gastos:</strong> Bs. ${formatNumberVE(totalGastos)}</p>
+            <p><strong>Gasto promedio:</strong> Bs. ${formatNumberVE(promedioGastos)}</p>
+            <p><strong>Presupuesto sugerido:</strong> Bs. ${formatNumberVE(presupuestoParaGastos)}</p>
+            <p><strong>Restante disponible:</strong> Bs. ${formatNumberVE(restante)}</p>
+            <p><strong>Categorías seleccionadas:</strong> ${seleccionadas.join(', ')}</p>
+            <p style="margin-top:1rem; color:${restante > 0 ? 'var(--success)' : 'var(--danger)'};">
+              ${restante > 0 ? '✅ Tienes margen para otros gastos o ahorro.' : '⚠️ El presupuesto no cubre tus gastos promedio.'}
+            </p>
+        `;
+    }
+
+    // Guardar persistencia actual
+    const datos = {
+        fecha: new Date().toISOString(),
+        presupuestoInicial: valorPresupuesto,
+        categorias: seleccionadas,
+        totalGastos,
+        promedioGastos,
+        presupuestoParaGastos,
+        restante
+    };
+    localStorage.setItem('presupuestoSugeridoActual', JSON.stringify(datos));
+
+    mostrarToast('Presupuesto sugerido calculado y guardado.', 'success');
+    mostrarHistorialPresupuestos();
+}
+
+
+// ✅ Cargar configuración guardada al abrir la pestaña
+function cargarPresupuestoSugeridoGuardado() {
+    const guardado = localStorage.getItem('presupuestoSugeridoActual');
+    if (!guardado) return;
+    try {
+        const datos = JSON.parse(guardado);
+        document.getElementById('presupuestoInicial').value = formatNumberVE(datos.presupuestoInicial);
+        const select = document.getElementById('selectCategoriasPresupuesto');
+        if (select) {
+            Array.from(select.options).forEach(opt => {
+                opt.selected = datos.categorias.includes(opt.value);
+            });
+        }
+        const resultado = document.getElementById('resultadoPresupuesto');
+        resultado.innerHTML = `
+            <p><strong>Total de gastos:</strong> Bs. ${formatNumberVE(datos.totalGastos)}</p>
+            <p><strong>Gasto promedio:</strong> Bs. ${formatNumberVE(datos.promedioGastos)}</p>
+            <p><strong>Presupuesto sugerido:</strong> Bs. ${formatNumberVE(datos.presupuestoParaGastos)}</p>
+            <p><strong>Restante disponible:</strong> Bs. ${formatNumberVE(datos.restante)}</p>
+            <p><strong>Categorías seleccionadas:</strong> ${datos.categorias.join(', ')}</p>
+        `;
+    } catch (e) {
+        console.error('Error al cargar presupuesto sugerido guardado:', e);
+    }
+}
+
+// ✅ Guardar actual en historial
+function guardarPresupuestoEnHistorial() {
+    const guardado = localStorage.getItem('presupuestoSugeridoActual');
+    if (!guardado) {
+        mostrarToast('Primero realiza un cálculo antes de guardar en historial.', 'danger');
+        return;
+    }
+    const datos = JSON.parse(guardado);
+    const historial = JSON.parse(localStorage.getItem('historialPresupuestos') || '[]');
+    historial.push(datos);
+    localStorage.setItem('historialPresupuestos', JSON.stringify(historial));
+    mostrarToast('📦 Presupuesto archivado en historial.', 'success');
+    mostrarHistorialPresupuestos();
+}
+
+// ✅ Eliminar todo el historial
+function eliminarHistorialPresupuestos() {
+    if (!confirm('¿Seguro que deseas eliminar todo el historial de presupuestos?')) return;
+    localStorage.removeItem('historialPresupuestos');
+    mostrarToast('🗑️ Historial eliminado.', 'info');
+    mostrarHistorialPresupuestos();
+}
+
+function mostrarHistorialPresupuestos() {
+    const contenedor = document.getElementById('historialPresupuestos');
+    if (!contenedor) return;
+
+    const historial = JSON.parse(localStorage.getItem('historialPresupuestos') || '[]');
+    contenedor.innerHTML = '';
+
+    if (historial.length === 0) {
+        contenedor.innerHTML = '<li style="color:var(--text-light);">No hay presupuestos archivados aún.</li>';
+        document.getElementById('paginaActual').textContent = '—';
+        return;
+    }
+
+    const totalPaginas = Math.ceil(historial.length / REGISTROS_POR_PAGINA);
+    if (paginaHistorial > totalPaginas) paginaHistorial = totalPaginas;
+
+    const inicio = (paginaHistorial - 1) * REGISTROS_POR_PAGINA;
+    const fin = inicio + REGISTROS_POR_PAGINA;
+    const pagina = historial.slice().reverse().slice(inicio, fin);
+
+    pagina.forEach(item => {
+        const fecha = new Date(item.fecha).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' });
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <div style="padding:0.5rem; border:1px solid #ddd; border-radius:8px; margin-bottom:0.5rem; background:#fafafa;">
+                <strong>${fecha}</strong><br>
+                Categorías: ${item.categorias.join(', ')}<br>
+                Total: Bs. ${formatNumberVE(item.totalGastos)}<br>
+                Promedio: Bs. ${formatNumberVE(item.promedioGastos)}<br>
+                Inicial: Bs. ${formatNumberVE(item.presupuestoInicial)}<br>
+                Sugerido: Bs. ${formatNumberVE(item.presupuestoParaGastos)}<br>
+                Restante: Bs. ${formatNumberVE(item.restante)}
+            </div>
+        `;
+        contenedor.appendChild(li);
+    });
+
+    document.getElementById('paginaActual').textContent = `${paginaHistorial} / ${totalPaginas}`;
+}
+
+// ✅ Cambiar página
+function cambiarPaginaHistorial(direccion) {
+    const historial = JSON.parse(localStorage.getItem('historialPresupuestos') || '[]');
+    const totalPaginas = Math.ceil(historial.length / REGISTROS_POR_PAGINA);
+    paginaHistorial += direccion;
+    if (paginaHistorial < 1) paginaHistorial = 1;
+    if (paginaHistorial > totalPaginas) paginaHistorial = totalPaginas;
+    mostrarHistorialPresupuestos();
+}
+
+// ✅ Reiniciar cálculo (sin borrar historial)
+function reiniciarPresupuestoSugerido() {
+    document.getElementById('presupuestoInicial').value = '';
+    const select = document.getElementById('selectCategoriasPresupuesto');
+    if (select) Array.from(select.options).forEach(opt => opt.selected = false);
+    document.getElementById('resultadoPresupuesto').innerHTML = '';
+    localStorage.removeItem('presupuestoSugeridoActual');
+    mostrarToast('🔁 Presupuesto reiniciado. El historial permanece intacto.', 'info');
+}
+
+// ✅ Plegar o desplegar historial
+function toggleHistorial() {
+    const wrapper = document.getElementById('historialWrapper');
+    const btn = document.getElementById('btnToggleHistorial');
+    const visible = wrapper.style.display !== 'none';
+    wrapper.style.display = visible ? 'none' : 'block';
+    btn.textContent = visible ? '⬇️ Mostrar' : '⬆️ Ocultar';
+}
+
+// ✅ Exportar reporte del historial en PDF
+async function exportarReportePresupuestos() {
+    const historial = JSON.parse(localStorage.getItem('historialPresupuestos') || '[]');
+    if (historial.length === 0) {
+        mostrarToast('No hay datos en el historial para exportar.', 'danger');
+        return;
+    }
+
+    // Importa jsPDF dinámicamente si no está cargado
+    if (typeof window.jspdf === 'undefined') {
+        await import('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    }
+    const { jsPDF } = window.jspdf;
+
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const margen = 40;
+    const ancho = doc.internal.pageSize.getWidth();
+    const ahora = new Date();
+    const fechaStr = ahora.toLocaleString('es-VE', { dateStyle: 'full', timeStyle: 'short' });
+
+    // 🔹 Encabezado
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('Reporte de Presupuestos Sugeridos', ancho / 2, 60, { align: 'center' });
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Generado el ${fechaStr}`, ancho / 2, 80, { align: 'center' });
+
+    // 🔹 Línea divisoria
+    doc.setDrawColor(150);
+    doc.line(margen, 90, ancho - margen, 90);
+
+    // 🔹 Tabla de datos
+    let y = 120;
+    let totalGeneral = 0, totalRestante = 0, totalPromedio = 0;
+
+    historial.forEach((item, i) => {
+        const fecha = new Date(item.fecha).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' });
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.text(`Registro ${i + 1}`, margen, y);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        y += 15;
+        doc.text(`Fecha: ${fecha}`, margen, y);
+        y += 12;
+        doc.text(`Categorías: ${item.categorias.join(', ')}`, margen, y);
+        y += 12;
+        doc.text(`Inicial: Bs. ${formatNumberVE(item.presupuestoInicial)}`, margen, y);
+        y += 12;
+        doc.text(`Total gastos: Bs. ${formatNumberVE(item.totalGastos)}`, margen, y);
+        y += 12;
+        doc.text(`Promedio: Bs. ${formatNumberVE(item.promedioGastos)}`, margen, y);
+        y += 12;
+        doc.text(`Sugerido: Bs. ${formatNumberVE(item.presupuestoParaGastos)}`, margen, y);
+        y += 12;
+        doc.text(`Restante: Bs. ${formatNumberVE(item.restante)}`, margen, y);
+        y += 18;
+        doc.setDrawColor(230);
+        doc.line(margen, y, ancho - margen, y);
+        y += 15;
+
+        // Suma para resumen
+        totalGeneral += item.presupuestoParaGastos;
+        totalRestante += item.restante;
+        totalPromedio += item.promedioGastos;
+
+        // Si nos pasamos del largo de página, crear nueva
+        if (y > 740 && i < historial.length - 1) {
+            doc.addPage();
+            y = 60;
+        }
+    });
+
+    // 🔹 Resumen final
+    const promedioPromedio = totalPromedio / historial.length;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text('Resumen General', margen, y);
+    y += 15;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.text(`Presupuestos totales: ${historial.length}`, margen, y); y += 14;
+    doc.text(`Suma total sugerida: Bs. ${formatNumberVE(totalGeneral)}`, margen, y); y += 14;
+    doc.text(`Promedio de promedios: Bs. ${formatNumberVE(promedioPromedio)}`, margen, y); y += 14;
+    doc.text(`Total restante acumulado: Bs. ${formatNumberVE(totalRestante)}`, margen, y);
+
+    // 🔹 Pie de página
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.text(`© ${new Date().getFullYear()} — Sistema Financiero`, ancho / 2, 820, { align: 'center' });
+
+    // 🔹 Descargar
+    const nombreArchivo = `Reporte_Presupuestos_${ahora.getFullYear()}${(ahora.getMonth() + 1)
+        .toString().padStart(2, '0')}${ahora.getDate().toString().padStart(2, '0')}.pdf`;
+    doc.save(nombreArchivo);
+
+    mostrarToast('📤 Reporte exportado correctamente.', 'success');
+}
 
 
 // ------------------------------------------------------------------------------------------------------------------------------------
