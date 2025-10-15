@@ -6,12 +6,13 @@
   <title>SISTEMA FINANCIERO</title>
   <link rel="icon" type="image/x-icon" href="recursos/ICONO.png">
 
-  <link rel="stylesheet" href="styles.css?v=20251001" />
-  <link rel="stylesheet" href="deudas.css?v=20251001" />
-  <link rel="stylesheet" href="win11-theme.css?v=20251001">
-  <link rel="stylesheet" href="movimientos-cards-fixed.css?v=20251001">
+  <link rel="stylesheet" href="styles.css?v=20251006" />
+  <link rel="stylesheet" href="deudas.css?v=20251006" />
+  <link rel="stylesheet" href="win11-theme.css?v=20251006">
+  <link rel="stylesheet" href="movimientos-cards-fixed.css?v=20251006">
   
   <script src="enhanced-cards.js"></script>
+  <script src="backup-manager.js"></script>
 
  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -56,23 +57,35 @@
   </svg>
   Inicio
 </button>
+
 <button class="side-tab" onclick="mostrarSideTab('movimientos')">
   <svg class="icon" viewBox="0 0 24 24" fill="#059669">
     <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
   </svg>
   Movimientos
 </button>
+
 <button class="side-tab" onclick="mostrarSideTab('analisis')">
   <svg class="icon" viewBox="0 0 24 24" fill="#DC2626">
     <path d="M3 3v18h18V3H3zm16 16H5V5h14v14zM7 7h4v10H7V7zm6 0h4v6h-4V7z"/>
   </svg>
   Análisis
 </button>
+
+<!-- ✅ NUEVA PESTAÑA: PRESUPUESTO -->
 <button class="side-tab" onclick="mostrarSideTab('presupuesto')">
   <svg class="icon" viewBox="0 0 24 24" fill="#EA580C">
     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
   </svg>
   Presupuesto
+</button>
+
+<!-- ✅ NUEVA PESTAÑA: PRESUPUESTO SUGERIDO -->
+<button class="side-tab" onclick="mostrarSideTab('presupuesto-sugerido')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#8B5CF6">
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+  </svg>
+  💰 Presupuesto Sugerido
 </button>
 
 <!-- ✅ NUEVAS PESTAÑAS EN FINANZAS -->
@@ -115,14 +128,6 @@
     <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-6 13H9v-2h4v2zm3-4H9V9h7v3z"/>
   </svg>
   Calendario
-</button>
-
-<!-- ✅ NUEVA PESTAÑA: ALMACÉN DE BACKUPS -->
-<button class="side-tab" onclick="mostrarSideTab('almacen')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#7C3AED">
-    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-  </svg>
-  Almacén
 </button>
 
 <!-- ✅ NUEVA PESTAÑA: TASAS BCV -->
@@ -446,6 +451,90 @@
       </div>
     </div> <!-- cierre sidebar-content MOVIMIENTOS-->
   </div>
+
+<!-- ===================================================== -->
+<!-- 💰 PESTAÑA: PRESUPUESTO SUGERIDO -->
+<!-- ===================================================== -->
+<div class="side-content" id="side-presupuesto-sugerido">
+  <div class="sidebar-content">
+    <section>
+      <h2>💰 Presupuesto Sugerido</h2>
+
+      <label for="presupuestoInicial">Presupuesto inicial (Bs):</label>
+      <input type="text" id="presupuestoInicial" placeholder="Ej: 5.000,00" style="width:100%; padding:.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem;" />
+
+      <h3 style="margin-top:1rem;">Selecciona las categorías a incluir:</h3>
+<select id="selectCategoriasPresupuesto" multiple 
+        style="width:100%; height:140px; padding:.5rem; border:1px solid #ccc; border-radius:8px; font-size:1rem;">
+</select>
+<p style="font-size:0.8rem; color:var(--text-light); margin-top:0.25rem;">
+  💡 Puedes mantener presionada <strong>Ctrl</strong> (o <strong>Cmd</strong> en Mac) para seleccionar varias categorías.
+</p>
+
+
+      <button onclick="calcularPresupuestoSugerido()" 
+              style="background:#059669; color:white; padding:0.75rem 1rem; border:none; border-radius:8px; cursor:pointer;">
+        Calcular presupuesto sugerido
+      </button>
+
+      <div id="resultadoPresupuesto" style="margin-top:1.5rem; font-size:1rem; color:var(--text-light);">
+        <!-- Aquí aparecerá el resultado -->
+      </div>
+
+      <div style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+  <button onclick="guardarPresupuestoEnHistorial()" 
+          style="background:#2563eb; color:white; border:none; border-radius:8px; padding:0.6rem 1rem; cursor:pointer;">
+    📦 Guardar en historial
+  </button>
+  <button onclick="reiniciarPresupuestoSugerido()" 
+          style="background:#dc2626; color:white; border:none; border-radius:8px; padding:0.6rem 1rem; cursor:pointer;">
+    🔁 Reiniciar
+  </button>
+</div>
+
+<hr style="margin:1.5rem 0; border:none; border-top:1px solid #ccc;"/>
+
+<div id="contenedorHistorial" style="margin-top:1.5rem;">
+  <div style="display:flex; align-items:center; justify-content:space-between;">
+    <h3 style="margin:0;">🕓 Historial de presupuestos sugeridos</h3>
+    <div style="display:flex; align-items:center; gap:.5rem;">
+      <button id="btnToggleHistorial"
+              onclick="toggleHistorial()"
+              style="background:#6b7280; color:white; border:none; border-radius:6px; padding:0.4rem 0.6rem; cursor:pointer;">
+        ⬆️ Ocultar
+      </button>
+      <button onclick="eliminarHistorialPresupuestos()" 
+              style="background:#dc2626; color:white; border:none; border-radius:6px; padding:0.4rem 0.6rem; cursor:pointer;">
+        🗑️ Eliminar
+      </button>
+
+      <button onclick="exportarReportePresupuestos()" 
+              style="background:#059669; color:white; border:none; border-radius:6px; padding:0.4rem 0.6rem; cursor:pointer;">
+        📤 Exportar
+    </button>
+
+    </div>
+  </div>
+
+  <div id="historialWrapper" style="margin-top:0.75rem;">
+    <ul id="historialPresupuestos" 
+        style="list-style:none; padding:0; font-size:0.95rem; color:var(--text-light);"></ul>
+
+    <div id="paginacionHistorial" 
+         style="display:flex; justify-content:center; gap:0.5rem; margin-top:0.5rem;">
+      <button id="btnPrevPagina" onclick="cambiarPaginaHistorial(-1)"
+              style="background:#374151; color:white; border:none; border-radius:6px; padding:0.4rem 0.8rem; cursor:pointer;">◀️</button>
+      <span id="paginaActual" style="align-self:center;">1</span>
+      <button id="btnNextPagina" onclick="cambiarPaginaHistorial(1)"
+              style="background:#374151; color:white; border:none; border-radius:6px; padding:0.4rem 0.8rem; cursor:pointer;">▶️</button>
+    </div>
+  </div>
+</div>
+
+
+    </section> <!-- cierre section -->
+  </div>
+</div>
 
 
   <div class="side-content" id="side-analisis">
@@ -902,60 +991,6 @@
 </div> <!-- cierre sidebar-content CAMBIOS -->
 </div>
 
-<!-- ✅ NUEVA PESTAÑA: ALMACÉN DE BACKUPS -->
-<div class="side-content" id="side-almacen">
-  <div class="sidebar-content">
-    <section>
-      <h2>📦 Almacén de Backups
-        <button onclick="mostrarAyudaAlmacen()" 
-                style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
-                title="¿Cómo funciona el almacén?">❓</button>
-      </h2>
-      <p style="color: var(--text-light); margin-bottom: 1rem;">
-        Gestiona tus backups de forma segura. Se almacenan automáticamente cuando creas un backup.
-      </p>
-
-      <!-- Crear nuevo backup -->
-      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem;">
-        <h3 style="margin-top: 0; color: var(--primary);">💾 Crear Nuevo Backup</h3>
-        <p style="color: var(--text-light); margin-bottom: 1rem; font-size: 0.85rem;">
-          Crea un backup completo de todos tus datos financieros. Se descargará automáticamente y se guardará en el almacén.
-        </p>
-        <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
-          <button onclick="exportarBackupConAlmacen()" style="flex: 1; background: #0b57d0; color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1rem;">
-            📦 Crear y Guardar Backup
-          </button>
-          <button onclick="mostrarBackupsAlmacen()" style="flex: 1; background: #018642; color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1rem;">
-            📋 Ver Backups Guardados
-          </button>
-        </div>
-        <div style="background: var(--info-bg); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--info);">
-          <p style="margin: 0; color: var(--info-text); font-size: 0.85rem;">
-            <strong>💡 Información:</strong> Los backups incluyen movimientos, categorías, bancos, reglas, configuración y más. 
-            Se almacenan encriptados en tu navegador para máxima seguridad.
-          </p>
-        </div>
-      </div>
-
-      <!-- Lista de backups almacenados -->
-      <div id="contenedorAlmacen" style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius);">
-        <h3 style="margin-top: 0; color: var(--text);">📋 Backups Almacenados</h3>
-        <p style="color: var(--text-light); margin-bottom: 1rem; font-size: 0.85rem;">
-          Backups disponibles en tu dispositivo:
-        </p>
-        <div id="listaBackupsAlmacen" style="max-height: 300px; overflow-y: auto;">
-          <p style="text-align: center; color: var(--text-light); font-style: italic;">No hay backups almacenados aún. Crea tu primer backup.</p>
-        </div>
-        <div style="margin-top: 1rem; display: flex; gap: 0.75rem;">
-          <button onclick="limpiarAlmacen()" style="flex: 1; background: #ff9800; color: white; border: none; border-radius: 8px; padding: 0.75rem; font-size: 0.9rem;">
-            🗑️ Limpiar Todo
-          </button>
-        </div>
-      </div>
-    </section> <!-- cierre sidebar-content ALMACEN -->
-  </div>
-</div>
-
 <!-- ✅ NUEVA PESTAÑA: TASAS BCV -->
 <div class="side-content" id="side-tasas-bcv">
   <div class="sidebar-content">
@@ -1118,22 +1153,46 @@
       </details>
 
       <!-- COPIA DE SEGURIDAD -->
-      <details style="margin-top: 1.5rem;">
+<details style="margin-top: 1.5rem;">
   <summary>💾 Copia de Seguridad</summary>
   <p style="color: var(--text-light); margin-bottom: 1rem;">
     Exporta o importa tu historial completo. Ideal para cambiar de dispositivo o recuperar datos.
   </p>
-  <button onclick="exportarBackup()" style="width:100%; padding:1rem; margin-bottom:0.75rem; background:#0b57d0; color:white; border:none; border-radius:8px; font-size:1rem;">
-    📤 Exportar Backup
-  </button>
-  <button onclick="importarBackup()" style="width:100%; padding:1rem; background:#018642; color:white; border:none; border-radius:8px; font-size:1rem;">
-    📥 Importar Backup
-  </button>
+  
+  <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+    <button onclick="exportarBackup()" style="flex: 1; padding: 1rem; background: #0b57d0; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+      <span style="font-size: 1.2rem;">📤</span> Exportar
+    </button>
+    <button onclick="importarBackup()" style="flex: 1; padding: 1rem; background: #018642; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+      <span style="font-size: 1.2rem;">📥</span> Importar
+    </button>
+    <button onclick="guardarBackupActual()" style="flex: 1; padding: 1rem; background: #6d28d9; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+      <span style="font-size: 1.2rem;">💾</span> Guardar
+    </button>
+  </div>
+  
+  <!-- Sección de Backups Guardados -->
+  <div style="margin-top: 1.5rem;">
+    <h4 style="margin-bottom: 0.75rem; color: var(--text); display: flex; align-items: center; gap: 0.5rem;">
+      <span style="font-size: 1.2rem;">📂</span> Backups Guardados
+      <button onclick="cargarBackupsGuardados()" style="margin-left: auto; background: none; border: none; color: var(--primary); cursor: pointer; display: flex; align-items: center; gap: 0.25rem; font-size: 0.9rem;">
+        <span style="font-size: 1rem;">🔄</span> Actualizar
+      </button>
+    </h4>
+    
+    <div id="listaBackups" style="background: var(--card-bg); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color);">
+      <p style="text-align: center; color: var(--text-light);">Cargando backups guardados...</p>
+    </div>
+    
+    <p style="font-size: 0.8rem; color: var(--text-light); margin-top: 0.5rem; text-align: center;">
+      Los backups se guardan localmente en tu navegador.
+    </p>
+  </div>
 
-  <button onclick="repararApp()" style="width:100%; padding:1rem; margin-top:1rem; background:#ff9800; color:white; border:none; border-radius:8px; font-size:1rem;">
-    🛠️ Reparar Visualización (Firefox/Chrome)
+  <button onclick="repararApp()" style="width:100%; padding:1rem; margin-top:1.5rem; background:#ff9800; color:white; border:none; border-radius:8px; font-size:1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+    <span style="font-size: 1.2rem;">🛠️</span> Reparar Visualización (Firefox/Chrome)
   </button>
-  </details>
+</details>
 
   <!-- MODO DE ENTRADA -->
   <details style="margin-top: 1.5rem;">
@@ -1380,11 +1439,158 @@
   </div>
 </div>
 
-  <script src="chart.umd.min.js?v=20251001"></script>
-  <script src="xlsx.full.min.js?v=20251001"></script>
+<!-- ✅ NUEVA PESTAÑA: PRESUPUESTO SUGERIDO -->
+<div class="side-content" id="side-presupuesto-sugerido">
+  <div class="sidebar-content">
+    <section>
+      <h2>💰 Presupuesto Sugerido
+        <button onclick="mostrarAyudaPresupuestoSugerido()"
+                style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                title="¿Cómo funciona el presupuesto sugerido?">❓</button>
+      </h2>
+      <p style="color: var(--text-light); margin-bottom: 1.5rem;">
+        Basado en tu historial de gastos, te sugerimos un presupuesto mensual inteligente que te ayude a cubrir todos tus gastos con éxito.
+      </p>
+
+      <!-- ✅ BOTÓN PARA GENERAR PRESUPUESTO SUGERIDO -->
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 2rem; border-left: 4px solid var(--primary);">
+        <h3 style="margin-top: 0; color: var(--primary);">🎯 Generar Presupuesto Sugerido</h3>
+        <p style="color: var(--text-light); margin-bottom: 1.5rem; font-size: 0.9rem;">
+          Analizaremos tus gastos históricos y te sugeriremos un presupuesto mensual optimizado.
+        </p>
+        <button onclick="generarPresupuestoSugerido()" id="btnGenerarPresupuesto"
+                style="width: 100%; background: var(--primary); color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1rem; cursor: pointer; transition: background 0.2s;">
+          🔄 Generar Presupuesto Sugerido
+        </button>
+      </div>
+
+      <!-- ✅ RESULTADOS DEL PRESUPUESTO SUGERIDO -->
+      <div id="resultadosPresupuesto" style="display: none;">
+        <!-- Resumen Ejecutivo -->
+        <div style="background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; padding: 1.5rem; border-radius: var(--radius); margin-bottom: 2rem;">
+          <h3 style="margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
+            📊 Resumen Ejecutivo
+          </h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+            <div style="text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #10B981;">💰</div>
+              <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; opacity: 0.9;">Gasto Promedio Mensual</p>
+              <p style="font-size: 1.2rem; font-weight: bold;" id="gastoPromedioMensual">Bs. 0,00</p>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: bold; color: #F59E0B;">📈</div>
+              <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; opacity: 0.9;">Presupuesto Sugerido</p>
+              <p style="font-size: 1.2rem; font-weight: bold;" id="presupuestoSugerido">Bs. 0,00</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ✅ ANÁLISIS DETALLADO POR CATEGORÍAS -->
+        <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 2rem;">
+          <h3 style="margin-top: 0; color: var(--text);">📋 Análisis por Categorías</h3>
+          <div id="analisisCategorias">
+            <!-- Las categorías se cargarán dinámicamente aquí -->
+          </div>
+        </div>
+
+        <!-- ✅ ACCIONES RECOMENDADAS -->
+        <div style="background: var(--success-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 2rem; border-left: 4px solid var(--success);">
+          <h3 style="margin-top: 0; color: var(--success-text);">✅ Acciones Recomendadas</h3>
+          <div id="accionesRecomendadas">
+            <!-- Las acciones se cargarán dinámicamente aquí -->
+          </div>
+        </div>
+
+        <!-- ✅ BOTONES DE ACCIÓN -->
+        <div style="display: flex; gap: 1rem; margin-bottom: 2rem;">
+          <button onclick="aplicarPresupuestoSugerido()" id="btnAplicarPresupuesto"
+                  style="flex: 1; background: var(--success); color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1rem; cursor: pointer; transition: background 0.2s;">
+            ✅ Aplicar como Meta
+          </button>
+          <button onclick="exportarPresupuestoSugerido()" id="btnExportarPresupuesto"
+                  style="flex: 1; background: var(--info); color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1rem; cursor: pointer; transition: background 0.2s;">
+            📄 Exportar PDF
+          </button>
+        </div>
+
+        <!-- ✅ AJUSTES MANUALES -->
+        <div style="background: var(--warning-bg); padding: 1.5rem; border-radius: var(--radius); border-left: 4px solid var(--warning);">
+          <h3 style="margin-top: 0; color: var(--warning-text);">⚙️ Ajustes Manuales</h3>
+          <p style="color: var(--warning-text); margin-bottom: 1rem; font-size: 0.9rem;">
+            ¿No te convence alguna sugerencia? Ajusta manualmente las categorías:
+          </p>
+          <div id="ajustesCategorias">
+            <!-- Los controles de ajuste se cargarán dinámicamente aquí -->
+          </div>
+          <button onclick="guardarAjustesPresupuesto()" id="btnGuardarAjustes"
+                  style="width: 100%; background: var(--warning); color: white; border: none; border-radius: 8px; padding: 0.75rem; font-size: 0.9rem; cursor: pointer; margin-top: 1rem;">
+            💾 Guardar Ajustes
+          </button>
+        </div>
+      </div>
+
+      <!-- ✅ ESTADO SIN DATOS -->
+      <div id="estadoSinDatos" style="text-align: center; padding: 3rem 1rem; color: var(--text-light);">
+        <div style="font-size: 4rem; margin-bottom: 1rem;">📊</div>
+        <h3 style="color: var(--text); margin-bottom: 1rem;">Sin datos suficientes</h3>
+        <p style="margin-bottom: 2rem;">
+          Necesitamos al menos 3 meses de datos de gastos para generar un presupuesto sugerido inteligente.
+        </p>
+        <p style="font-size: 0.9rem; color: var(--text-light);">
+          💡 <strong>Consejo:</strong> Agrega más movimientos históricos para obtener mejores sugerencias.
+        </p>
+      </div>
+
+            <!-- ✅ SECCIÓN DE CONFIGURACIÓN PERMANENTE -->
+            <div id="seccionConfiguracionPermanente" style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--text-light);">
+              <h3 style="margin-top: 0; color: var(--primary);">⚙️ Configuración del Análisis</h3>
+              <p style="color: var(--text-light); margin-bottom: 1rem; font-size: 0.9rem;">
+                Personaliza cómo funciona el análisis de presupuesto sugerido.
+              </p>
+      
+              <div style="margin-bottom: 1.5rem;">
+                <h4 style="margin: 0 0 0.5rem 0; color: var(--text);">🔧 Configuración Personal</h4>
+                
+                <div style="margin-bottom: 1rem;">
+                  <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                    Meses mínimos requeridos:
+                    <select id="selectMesesMinimosConfig" style="margin-left: 0.5rem; padding: 0.25rem; border-radius: 4px;">
+                      <option value="3">3 meses (recomendado)</option>
+                      <option value="2">2 meses</option>
+                      <option value="1">1 mes</option>
+                    </select>
+                  </label>
+                </div>
+      
+                <div style="margin-bottom: 1rem;">
+                  <label style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" id="checkExcepcionesConfig">
+                    <span>Permitir excepciones (generar con menos datos si es necesario)</span>
+                  </label>
+                </div>
+              </div>
+      
+              <div style="display: flex; gap: 1rem;">
+                <button onclick="aplicarConfiguracion()" 
+                        style="flex: 1; background: var(--success); color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1rem;">
+                  💾 Aplicar Configuración
+                </button>
+                <button onclick="restaurarConfiguracionPredeterminada()" 
+                        style="flex: 1; background: var(--info); color: white; border: none; border-radius: 8px; padding: 1rem; font-size: 1rem;">
+                  🔄 Restaurar Predeterminados
+                </button>
+              </div>
+            </div>
+
+    </section>
+  </div>
+</div>
+
+  <script src="chart.umd.min.js?v=20251006"></script>
+  <script src="xlsx.full.min.js?v=20251006"></script>
   <script src="equivalente-calculator.js"></script>
-  <script src="app.js?v=20250930"></script>
-  
+  <script src="presupuesto-sugerido.js"></script>
+  <script src="app.js?v=20251004"></script>
   
   <!-- Modal de bloqueo -->
   <div id="modalBloqueo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1001; justify-content:center; align-items:center;">
@@ -1534,33 +1740,6 @@
     <div style="background:var(--info-bg); padding:1rem; border-radius:8px; border-left:4px solid var(--info); margin-top:1.5rem;">
       <p style="margin:0; color:var(--info-text); font-size:0.875rem;">
         <strong>✨ Diseño moderno:</strong> Este calendario fue creado con el estilo Windows 11: transparencias, blur y elegancia.
-      </p>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL DE AYUDA (ALMACÉN)-->
-<div id="modalAyudaAlmacen" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:1005; justify-content:center; align-items:center;">
-  <div style="background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow-lg); padding:2rem; width:90%; max-width:500px; max-height:80vh; overflow-y:auto; position:relative;">
-    <button onclick="cerrarAyudaAlmacen()" 
-            style="position:absolute; top:1rem; right:1rem; background:none; border:none; font-size:1.5rem; color:var(--text-light); cursor:pointer; padding:0.5rem; border-radius:50%; transition:background 0.2s;"
-            title="Cerrar">✕</button>
-    
-    <h2 style="color:var(--primary); margin-bottom:1.5rem; text-align:center;">📦 ¿Cómo funciona el Almacén de Backups?</h2>
-    
-    <div style="margin-bottom:1.5rem;">
-      <h3 style="color:var(--text); margin-bottom:0.75rem;">✨ ¿Qué es el Almacén?</h3>
-      <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
-        <li><strong>Doble almacenamiento:</strong> Cuando creas un backup, se descarga automáticamente Y se guarda en tu navegador</li>
-        <li><strong>Acceso inmediato:</strong> No necesitas buscar en tu carpeta de descargas, todo está aquí</li>
-        <li><strong>Gestión completa:</strong> Puedes descargar, eliminar o limpiar backups individuales</li>
-        <li><strong>Almacenamiento limitado:</strong> Máximo 20 backups para evitar exceso de datos</li>
-      </ul>
-    </div>
-    
-    <div style="background:var(--success-bg); padding:1rem; border-radius:8px; border-left:4px solid var(--success); margin-top:1.5rem;">
-      <p style="margin:0; color:var(--success-text); font-size:0.875rem;">
-        <strong>🎉 Pro tip:</strong> El almacén es perfecto para mantener múltiples versiones de tus datos financieros sin ocupar espacio en tu computadora.
       </p>
     </div>
   </div>
