@@ -6624,10 +6624,14 @@ const REGISTROS_POR_PAGINA = 5;
 let paginaHistorial = 1;
 
 
-// ✅ Calcular promedio, total y sugerencia
+// ============================================
+// 💰 PRESUPUESTO SUGERIDO — Corrección: rango hasta HOY e inclusivo
+// ============================================
 async function calcularPresupuestoSugerido() {
     const presupuestoInput = document.getElementById('presupuestoInicial');
+    const porcentajeInput = document.getElementById('porcentajeExtra');
     const valorPresupuesto = parseNumberVE(presupuestoInput.value);
+    const porcentajeExtra = parseFloat(porcentajeInput.value) || 0;
 
     if (isNaN(valorPresupuesto) || valorPresupuesto <= 0) {
         mostrarToast('Por favor, ingresa un presupuesto inicial válido.', 'danger');
@@ -6636,7 +6640,6 @@ async function calcularPresupuestoSugerido() {
 
     const select = document.getElementById('selectCategoriasPresupuesto');
     const seleccionadas = Array.from(select.selectedOptions).map(opt => opt.value);
-
     if (seleccionadas.length === 0) {
         mostrarToast('Selecciona al menos una categoría para calcular.', 'danger');
         return;
@@ -6652,40 +6655,72 @@ async function calcularPresupuestoSugerido() {
         return;
     }
 
-    // Calcular totales
-    const totalGastos = gastosSeleccionados.reduce((s, m) => s + m.cantidad, 0);
-    const promedioGastos = totalGastos / gastosSeleccionados.length;
-    const presupuestoParaGastos = promedioGastos * 1.05;
-    const restante = valorPresupuesto - presupuestoParaGastos;
+    // Fechas: inicio = primera fecha de gasto; fin = HOY (según tu requerimiento)
+    const fechas = gastosSeleccionados.map(m => new Date(m.fecha));
+    const fechaInicio = new Date(Math.min(...fechas));
+    const fechaFin = new Date(); // ← usar la fecha actual (hoy)
+    
+    // Normalizar horas para evitar fracciones por huso hora
+    fechaInicio.setHours(0,0,0,0);
+    fechaFin.setHours(0,0,0,0);
 
-    // Mostrar resultados
+    const msPorDia = 1000 * 60 * 60 * 24;
+    // +1 para contar inclusivamente desde fechaInicio hasta fechaFin
+    let totalDias = Math.ceil((fechaFin - fechaInicio) / msPorDia) + 1;
+    if (isNaN(totalDias) || totalDias < 1) totalDias = 1;
+
+    // Total de gastos
+    const totalGastos = gastosSeleccionados.reduce((s, m) => s + m.cantidad, 0);
+
+    // Promedio diario y mensual proyectado a 30 días
+    const promedioDiario = totalGastos / totalDias;
+    const promedioMensual = promedioDiario * 30;
+
+    // Porcentaje adicional aplicado
+    const montoExtra = (promedioMensual * porcentajeExtra) / 100;
+    const presupuestoSugerido = promedioMensual + montoExtra;
+
+    // Restante respecto al presupuesto inicial
+    const restante = valorPresupuesto - presupuestoSugerido;
+
+    // Mostrar resultados (formateados)
     const resultado = document.getElementById('resultadoPresupuesto');
     if (resultado) {
         resultado.innerHTML = `
+            <p><strong>Período analizado:</strong> ${fechaInicio.toLocaleDateString('es-VE')} → ${fechaFin.toLocaleDateString('es-VE')}</p>
+            <p><strong>Total de días (inclusivo):</strong> ${totalDias} días</p>
             <p><strong>Total de gastos:</strong> Bs. ${formatNumberVE(totalGastos)}</p>
-            <p><strong>Gasto promedio:</strong> Bs. ${formatNumberVE(promedioGastos)}</p>
-            <p><strong>Presupuesto sugerido:</strong> Bs. ${formatNumberVE(presupuestoParaGastos)}</p>
+            <p><strong>Promedio diario:</strong> Bs. ${formatNumberVE(promedioDiario)}</p>
+            <p><strong>Promedio mensual proyectado (30d):</strong> Bs. ${formatNumberVE(promedioMensual)}</p>
+            <p><strong>Porcentaje adicional:</strong> ${porcentajeExtra}% (Bs. ${formatNumberVE(montoExtra)})</p>
+            <p><strong>Presupuesto sugerido final:</strong> Bs. ${formatNumberVE(presupuestoSugerido)}</p>
+            <p><strong>Presupuesto inicial:</strong> Bs. ${formatNumberVE(valorPresupuesto)}</p>
             <p><strong>Restante disponible:</strong> Bs. ${formatNumberVE(restante)}</p>
-            <p><strong>Categorías seleccionadas:</strong> ${seleccionadas.join(', ')}</p>
             <p style="margin-top:1rem; color:${restante > 0 ? 'var(--success)' : 'var(--danger)'};">
               ${restante > 0 ? '✅ Tienes margen para otros gastos o ahorro.' : '⚠️ El presupuesto no cubre tus gastos promedio.'}
             </p>
         `;
     }
 
-    // Guardar persistencia actual
+    // Guardar para persistencia e historial (estructura ampliada)
     const datos = {
         fecha: new Date().toISOString(),
-        presupuestoInicial: valorPresupuesto,
         categorias: seleccionadas,
+        fechaInicio: fechaInicio.toISOString(),
+        fechaFin: fechaFin.toISOString(),
+        totalDias,
         totalGastos,
-        promedioGastos,
-        presupuestoParaGastos,
+        promedioDiario,
+        promedioMensual,
+        porcentajeExtra,
+        montoExtra,
+        presupuestoSugerido,
+        presupuestoInicial: valorPresupuesto,
         restante
     };
-    localStorage.setItem('presupuestoSugeridoActual', JSON.stringify(datos));
 
-    mostrarToast('Presupuesto sugerido calculado y guardado.', 'success');
+    localStorage.setItem('presupuestoSugeridoActual', JSON.stringify(datos));
+    mostrarToast('Presupuesto sugerido calculado correctamente.', 'success');
     mostrarHistorialPresupuestos();
 }
 
