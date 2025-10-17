@@ -6746,30 +6746,130 @@ if (contenedorBarra) {
 
 
 // ✅ Cargar configuración guardada al abrir la pestaña
+// ✅ Restaurar cálculo guardado y reconstruir la UI completa (incluye barra)
 function cargarPresupuestoSugeridoGuardado() {
-    const guardado = localStorage.getItem('presupuestoSugeridoActual');
-    if (!guardado) return;
+    const guardadoRaw = localStorage.getItem('presupuestoSugeridoActual');
+    if (!guardadoRaw) return;
+
+    let datos;
     try {
-        const datos = JSON.parse(guardado);
-        document.getElementById('presupuestoInicial').value = formatNumberVE(datos.presupuestoInicial);
-        const select = document.getElementById('selectCategoriasPresupuesto');
-        if (select) {
-            Array.from(select.options).forEach(opt => {
-                opt.selected = datos.categorias.includes(opt.value);
-            });
-        }
-        const resultado = document.getElementById('resultadoPresupuesto');
-        resultado.innerHTML = `
-            <p><strong>Total de gastos:</strong> Bs. ${formatNumberVE(datos.totalGastos)}</p>
-            <p><strong>Gasto promedio:</strong> Bs. ${formatNumberVE(datos.promedioGastos)}</p>
-            <p><strong>Presupuesto sugerido:</strong> Bs. ${formatNumberVE(datos.presupuestoParaGastos)}</p>
-            <p><strong>Restante disponible:</strong> Bs. ${formatNumberVE(datos.restante)}</p>
-            <p><strong>Categorías seleccionadas:</strong> ${datos.categorias.join(', ')}</p>
-        `;
+        datos = JSON.parse(guardadoRaw);
     } catch (e) {
-        console.error('Error al cargar presupuesto sugerido guardado:', e);
+        console.error('Error parseando presupuestoSugeridoActual:', e);
+        return;
     }
+
+    // Aceptar varias formas de los datos (compatibilidad hacia atrás)
+    // Campos esperados posibles:
+    // - presupuestoInicial o presupuestoInicial (nombres usados antes/ahora)
+    // - totalGastos o totalGastos
+    // - promedioGastos OR promedioMensual / promedioDiario
+    // - porcentajeExtra, montoExtra, presupuestoSugerido, restante, fechaInicio/fechaFin (ISO)
+    const presupuestoInicial = (datos.presupuestoInicial ?? datos.presupuestoBase ?? datos.presupuesto) || 0;
+    const totalGastos = datos.totalGastos ?? datos.total_gastos ?? 0;
+    const promedioDiario = datos.promedioDiario ?? datos.promedio_diario ?? null;
+    const promedioMensual = datos.promedioMensual ?? datos.promedio_mensual ?? datos.promedioMensual ?? null;
+    const porcentajeExtra = datos.porcentajeExtra ?? datos.porcentaje ?? 0;
+    const montoExtra = datos.montoExtra ?? datos.extra ?? 0;
+    const presupuestoSugerido = datos.presupuestoSugerido ?? datos.sugerido ?? 0;
+    const restante = datos.restante ?? (presupuestoInicial - presupuestoSugerido);
+    const fechaInicioISO = datos.fechaInicio ?? datos.fecha_inicio ?? datos.fechaDesde ?? null;
+    const fechaFinISO = datos.fechaFin ?? datos.fecha_fin ?? datos.fechaHasta ?? null;
+    const totalDias = datos.totalDias ?? datos.dias ?? null;
+
+    // Restaurar inputs (si existen)
+    const inputPresupuesto = document.getElementById('presupuestoInicial');
+    if (inputPresupuesto) {
+        inputPresupuesto.value = formatNumberVE(Number(presupuestoInicial) || 0);
+    }
+    const inputPorcentaje = document.getElementById('porcentajeExtra');
+    if (inputPorcentaje) {
+        inputPorcentaje.value = porcentajeExtra ?? inputPorcentaje.value ?? 0;
+    }
+
+    // Restaurar selección de categorías (si existen)
+    const select = document.getElementById('selectCategoriasPresupuesto');
+    if (select && Array.isArray(datos.categorias)) {
+        Array.from(select.options).forEach(opt => {
+            opt.selected = datos.categorias.includes(opt.value);
+        });
+    }
+
+    // Normalizar fechas si vienen en ISO
+    let fechaInicioText = '';
+    let fechaFinText = '';
+    if (fechaInicioISO) {
+        try {
+            const d = new Date(fechaInicioISO);
+            if (!isNaN(d)) fechaInicioText = d.toLocaleDateString('es-VE');
+        } catch (e) { /* ignore */ }
+    }
+    if (fechaFinISO) {
+        try {
+            const d2 = new Date(fechaFinISO);
+            if (!isNaN(d2)) fechaFinText = d2.toLocaleDateString('es-VE');
+        } catch (e) { /* ignore */ }
+    }
+
+    // Si no viene fechaFin en los datos, asumimos hoy
+    if (!fechaFinText) {
+        fechaFinText = new Date().toLocaleDateString('es-VE');
+    }
+
+    // Decidir qué promedio mostrar: preferir promedio diario + mensual si están disponibles
+    let promedioDiarioShow = promedioDiario;
+    let promedioMensualShow = promedioMensual;
+    if (!promedioMensualShow && promedioDiarioShow) promedioMensualShow = promedioDiarioShow * 30;
+    if (!promedioDiarioShow && promedioMensualShow) promedioDiarioShow = promedioMensualShow / 30;
+
+    // Renderizar el bloque de resultado completo
+    const resultado = document.getElementById('resultadoPresupuesto');
+    if (resultado) {
+        resultado.innerHTML = `
+            ${fechaInicioText ? `<p><strong>Período analizado:</strong> ${fechaInicioText} → ${fechaFinText}</p>` : ''}
+            ${totalDias ? `<p><strong>Total de días (inclusivo):</strong> ${totalDias} días</p>` : ''}
+            <p><strong>Total de gastos:</strong> Bs. ${formatNumberVE(Number(totalGastos) || 0)}</p>
+            ${promedioDiarioShow !== null ? `<p><strong>Promedio diario:</strong> Bs. ${formatNumberVE(promedioDiarioShow)}</p>` : ''}
+            ${promedioMensualShow !== null ? `<p><strong>Promedio mensual proyectado (30d):</strong> Bs. ${formatNumberVE(promedioMensualShow)}</p>` : ''}
+            <p><strong>Porcentaje adicional:</strong> ${porcentajeExtra}% (Bs. ${formatNumberVE(Number(montoExtra) || 0)})</p>
+            <p><strong>Presupuesto sugerido final:</strong> Bs. ${formatNumberVE(Number(presupuestoSugerido) || 0)}</p>
+            <p><strong>Presupuesto inicial:</strong> Bs. ${formatNumberVE(Number(presupuestoInicial) || 0)}</p>
+            <p><strong>Restante disponible:</strong> Bs. ${formatNumberVE(Number(restante) || 0)}</p>
+        `;
+    }
+
+    // Volver a dibujar la barra de progreso usando la misma lógica que en el cálculo
+    renderizarBarraPresupuesto(Number(presupuestoSugerido) || 0, Number(presupuestoInicial) || 0);
+
+    // Actualizar historial UI por si no está cargado
+    mostrarHistorialPresupuestos();
 }
+
+// ✅ Helper para dibujar la barra de progreso (reempleza la lógica embebida)
+function renderizarBarraPresupuesto(presupuestoSugerido, presupuestoInicial) {
+    const contenedorBarra = document.getElementById('barraPresupuestoContainer');
+    if (!contenedorBarra) return;
+
+    // Evitar división por cero
+    const valorInicial = (typeof presupuestoInicial === 'number' && !isNaN(presupuestoInicial) && presupuestoInicial > 0)
+        ? presupuestoInicial
+        : 1;
+
+    const porcentajeUsado = (presupuestoSugerido / valorInicial) * 100;
+    const porcentajeTexto = isFinite(porcentajeUsado) ? porcentajeUsado.toFixed(1) : '0.0';
+
+    let color = '#4caf50'; // verde
+    if (porcentajeUsado >= 80 && porcentajeUsado < 100) color = '#ffc107'; // amarillo
+    if (porcentajeUsado >= 100) color = '#f44336'; // rojo
+
+    contenedorBarra.innerHTML = `
+        <div class="barra-presupuesto">
+            <div class="barra-uso" style="width:${Math.min(Math.max(porcentajeUsado, 0), 100)}%; background-color:${color};"></div>
+        </div>
+        <div class="barra-label">Presupuesto usado: ${porcentajeTexto}%</div>
+    `;
+}
+
 
 // ✅ Guardar actual en historial
 function guardarPresupuestoEnHistorial() {
