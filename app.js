@@ -6702,6 +6702,26 @@ async function calcularPresupuestoSugerido() {
         `;
     }
 
+    // === 💡 BARRA DE PROGRESO DEL PRESUPUESTO ===
+const contenedorBarra = document.getElementById('barraPresupuestoContainer');
+if (contenedorBarra) {
+    const porcentajeUsado = (presupuestoSugerido / valorPresupuesto) * 100;
+    const porcentajeTexto = porcentajeUsado.toFixed(1);
+    
+    // Determinar color según el nivel de gasto
+    let color = '#4caf50'; // verde
+    if (porcentajeUsado >= 80 && porcentajeUsado < 100) color = '#ffc107'; // amarillo
+    if (porcentajeUsado >= 100) color = '#f44336'; // rojo
+
+    contenedorBarra.innerHTML = `
+        <div class="barra-presupuesto">
+            <div class="barra-uso" style="width:${Math.min(porcentajeUsado, 100)}%; background-color:${color};"></div>
+        </div>
+        <div class="barra-label">Presupuesto usado: ${porcentajeTexto}%</div>
+    `;
+}
+
+
     // Guardar para persistencia e historial (estructura ampliada)
     const datos = {
         fecha: new Date().toISOString(),
@@ -7058,4 +7078,3 @@ document.addEventListener('DOMContentLoaded', function() {
         generarSugerenciasAhorro();
     }, 1000); // Pequeño delay para asegurar que todo esté cargado
 });
-
