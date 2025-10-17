@@ -6,10 +6,10 @@
   <title>SISTEMA FINANCIERO</title>
   <link rel="icon" type="image/x-icon" href="recursos/ICONO.png">
 
-  <link rel="stylesheet" href="styles.css?v=20251015" />
-  <link rel="stylesheet" href="deudas.css?v=20251015" />
-  <link rel="stylesheet" href="win11-theme.css?v=20251015">
-  <link rel="stylesheet" href="movimientos-cards-fixed.css?v=20251015">
+  <link rel="stylesheet" href="styles.css?v=20251017" />
+  <link rel="stylesheet" href="deudas.css?v=20251017" />
+  <link rel="stylesheet" href="win11-theme.css?v=20251017">
+  <link rel="stylesheet" href="movimientos-cards-fixed.css?v=20251017">
   
   <script src="enhanced-cards.js"></script>
   <script src="backup-manager.js"></script>
@@ -462,6 +462,12 @@
 
       <label for="presupuestoInicial">Presupuesto inicial (Bs):</label>
       <input type="text" id="presupuestoInicial" placeholder="Ej: 5.000,00" style="width:100%; padding:.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem;" />
+
+      <label for="porcentajeExtra" style="margin-top:1rem; display:block;">Porcentaje adicional (%)</label>
+<input type="number" id="porcentajeExtra" value="10" min="0" step="1"
+       style="width:100%; padding:.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem;"
+       placeholder="Ej: 10">
+
 
       <h3 style="margin-top:1rem;">Selecciona las categorías a incluir:</h3>
 <select id="selectCategoriasPresupuesto" multiple 
@@ -1586,11 +1592,11 @@
   </div>
 </div>
 
-  <script src="chart.umd.min.js?v=20251015"></script>
-  <script src="xlsx.full.min.js?v=20251015"></script>
+  <script src="chart.umd.min.js?v=20251017"></script>
+  <script src="xlsx.full.min.js?v=20251017"></script>
   <script src="equivalente-calculator.js"></script>
   <script src="presupuesto-sugerido.js"></script>
-  <script src="app.js?v=20251015"></script>
+  <script src="app.js?v=20251017"></script>
   
   <!-- Modal de bloqueo -->
   <div id="modalBloqueo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1001; justify-content:center; align-items:center;">
@@ -1747,4 +1753,3 @@
 
 </body>
 </html>
-
