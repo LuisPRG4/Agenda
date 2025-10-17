@@ -231,7 +231,7 @@ function parseNumberVE(str) {
 }
 
 //Versión del sistema:
-const APP_VERSION = '1.0.4';
+const APP_VERSION = '1.1.0';
 
 // ✅ Función para crear datos de backup (necesaria para el almacén)
 async function crearBackupData() {
@@ -7058,3 +7058,4 @@ document.addEventListener('DOMContentLoaded', function() {
         generarSugerenciasAhorro();
     }, 1000); // Pequeño delay para asegurar que todo esté cargado
 });
+
