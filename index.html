@@ -111,6 +111,15 @@
   Inversiones
 </button>
 
+<!-- RECORDATORIOS -->
+<div class="category-badge">⏰ RECORDATORIOS</div>
+<button class="side-tab" onclick="mostrarSideTab('recordatorios')">
+  <svg class="icon" viewBox="0 0 24 24" fill="#f59e0b">
+    <path d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4a2.5 2.5 0 0 0-5 0v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+  </svg>
+  Recordatorios
+</button>
+
 <div class="nav-category-separator"></div>
 
 <!-- HERRAMIENTAS -->
@@ -495,7 +504,7 @@
     📦 Guardar en historial
   </button>
   <button onclick="reiniciarPresupuestoSugerido()" 
-          style="background:#dc2626; color:white; border:none; border-radius:8px; padding:0.6rem 1rem; cursor:pointer;">
+          style="background:#dc2626; color:white; border:none; border-radius:8px; padding:0.6rem 1rem; cursor:pointer;" class="btn-secundario">
     🔁 Reiniciar
   </button>
 </div>
@@ -539,7 +548,6 @@
   </div>
 </div>
 
-
     </section> <!-- cierre section -->
   </div>
 </div>
@@ -572,9 +580,6 @@
             </section>
       </div> <!-- cierre sidebar-content ANALISIS -->
     </div>
-
-
-
 
     <div class="side-content" id="side-presupuesto">
       <div class="sidebar-content">
@@ -1267,6 +1272,7 @@
 </div> <!-- cierre sidebar-content CONFIGURACIÓN -->
 </div>
 
+
 <!-- ✅ NUEVA PESTAÑA: AHORRO -->
 <div class="side-content" id="side-ahorro">
   <div class="sidebar-content">
@@ -1447,6 +1453,150 @@
   </div>
 </div>
 
+<!-- ======= PESTAÑA: RECORDATORIOS ======= -->
+<div class="side-content" id="side-recordatorios">
+  <div class="sidebar-content">
+    <section>
+      <h2>⏰ Recordatorios
+        <button onclick="mostrarAyudaRecordatorios()"
+                style="background:none;border:none;color:var(--primary);font-size:1rem;cursor:pointer;margin-left:0.5rem;padding:0.25rem;border-radius:50%;"
+                title="¿Cómo funcionan los recordatorios?">❓</button>
+      </h2>
+      <p style="color:var(--text-light);margin-bottom:1.5rem;">
+        Gestiona avisos automáticos para vencimientos, metas o cualquier evento.  
+        <strong>Anticipación por defecto: 5 días</strong> (personalizable).
+      </p>
+
+      <!-- Formulario nuevo recordatorio -->
+      <div style="background:var(--card-bg);padding:1.5rem;border-radius:var(--radius);margin-bottom:1.5rem;">
+        <h3 style="margin-top:0;">➕ Nuevo Recordatorio</h3>
+        <input type="text" id="tituloRecordatorio" placeholder="Título (ej: Pago del mantenimiento)" 
+               style="width:100%;margin-bottom:1rem;padding:0.75rem;border:1px solid #ccc;border-radius:8px;">
+        <textarea id="descripcionRecordatorio" placeholder="Descripción opcional..." rows="2"
+                  style="width:100%;margin-bottom:1rem;padding:0.75rem;border:1px solid #ccc;border-radius:8px;resize:vertical;"></textarea>
+        <label>Fecha límite:
+          <input type="date" id="fechaRecordatorio" style="width:100%;padding:0.75rem;border:1px solid #ccc;border-radius:8px;">
+        </label>
+        <label style="margin-top:1rem;display:block;">
+          Anticipación (días):
+          <input type="number" id="diasAnticipacion" value="5" min="1" max="365"
+                 style="width:100%;padding:0.75rem;border:1px solid #ccc;border-radius:8px;">
+        </label>
+        <button onclick="guardarRecordatorio()" 
+                style="width:100%;margin-top:1rem;background:var(--primary);color:white;border:none;border-radius:8px;padding:0.75rem;">Guardar</button>
+
+        <label style="margin-top:1rem;display:block;">
+  Prioridad:
+  <select id="prioridadRecordatorio" style="width:100%;padding:0.75rem;border:1px solid #ccc;border-radius:8px;">
+    <option value="baja">Baja</option>
+    <option value="media" selected>Media</option>
+    <option value="alta">Alta</option>
+  </select>
+</label>
+
+<label style="margin-top:1rem;display:block;">
+  Repetición:
+  <select id="repeticionRecordatorio" style="width:100%;padding:0.75rem;border:1px solid #ccc;border-radius:8px;">
+    <option value="ninguna" selected>No repetir</option>
+    <option value="diaria">Diaria</option>
+    <option value="semanal">Semanal</option>
+    <option value="mensual">Mensual</option>
+  </select>
+</label>
+
+
+
+      </div>
+
+<!------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------>      
+      <!-- ⚙️ Configuración global -->
+<details style="margin-bottom:1.5rem;">
+  <summary>⚙️ Configuración global</summary>
+
+  <div style="padding:1rem;background:var(--card-bg);border-radius:var(--radius);display:flex;flex-direction:column;gap:1rem;">
+    
+    <!-- 🔔 Sonido de aviso -->
+    <section id="configSonido">
+      <h5 style="margin-top:0;">🔔 Sonido de aviso</h5>
+
+      <label for="selectSonido">Elegir sonido:</label>
+      <select id="selectSonido" style="margin-top:0.3rem;">
+        <option value="default">Predeterminado</option>
+        <option value="chime">Campanita</option>
+        <option value="alert">Alerta breve</option>
+        <option value="none">Silencio</option>
+      </select>
+
+      <div style="margin-top:0.6rem;">
+        <label for="uploadSonido">O subir un sonido personalizado (.mp3 o .wav):</label>
+        <input type="file" id="uploadSonido" accept="audio/*" style="margin-top:0.3rem;">
+      </div>
+
+      <button id="btnProbarSonido"
+              style="margin-top:0.7rem;background:var(--info);color:white;border:none;border-radius:6px;padding:0.4rem 0.8rem;">
+        ▶️ Probar sonido
+      </button>
+    </section>
+
+    <!-- 🕓 Configuración visual / avisos -->
+<section id="configVisual">
+  <h5 style="margin-top:1rem; margin-bottom:0.5rem;">👁️ Preferencias de avisos</h5>
+  
+  <div style="display:flex;flex-direction:column;gap:0.6rem;margin-top:0.3rem;">
+    <label style="display:flex;align-items:center;gap:0.6rem;cursor:pointer;">
+      <input type="checkbox" id="mostrarToast" checked onchange="toggleAvisosVisuales()" 
+             style="transform:scale(1.2);accent-color:var(--info);">
+      <span>Mostrar notificaciones visuales (toasts)</span>
+    </label>
+
+    <label style="display:flex;align-items:center;gap:0.6rem;cursor:pointer;">
+      <input type="checkbox" id="mostrarVencidos" checked onchange="toggleVencidos()" 
+             style="transform:scale(1.2);accent-color:var(--warning);">
+      <span>Mostrar recordatorios vencidos en la lista</span>
+    </label>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:0.3rem;margin-top:0.8rem;">
+  <label for="modoAvisoDiario" style="font-weight:500;">🔁 Modo de recordatorio:</label>
+  <select id="modoAvisoDiario" onchange="guardarModoAvisoDiario()" style="padding:0.3rem;border-radius:6px;">
+    <option value="unico">Avisar una sola vez</option>
+    <option value="repetido">Recordar cada día hasta la fecha límite</option>
+  </select>
+</div>
+
+</section>
+
+
+    <!-- 💾 Botón de respaldo opcional -->
+    <section id="configBackup">
+      <h5 style="margin-top:1rem;">💾 Respaldo y restauración</h5>
+      <button onclick="exportarRecordatorios()" 
+              style="background:var(--success);color:white;border:none;border-radius:6px;padding:0.4rem 0.8rem;">
+        Exportar recordatorios
+      </button>
+      <input type="file" id="importarArchivo" accept=".json" onchange="importarRecordatorios(this)" 
+             style="margin-top:0.5rem;">
+    </section>
+
+  </div>
+</details>
+
+<!------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------>
+
+      <!-- Listado de recordatorios -->
+      <div id="listaRecordatorios" style="margin-bottom:1.5rem;">
+        <!-- Se llena dinámicamente -->
+      </div>
+
+      <!-- Próximos avisos -->
+      <div id="proximosAvisos" style="margin-bottom:1.5rem;">
+        <h3>📬 Próximos avisos</h3>
+        <ul id="ulProximosAvisos"></ul>
+      </div>
+    </section> <!-- CIERRE DE SECCIÓN RECORDATORIOS -->
+  </div>
+</div>
+
 <!-- ✅ NUEVA PESTAÑA: PRESUPUESTO SUGERIDO -->
 <div class="side-content" id="side-presupuesto-sugerido">
   <div class="sidebar-content">
@@ -1600,8 +1750,8 @@
   <script src="presupuesto-sugerido.js"></script>
   <script src="app.js?v=20251017"></script>
   
-  <!-- Modal de bloqueo -->
-  <div id="modalBloqueo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1001; justify-content:center; align-items:center;">
+  <!-- MODAL DE BLOQUEO (SIN CANCELAR) -->
+<div id="modalBloqueo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1001; justify-content:center; align-items:center;">
   <div style="background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow-lg); padding:2rem; width:90%; max-width:350px; text-align:center;">
     <h2>🔒 SISTEMA DE FINANZAS</h2>
     <p style="color:var(--text-light); margin-bottom:1.5rem;">Ingresa tu PIN de 4 dígitos para acceder.</p>
@@ -1609,12 +1759,15 @@
            style="width:100%; padding:1rem; font-size:1.5rem; text-align:center; margin-bottom:1.5rem; border:1px solid var(--text-light); border-radius:8px;"
            title="Escribe 'reset' si olvidaste tu PIN (solo para recuperación)">
     <button onclick="desbloquearApp()" style="width:100%; padding:1rem; font-size:1rem; background:#0b57d0; color:white; border:none; border-radius:8px;">Desbloquear</button>
-    <button onclick="cerrarModalBloqueo()" style="width:100%; padding:0.75rem; margin-top:1rem; background:var(--danger); color:white; border:none; border-radius:8px; font-size:0.9rem;">Cancelar</button>
+    <button onclick="mostrarAyudaPinOlvidado()" 
+            style="width:100%; padding:0.75rem; margin-top:1rem; background:transparent; color:var(--danger); border:1px solid var(--danger); border-radius:8px; font-size:0.9rem;">
+      ¿Olvidaste tu PIN?
+    </button>
     <p id="avisoPinOlvidado" style="font-size:0.75rem; color:var(--text-light); margin-top:1.5rem; font-style:italic; display:none;">
-      ⚠️ ¿Olvidaste tu PIN? Escribe <strong>"reset"</strong> para desactivar el bloqueo.
+      ⚠️ ¿Olvidaste tu PIN? Escribe <strong>"reset"</strong> en el campo y presiona <strong>Desbloquear</strong>.
     </p>
   </div>
-  </div>
+</div>
 
   <!-- Toast -->
   <div id="toast-container">
@@ -1755,4 +1908,3 @@
 
 </body>
 </html>
-
