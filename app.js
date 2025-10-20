@@ -1,7 +1,34 @@
 // Variable global para la base de datos
 let db;
 const DB_NAME = 'sfpDB';
-const DB_VERSION = 2; // ✅ Versión actual de la base de datos
+const DB_VERSION = 3; // ✅ Versión actual de la base de datos
+
+// (variable global)
+let idRecordatorioEditando = null;
+let sonidoPersonalizado = null; // almacenamos temporalmente el audio subido
+
+// SONIDO DE LOS RECORDATORIOS
+document.getElementById('uploadSonido').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function (ev) {
+    const base64 = ev.target.result;
+    localStorage.setItem('sonidoPersonalizado', base64);
+    mostrarToast('🎵 Sonido personalizado guardado', 'success');
+    sonidoPersonalizado = base64;
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('selectSonido').addEventListener('change', (e) => {
+  localStorage.setItem('sonidoSeleccionado', e.target.value);
+});
+
+document.getElementById('btnProbarSonido').addEventListener('click', () => {
+  reproducirSonidoAviso();
+});
 
 // Nombres de los almacenes de objetos
 const STORES = {
@@ -319,6 +346,12 @@ function openDB() {
             // Pestaña Inversiones
             if (!db.objectStoreNames.contains(STORES.INVERSIONES)) {
                 db.createObjectStore(STORES.INVERSIONES, { keyPath: 'id', autoIncrement: true });
+            }
+
+            // Almacén Recordatorios
+            if (!db.objectStoreNames.contains('recordatorios')) {
+                const recStore = db.createObjectStore('recordatorios', { keyPath: 'id', autoIncrement: true });
+            recStore.createIndex('fechaIndex', 'fechaLimite', { unique: false });
             }
         };
 
@@ -1303,6 +1336,12 @@ function mostrarSideTab(id) {
                 mostrarInfoCambios();
                 break;
 
+        case 'recordatorios':
+            (async () => {
+                await renderizarRecordatoriosPestana();
+                })();
+                break;
+        
     }
 
     // ✅ MOSTRAR VERSIÓN EN EL PANEL DE CONFIGURACIÓN
@@ -6722,26 +6761,28 @@ if (contenedorBarra) {
 }
 
 
-    // Guardar para persistencia e historial (estructura ampliada)
-    const datos = {
-        fecha: new Date().toISOString(),
-        categorias: seleccionadas,
-        fechaInicio: fechaInicio.toISOString(),
-        fechaFin: fechaFin.toISOString(),
-        totalDias,
-        totalGastos,
-        promedioDiario,
-        promedioMensual,
-        porcentajeExtra,
-        montoExtra,
-        presupuestoSugerido,
-        presupuestoInicial: valorPresupuesto,
-        restante
-    };
+    // ✅ Guardar datos con estructura normalizada
+const datosNormalizados = {
+    version: '2.0', // opcional, para referencia futura
+    fecha: new Date().toISOString(),
+    categorias: Array.isArray(seleccionadas) ? seleccionadas : [],
+    fechaInicio: fechaInicio.toISOString(),
+    fechaFin: fechaFin.toISOString(),
+    totalDias: Number(totalDias) || 0,
+    totalGastos: Number(totalGastos) || 0,
+    promedioDiario: Number(promedioDiario) || 0,
+    promedioMensual: Number(promedioMensual) || 0,
+    porcentajeExtra: Number(porcentajeExtra) || 0,
+    montoExtra: Number(montoExtra) || 0,
+    presupuestoSugerido: Number(presupuestoSugerido) || 0,
+    presupuestoInicial: Number(valorPresupuesto) || 0,
+    restante: Number(restante) || 0
+};
 
-    localStorage.setItem('presupuestoSugeridoActual', JSON.stringify(datos));
-    mostrarToast('Presupuesto sugerido calculado correctamente.', 'success');
-    mostrarHistorialPresupuestos();
+localStorage.setItem('presupuestoSugeridoActual', JSON.stringify(datosNormalizados));
+mostrarToast('💾 Presupuesto sugerido calculado correctamente.', 'success');
+mostrarHistorialPresupuestos();
+
 }
 
 
@@ -6944,15 +6985,33 @@ function cambiarPaginaHistorial(direccion) {
     mostrarHistorialPresupuestos();
 }
 
-// ✅ Reiniciar cálculo (sin borrar historial)
+// ✅ Reiniciar pestaña de Presupuesto Sugerido
 function reiniciarPresupuestoSugerido() {
-    document.getElementById('presupuestoInicial').value = '';
-    const select = document.getElementById('selectCategoriasPresupuesto');
-    if (select) Array.from(select.options).forEach(opt => opt.selected = false);
-    document.getElementById('resultadoPresupuesto').innerHTML = '';
+    // Limpiar localStorage del cálculo actual (sin borrar historial)
     localStorage.removeItem('presupuestoSugeridoActual');
-    mostrarToast('🔁 Presupuesto reiniciado. El historial permanece intacto.', 'info');
+
+    // Limpiar campos de entrada
+    const inputPresupuesto = document.getElementById('presupuestoInicial');
+    const inputPorcentaje = document.getElementById('porcentajeExtra');
+    if (inputPresupuesto) inputPresupuesto.value = '';
+    if (inputPorcentaje) inputPorcentaje.value = '';
+
+    // Limpiar selección de categorías
+    const select = document.getElementById('selectCategoriasPresupuesto');
+    if (select) {
+        Array.from(select.options).forEach(opt => (opt.selected = false));
+    }
+
+    // Limpiar resultados y barra
+    const resultado = document.getElementById('resultadoPresupuesto');
+    if (resultado) resultado.innerHTML = '';
+
+    const contenedorBarra = document.getElementById('barraPresupuestoContainer');
+    if (contenedorBarra) contenedorBarra.innerHTML = '';
+
+    mostrarToast('🔄 Presupuesto reiniciado. Puedes hacer un nuevo cálculo.', 'info');
 }
+
 
 // ✅ Plegar o desplegar historial
 function toggleHistorial() {
@@ -7064,6 +7123,396 @@ async function exportarReportePresupuestos() {
     mostrarToast('📤 Reporte exportado correctamente.', 'success');
 }
 
+// =========================================================
+// ⏰ SISTEMA DE RECORDATORIOS con anticipación configurable
+// =========================================================
+const STORES_RECORDATORIOS = {
+  RECORDATORIOS: 'recordatorios'
+};
+
+/* ---------- CRUD ---------- */
+async function addRecordatorio(rec) {
+  return addEntry(STORES_RECORDATORIOS.RECORDATORIOS, rec);
+}
+async function getAllRecordatorios() {
+  return getAllEntries(STORES_RECORDATORIOS.RECORDATORIOS);
+}
+async function updateRecordatorio(rec) {
+  return updateEntry(STORES_RECORDATORIOS.RECORDATORIOS, rec);
+}
+async function deleteRecordatorio(id) {
+  return deleteEntry(STORES_RECORDATORIOS.RECORDATORIOS, id);
+}
+
+/* ---------- Guardar desde form ---------- */
+async function guardarRecordatorio() {
+  const titulo = document.getElementById('tituloRecordatorio').value.trim();
+  const descripcion = document.getElementById('descripcionRecordatorio').value.trim();
+  const fecha = document.getElementById('fechaRecordatorio').value; // 'YYYY-MM-DD'
+  const dias = parseInt(document.getElementById('diasAnticipacion').value) || 5;
+
+  if (!titulo || !fecha) {
+    mostrarToast('❌ Título y fecha son obligatorios', 'danger');
+    return;
+  }
+  if (new Date(fecha + 'T12:00:00') <= new Date()) { // validar usando T12 para evitar shift timezone
+    mostrarToast('❌ La fecha debe ser futura', 'danger');
+    return;
+  }
+
+  const rec = {
+    titulo,
+    descripcion,
+    fechaLimite: fecha,            // mantenemos 'YYYY-MM-DD' (más simple para inputs)
+    diasAnticipacion: dias,
+    avisado: false
+  };
+
+  if (idRecordatorioEditando) {
+    // actualizar: preservar fechaCreacion si existe
+    const todos = await getAllRecordatorios();
+    const original = todos.find(r => r.id === idRecordatorioEditando) || {};
+    rec.id = idRecordatorioEditando;
+    rec.fechaCreacion = original.fechaCreacion || new Date().toISOString();
+    await updateRecordatorio(rec);
+    idRecordatorioEditando = null;
+    mostrarToast('✅ Recordatorio actualizado', 'success');
+
+    // Restaurar texto del botón (opcional)
+    const btn = document.querySelector('#side-recordatorios button[onclick="guardarRecordatorio()"]');
+    if (btn) btn.textContent = 'Guardar';
+  } else {
+    rec.fechaCreacion = new Date().toISOString();
+    await addRecordatorio(rec);
+    mostrarToast('✅ Recordatorio guardado', 'success');
+  }
+
+  limpiarFormRecordatorio();
+  await renderizarRecordatorios();
+  await renderizarProximosAvisos();
+}
+
+
+function limpiarFormRecordatorio() {
+  document.getElementById('tituloRecordatorio').value = '';
+  document.getElementById('descripcionRecordatorio').value = '';
+  document.getElementById('fechaRecordatorio').value = '';
+  document.getElementById('diasAnticipacion').value = localStorage.getItem('defaultAnticipacion') || 5;
+}
+
+/* ---------- Renderizado ---------- */
+async function renderizarRecordatorios() {
+  const lista = document.getElementById('listaRecordatorios');
+  const todos = await getAllRecordatorios();
+  if (!todos.length) {
+    lista.innerHTML = '<p style="text-align:center;color:var(--text-light);font-style:italic;">No hay recordatorios aún.</p>';
+    return;
+  }
+  let html = '';
+  todos.forEach(r => {
+    const fLim = new Date(r.fechaLimite + 'T12:00:00');
+    const hoy = new Date();
+    const diasRest = Math.ceil((fLim - hoy) / (1000 * 60 * 60 * 24));
+    const clase = diasRest <= r.diasAnticipacion ? 'proximo' : '';
+    html += `
+      <div class="tarjeta-recordatorio ${clase}" style="background:var(--card-bg);border-radius:8px;padding:1rem;margin-bottom:0.75rem;border-left:4px solid ${clase ? 'var(--warning)' : 'var(--primary)'};">
+        <div style="display:flex;justify-content:space-between;align-items:start;">
+          <div>
+            <strong>${r.titulo}</strong>
+            ${r.descripcion ? `<br><small style="color:var(--text-light);">${r.descripcion}</small>` : ''}
+            <br><small style="color:var(--text-light);">📅 ${fLim.toLocaleDateString('es-VE')} · ⏰ ${r.diasAnticipacion} días antes</small>
+          </div>
+          <div style="display:flex;gap:0.25rem;">
+            <button onclick="editarRecordatorio(${r.id})" title="Editar">✏️</button>
+            <button onclick="eliminarRecordatorio(${r.id})" title="Eliminar">🗑️</button>
+          </div>
+        </div>
+      </div>`;
+  });
+  lista.innerHTML = html;
+}
+
+/* ---------- Editar ---------- */
+async function editarRecordatorio(id) {
+  const todos = await getAllRecordatorios();
+  const rec = todos.find(r => r.id === id);
+  if (!rec) return;
+
+  document.getElementById('tituloRecordatorio').value = rec.titulo;
+  document.getElementById('descripcionRecordatorio').value = rec.descripcion || '';
+
+  // Si guardaste la fecha como ISO completa (p.ej "2025-10-23T..."), tomar solo la parte de fecha
+  const fechaVal = (rec.fechaLimite && rec.fechaLimite.includes('T')) ? rec.fechaLimite.split('T')[0] : rec.fechaLimite;
+  document.getElementById('fechaRecordatorio').value = fechaVal;
+
+  document.getElementById('diasAnticipacion').value = rec.diasAnticipacion || localStorage.getItem('defaultAnticipacion') || 5;
+
+  // marcar que estamos editando ese id
+  idRecordatorioEditando = id;
+
+  // (opcional) cambiar texto del botón para feedback
+  const btn = document.querySelector('#side-recordatorios button[onclick="guardarRecordatorio()"]');
+  if (btn) btn.textContent = 'Actualizar';
+
+  // Scroll al formulario
+  document.querySelector('#side-recordatorios section').scrollIntoView({behavior: 'smooth'});
+}
+
+/* ---------- Eliminar ---------- */
+async function eliminarRecordatorio(id) {
+  if (await mostrarConfirmacion('¿Eliminar este recordatorio?')) {
+    await deleteRecordatorio(id);
+    mostrarToast('🗑️ Recordatorio eliminado', 'info');
+    await renderizarRecordatorios();
+    await renderizarProximosAvisos();
+  }
+}
+
+/* ---------- Mostrar próximos avisos ---------- */
+async function renderizarProximosAvisos() {
+  const ul = document.getElementById('ulProximosAvisos');
+  const todos = await getAllRecordatorios();
+  const hoy = new Date();
+  const proximos = [];
+  const modoAviso = localStorage.getItem('modoAvisoDiario') || 'unico'; // nuevo
+
+  for (const r of todos) {
+    const fLim = new Date(r.fechaLimite + 'T12:00:00');
+    const dias = Math.ceil((fLim - hoy) / (1000 * 60 * 60 * 24));
+
+    // condición de aviso
+    const dentroRango = dias <= r.diasAnticipacion && dias >= 0;
+    const puedeAvisar = modoAviso === 'repetido' ? dentroRango : (dentroRango && !r.avisado);
+
+    if (puedeAvisar) {
+      proximos.push({ ...r, diasRestantes: dias });
+
+      if (localStorage.getItem('mostrarToast') !== '0') {
+        mostrarToast(`🔔 Recordatorio próximo: ${r.titulo} (${dias === 0 ? 'HOY' : 'en ' + dias + ' días'})`, 'info');
+      }
+      reproducirSonidoAviso();
+
+      if (modoAviso === 'unico') {
+        r.avisado = true;
+        await updateRecordatorio(r);
+      }
+    }
+  }
+
+  if (!proximos.length) {
+    ul.innerHTML = '<li style="color:var(--text-light);font-style:italic;">No hay avisos próximos.</li>';
+    return;
+  }
+
+  let html = '';
+  proximos
+    .sort((a, b) => a.diasRestantes - b.diasRestantes)
+    .forEach(p => {
+      html += `<li style="margin-bottom:0.5rem;">
+        <strong>${p.titulo}</strong> — ${p.diasRestantes === 0 ? '¡HOY!' : p.diasRestantes + ' días'}
+        ${p.descripcion ? `<br><small>${p.descripcion}</small>` : ''}
+      </li>`;
+    });
+
+  ul.innerHTML = html;
+}
+
+
+/* ---------- Configuración global ---------- */
+function guardarDefaultAnticipacion() {
+  const d = document.getElementById('defaultAnticipacion').value;
+  localStorage.setItem('defaultAnticipacion', d);
+  mostrarToast('✅ Valor por defecto guardado', 'success');
+}
+async function aplicarDefaultATodos() {
+  const def = parseInt(localStorage.getItem('defaultAnticipacion') || 5);
+  const todos = await getAllRecordatorios();
+  for (const r of todos) {
+    r.diasAnticipacion = def;
+    await updateRecordatorio(r);
+  }
+  mostrarToast(`✅ Anticipación de ${def} días aplicada a todos`, 'success');
+  await renderizarRecordatorios();
+}
+
+/* ---------- Ayuda ---------- */
+function mostrarAyudaRecordatorios() {
+  mostrarModalAyuda(`
+    <h2>⏰ ¿Cómo funcionan los Recordatorios?</h2>
+    <ul>
+      <li><strong>Anticipación configurable:</strong> Elige cuántos días antes quieres ser avisado (por defecto 5).</li>
+      <li><strong>Global o individual:</strong> Puedes cambiar el valor para TODOS los recordatorios o solo para uno.</li>
+      <li><strong>Avisos automáticos:</strong> Al cargar la pestaña se muestran los próximos eventos.</li>
+    </ul>
+    <p style="font-size:0.85rem;color:var(--text-light)">💡 Los recordatorios se guardan localmente (IndexedDB) y no se pierden al cerrar el navegador.</p>
+  `, 'modalAyudaRecordatorios');
+}
+function cerrarAyudaRecordatorios() {
+  const m = document.getElementById('modalAyudaRecordatorios');
+  if (m) m.style.display = 'none';
+}
+
+/* ---------- Lanzar al mostrar pestaña ---------- */
+async function renderizarRecordatoriosPestana() {
+  // Primero renderizamos todo el HTML de la pestaña
+  await renderizarRecordatorios();
+  await renderizarProximosAvisos();
+
+  // Lista de IDs de inputs y su valor por defecto si no existe en localStorage
+  const inputs = [
+    { id: 'defaultAnticipacion', default: 5 },
+    { id: 'modoAvisoDiario', default: 'unico' },
+    { id: 'prioridadRecordatorio', default: 'media' },
+    { id: 'repeticionRecordatorio', default: 'ninguna' },
+    // Agrega más campos aquí si es necesario
+    // { id: 'otroInput', default: 'valorPorDefecto' }
+  ];
+
+  inputs.forEach(({ id, default: def }) => {
+    const el = document.getElementById(id);
+    if (el) {
+      // Cargar valor desde localStorage o valor por defecto
+      el.value = localStorage.getItem(id) ?? def;
+
+      // Guardar automáticamente cambios en localStorage
+      el.addEventListener('input', () => {
+        localStorage.setItem(id, el.value);
+      });
+    }
+  });
+
+  // SONIDO SELECCIONADO
+const selSonido = document.getElementById('selectSonido');
+if(selSonido) {
+  const valorGuardado = localStorage.getItem('sonidoSeleccionado') || 'default';
+  selSonido.value = valorGuardado;
+
+  selSonido.addEventListener('change', () => {
+    localStorage.setItem('sonidoSeleccionado', selSonido.value);
+  });
+}
+
+
+  // Renderizar lista con colores
+  await renderizarListaRecordatorios();
+}
+
+// FUNCION PARA EL PIN
+function mostrarAyudaPinOlvidado() {
+  const aviso = document.getElementById('avisoPinOlvidado');
+  aviso.style.display = aviso.style.display === 'block' ? 'none' : 'block';
+}
+
+// FUNCIÓN PARA REPRODUCIR EL SONIDO ELEGIDO EN LA PESTAÑA RECORDATORIOS
+function reproducirSonidoAviso() {
+  const seleccionado = localStorage.getItem('sonidoSeleccionado') || 'default';
+  const personalizado = localStorage.getItem('sonidoPersonalizado');
+
+  let audioSrc = '';
+
+  if (personalizado && seleccionado === 'default') {
+    audioSrc = personalizado;
+  } else {
+    switch (seleccionado) {
+      case 'chime':
+        audioSrc = 'sonidos/chime.mp3';
+        break;
+      case 'alert':
+        audioSrc = 'sonidos/alert.mp3';
+        break;
+      case 'none':
+        return; // sin sonido
+      default:
+        // sonido por defecto (si existe en tu carpeta)
+        audioSrc = 'sonidos/default.mp3';
+    }
+  }
+
+  try {
+    const audio = new Audio(audioSrc);
+    audio.play().catch(err => console.warn('No se pudo reproducir el sonido:', err));
+  } catch (err) {
+    console.error('Error al reproducir sonido:', err);
+  }
+}
+
+// FUNCIONES AUXILIARES DE LA PESTAÑA DE RECORDATORIOS
+function toggleAvisosVisuales() {
+  const estado = document.getElementById('mostrarToast').checked;
+  localStorage.setItem('mostrarToast', estado ? '1' : '0');
+}
+
+function toggleVencidos() {
+  const estado = document.getElementById('mostrarVencidos').checked;
+  localStorage.setItem('mostrarVencidos', estado ? '1' : '0');
+}
+
+function exportarRecordatorios() {
+  getAllRecordatorios().then(data => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'recordatorios_backup.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
+
+function importarRecordatorios(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const data = JSON.parse(e.target.result);
+    for (const rec of data) {
+      await addRecordatorio(rec);
+    }
+    mostrarToast('✅ Recordatorios importados correctamente', 'success');
+    renderizarRecordatorios();
+  };
+  reader.readAsText(file);
+}
+
+function guardarModoAvisoDiario() {
+  const modo = document.getElementById('modoAvisoDiario').value;
+  localStorage.setItem('modoAvisoDiario', modo);
+  mostrarToast('⚙️ Configuración de recordatorios actualizada', 'info');
+}
+
+// COLORACIÓN POR PRIORIDAD PARA LOS RECORDATORIOS
+async function renderizarListaRecordatorios() {
+  const lista = document.getElementById('listaRecordatorios');
+  lista.innerHTML = ''; // limpiar lista antes de renderizar
+
+  const recordatorios = await getAllRecordatorios(); // ahora usa tu IndexedDB
+
+  if(!recordatorios.length) {
+    lista.innerHTML = '<p style="text-align:center;color:var(--text-light);font-style:italic;">No hay recordatorios aún.</p>';
+    return;
+  }
+
+  recordatorios.forEach(r => {
+    const div = document.createElement('div');
+    div.classList.add('recordatorio');
+
+    // Asignar clase según prioridad
+    if(r.prioridad) {
+      div.classList.add(`recordatorio-${r.prioridad}`);
+    }
+
+    // Contenido
+    div.innerHTML = `
+      <strong>${r.titulo}</strong><br>
+      ${r.descripcion ? r.descripcion + '<br>' : ''}
+      📅 ${r.fechaLimite} - ⏰ ${r.diasAnticipacion} días de anticipación
+    `;
+
+    lista.appendChild(div);
+  });
+}
+
+
 
 // ------------------------------------------------------------------------------------------------------------------------------------
 //                                 Inicialización y Event Listeners
@@ -7111,6 +7560,13 @@ document.addEventListener('DOMContentLoaded', async function () {
         } else {
             document.getElementById('tasaCambio').value = ''; // Vacío por defecto
         }
+
+        // 4.  🔐  SEGURIDAD: si el bloqueo está activo → mostrar modal
+    //     Esto se ejecuta SIEMPRE al recargar (F5, Ctrl+R, botón Recargar…)
+    if (localStorage.getItem('bloqueoActivo') === 'true' && localStorage.getItem('bloqueoPIN')) {
+      localStorage.removeItem('bloqueoDesbloqueado'); // fuerza bloqueo
+      mostrarModalBloqueo();
+    }
 
         // ✅ Inicializar equivalente al cargar
         actualizarEquivalente();
