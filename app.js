@@ -7204,23 +7204,43 @@ function limpiarFormRecordatorio() {
 async function renderizarRecordatorios() {
   const lista = document.getElementById('listaRecordatorios');
   const todos = await getAllRecordatorios();
+
   if (!todos.length) {
     lista.innerHTML = '<p style="text-align:center;color:var(--text-light);font-style:italic;">No hay recordatorios aún.</p>';
     return;
   }
+
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
   let html = '';
   todos.forEach(r => {
-    const fLim = new Date(r.fechaLimite + 'T12:00:00');
-    const hoy = new Date();
-    const diasRest = Math.ceil((fLim - hoy) / (1000 * 60 * 60 * 24));
-    const clase = diasRest <= r.diasAnticipacion ? 'proximo' : '';
+    const fLim = new Date(r.fechaLimite + 'T00:00:00');
+    fLim.setHours(0, 0, 0, 0);
+
+    // 🔧 Cálculo exacto de días restantes
+    const diasRest = Math.floor((fLim - hoy) / (1000 * 60 * 60 * 24));
+
+    // Si ya pasó, lo mostramos como “Vencido” o “HOY”
+    let textoDias = '';
+    if (diasRest < 0) textoDias = '✅ Cumplido';
+    else if (diasRest === 0) textoDias = '¡HOY!';
+    else textoDias = `en ${diasRest} día${diasRest !== 1 ? 's' : ''}`;
+
+    const clase = diasRest <= r.diasAnticipacion && diasRest >= 0 ? 'proximo' : '';
+
     html += `
-      <div class="tarjeta-recordatorio ${clase}" style="background:var(--card-bg);border-radius:8px;padding:1rem;margin-bottom:0.75rem;border-left:4px solid ${clase ? 'var(--warning)' : 'var(--primary)'};">
+      <div class="tarjeta-recordatorio ${clase}" 
+           style="background:var(--card-bg);border-radius:8px;padding:1rem;margin-bottom:0.75rem;
+           border-left:4px solid ${clase ? 'var(--warning)' : 'var(--primary)'};">
         <div style="display:flex;justify-content:space-between;align-items:start;">
           <div>
             <strong>${r.titulo}</strong>
             ${r.descripcion ? `<br><small style="color:var(--text-light);">${r.descripcion}</small>` : ''}
-            <br><small style="color:var(--text-light);">📅 ${fLim.toLocaleDateString('es-VE')} · ⏰ ${r.diasAnticipacion} días antes</small>
+            <br><small style="color:var(--text-light);">
+              📅 ${fLim.toLocaleDateString('es-VE')} · ⏰ ${textoDias} 
+              (${r.diasAnticipacion} días de anticipación)
+            </small>
           </div>
           <div style="display:flex;gap:0.25rem;">
             <button onclick="editarRecordatorio(${r.id})" title="Editar">✏️</button>
@@ -7229,6 +7249,7 @@ async function renderizarRecordatorios() {
         </div>
       </div>`;
   });
+
   lista.innerHTML = html;
 }
 
@@ -7272,13 +7293,21 @@ async function eliminarRecordatorio(id) {
 async function renderizarProximosAvisos() {
   const ul = document.getElementById('ulProximosAvisos');
   const todos = await getAllRecordatorios();
+
+  // 🔧 Normalizamos la fecha de hoy a medianoche (sin horas)
   const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
   const proximos = [];
-  const modoAviso = localStorage.getItem('modoAvisoDiario') || 'unico'; // nuevo
+  const modoAviso = localStorage.getItem('modoAvisoDiario') || 'unico';
 
   for (const r of todos) {
-    const fLim = new Date(r.fechaLimite + 'T12:00:00');
-    const dias = Math.ceil((fLim - hoy) / (1000 * 60 * 60 * 24));
+    // Igual: fecha límite normalizada
+    const fLim = new Date(r.fechaLimite + 'T00:00:00');
+    fLim.setHours(0, 0, 0, 0);
+
+    // 👇 Cambio importante: usamos Math.floor en vez de ceil
+    const dias = Math.floor((fLim - hoy) / (1000 * 60 * 60 * 24));
 
     // condición de aviso
     const dentroRango = dias <= r.diasAnticipacion && dias >= 0;
@@ -7287,11 +7316,18 @@ async function renderizarProximosAvisos() {
     if (puedeAvisar) {
       proximos.push({ ...r, diasRestantes: dias });
 
+      // Mostrar toast si está permitido
       if (localStorage.getItem('mostrarToast') !== '0') {
-        mostrarToast(`🔔 Recordatorio próximo: ${r.titulo} (${dias === 0 ? 'HOY' : 'en ' + dias + ' días'})`, 'info');
+        mostrarToast(
+          `🔔 Recordatorio próximo: ${r.titulo} (${dias === 0 ? 'HOY' : 'en ' + dias + ' días'})`,
+          'info'
+        );
       }
+
+      // Reproducir sonido
       reproducirSonidoAviso();
 
+      // Marcar como avisado si es modo único
       if (modoAviso === 'unico') {
         r.avisado = true;
         await updateRecordatorio(r);
@@ -7299,6 +7335,7 @@ async function renderizarProximosAvisos() {
     }
   }
 
+  // Render de la lista visual
   if (!proximos.length) {
     ul.innerHTML = '<li style="color:var(--text-light);font-style:italic;">No hay avisos próximos.</li>';
     return;
@@ -7316,7 +7353,6 @@ async function renderizarProximosAvisos() {
 
   ul.innerHTML = html;
 }
-
 
 /* ---------- Configuración global ---------- */
 function guardarDefaultAnticipacion() {
@@ -7394,7 +7430,7 @@ if(selSonido) {
 
 
   // Renderizar lista con colores
-  await renderizarListaRecordatorios();
+  await renderizarRecordatorios()
 }
 
 // FUNCION PARA EL PIN
@@ -7480,38 +7516,48 @@ function guardarModoAvisoDiario() {
   mostrarToast('⚙️ Configuración de recordatorios actualizada', 'info');
 }
 
-// COLORACIÓN POR PRIORIDAD PARA LOS RECORDATORIOS
-async function renderizarListaRecordatorios() {
-  const lista = document.getElementById('listaRecordatorios');
-  lista.innerHTML = ''; // limpiar lista antes de renderizar
+// =========================================================
+// 🔔 Revisión automática de recordatorios en segundo plano
+// =========================================================
+async function revisarRecordatoriosEnSegundoPlano() {
+  try {
+    const todos = await getAllRecordatorios();
 
-  const recordatorios = await getAllRecordatorios(); // ahora usa tu IndexedDB
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0); // normalizar hora para contar días completos
 
-  if(!recordatorios.length) {
-    lista.innerHTML = '<p style="text-align:center;color:var(--text-light);font-style:italic;">No hay recordatorios aún.</p>';
-    return;
-  }
+    const modoAviso = localStorage.getItem('modoAvisoDiario') || 'unico';
+    const mostrarToastActivo = localStorage.getItem('mostrarToast') !== '0';
 
-  recordatorios.forEach(r => {
-    const div = document.createElement('div');
-    div.classList.add('recordatorio');
+    for (const r of todos) {
+      const fLim = new Date(r.fechaLimite + 'T00:00:00');
+      fLim.setHours(0, 0, 0, 0);
 
-    // Asignar clase según prioridad
-    if(r.prioridad) {
-      div.classList.add(`recordatorio-${r.prioridad}`);
+      const diasRest = Math.ceil((fLim - hoy) / (1000 * 60 * 60 * 24));
+      const dentroRango = diasRest <= r.diasAnticipacion && diasRest >= 0;
+      const puedeAvisar = modoAviso === 'repetido' ? dentroRango : (dentroRango && !r.avisado);
+
+      if (puedeAvisar) {
+        if (mostrarToastActivo) {
+          mostrarToast(`🔔 Recordatorio próximo: ${r.titulo} (${diasRest === 0 ? 'HOY' : 'en ' + diasRest + ' días'})`, 'info');
+        }
+
+        reproducirSonidoAviso();
+
+        if (modoAviso === 'unico') {
+          r.avisado = true;
+          await updateRecordatorio(r);
+        }
+      }
     }
-
-    // Contenido
-    div.innerHTML = `
-      <strong>${r.titulo}</strong><br>
-      ${r.descripcion ? r.descripcion + '<br>' : ''}
-      📅 ${r.fechaLimite} - ⏰ ${r.diasAnticipacion} días de anticipación
-    `;
-
-    lista.appendChild(div);
-  });
+  } catch (err) {
+    console.error('Error revisando recordatorios en segundo plano:', err);
+  }
 }
 
+// Ejecutar al cargar y luego cada 5 minutos (300000 ms)
+setTimeout(revisarRecordatoriosEnSegundoPlano, 10000); // primera revisión a los 10s
+setInterval(revisarRecordatoriosEnSegundoPlano, 300000); // cada 5 minutos
 
 
 // ------------------------------------------------------------------------------------------------------------------------------------
