@@ -1118,3 +1118,37 @@ body:not(.modo-claro):not(.modo-oscuro) .btn-cancelar:hover {
   color: var(--text-light);
   margin-top: 0.3rem;
 }
+
+/* Tarjetas de recordatorios */
+.tarjeta-recordatorio.proximo {
+  background: var(--warning-bg) !important;
+  border-left-color: var(--warning) !important;
+}
+.tarjeta-recordatorio button {
+  background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0.25rem; border-radius: 4px; transition: background .2s;
+}
+.tarjeta-recordatorio button:hover { background: rgba(0,0,0,.05); }
+
+/* Lista de próximos avisos */
+#ulProximosAvisos { list-style: none; padding: 0; }
+#ulProximosAvisos li { background: var(--card-bg); padding: .75rem; border-radius: 8px; margin-bottom: .5rem; border-left: 4px solid var(--primary); }
+
+/* COLORES POR PRIORIDAD PARA LOS RECORDATORIOS */
+.recordatorio-baja {
+  background-color: #d4edda; /* verde suave */
+}
+
+.recordatorio-media {
+  background-color: #fff3cd; /* amarillo suave */
+}
+
+.recordatorio-alta {
+  background-color: #f8d7da; /* rojo suave */
+}
+
+.recordatorio {
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 0.8rem;
+  border: 1px solid #ccc;
+}
