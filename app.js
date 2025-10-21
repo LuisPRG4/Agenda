@@ -1,7 +1,7 @@
 // Variable global para la base de datos
 let db;
 const DB_NAME = 'sfpDB';
-const DB_VERSION = 3; // ✅ Versión actual de la base de datos
+const DB_VERSION = 4; // ✅ Versión actual de la base de datos
 
 // (variable global)
 let idRecordatorioEditando = null;
@@ -32,13 +32,14 @@ document.getElementById('btnProbarSonido').addEventListener('click', () => {
 
 // Nombres de los almacenes de objetos
 const STORES = {
-
     MOVIMIENTOS: 'movimientos',
     CATEGORIAS: 'categorias',
     BANCOS: 'bancos',
     REGLAS: 'reglas',
     SALDO_INICIAL: 'saldo_inicial',
-    INVERSIONES: 'inversiones'
+    INVERSIONES: 'inversiones',
+    // ✅ NUEVO: Almacenamiento para Notas
+    NOTAS: 'notas'
 };
 
 // ======================================================================================
@@ -91,15 +92,14 @@ function mostrarConfirmacion(mensaje) {
     }
 
     messageEl.textContent = mensaje;
-    overlay.classList.add('show'); 
+    overlay.classList.add('show');
 
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
         const handleResult = (result) => {
             // Limpiar listeners y ocultar
             okBtn.removeEventListener('click', onOk);
             cancelBtn.removeEventListener('click', onCancel);
             overlay.classList.remove('show');
-            
             // Resolver la promesa
             resolve(result);
         };
@@ -258,7 +258,7 @@ function parseNumberVE(str) {
 }
 
 //Versión del sistema:
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 
 // ✅ Función para crear datos de backup (necesaria para el almacén)
 async function crearBackupData() {
@@ -1341,6 +1341,16 @@ function mostrarSideTab(id) {
                 await renderizarRecordatoriosPestana();
                 })();
                 break;
+        // ✅ NUEVO: Caso para la pestaña "Notas"
+        case 'notas':
+            renderizarNotas(); // Cargar las notas al mostrar la pestaña
+            break;
+        default:
+            console.log(`Pestaña desconocida: ${id}`);
+        
+        case 'asistente-ia':
+            // No necesita cargar datos específicos, solo mostrar la interfaz
+            break;
         
     }
 
@@ -1355,10 +1365,6 @@ function mostrarSideTab(id) {
 }
 
 }
-
-// ======================================================================================
-// 🎯 BUSCADOR ESPECÍFICO PARA MOVIMIENTOS
-// ======================================================================================
 
 // ======================================================================================
 // ✅ BUSCADOR MEJORADO DE MOVIMIENTOS
@@ -7559,6 +7565,170 @@ async function revisarRecordatoriosEnSegundoPlano() {
 setTimeout(revisarRecordatoriosEnSegundoPlano, 10000); // primera revisión a los 10s
 setInterval(revisarRecordatoriosEnSegundoPlano, 300000); // cada 5 minutos
 
+//NOTAS
+// =========================================================
+// ✅ SISTEMA DE NOTAS (CRUD - Create, Read, Update, Delete)
+// =========================================================
+
+/* - CRUD - */
+async function addNota(nota) {
+    return addEntry(STORES.NOTAS, nota);
+}
+
+async function getAllNotas() {
+    return getAllEntries(STORES.NOTAS);
+}
+
+async function updateNota(nota) {
+    return updateEntry(STORES.NOTAS, nota);
+}
+
+async function deleteNota(id) {
+    return deleteEntry(STORES.NOTAS, id);
+}
+
+/* - Función para renderizar la lista de notas - */
+async function renderizarNotas() {
+    const notas = await getAllNotas();
+    const contenedor = document.getElementById('contenedorNotas');
+    const mensajeSinNotas = document.getElementById('mensajeSinNotas');
+
+    if (notas.length === 0) {
+        contenedor.innerHTML = '';
+        mensajeSinNotas.style.display = 'block';
+        return;
+    }
+
+    mensajeSinNotas.style.display = 'none';
+
+    let html = '';
+    notas.forEach(nota => {
+        html += `
+            <div class="tarjeta-nota" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; box-shadow: var(--shadow-sm); transition: transform 0.2s; cursor: pointer;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                    <h4 style="margin: 0; color: var(--text);">${nota.titulo}</h4>
+                    <div style="display: flex; gap: 0.25rem;">
+                        <button onclick="editarNota(${nota.id})" title="Editar" style="background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0.25rem; border-radius: 4px; transition: background .2s;">✏️</button>
+                        <button onclick="eliminarNota(${nota.id})" title="Eliminar" style="background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0.25rem; border-radius: 4px; transition: background .2s;">🗑️</button>
+                    </div>
+                </div>
+                <p style="margin: 0.5rem 0 0 0; color: var(--text-light); font-size: 0.9rem; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">
+                    ${nota.contenido}
+                </p>
+                <small style="display: block; margin-top: 0.5rem; color: var(--text-light); font-size: 0.8rem;">
+                    📅 ${new Date(nota.fechaCreacion).toLocaleDateString('es-VE')} · ⏰ ${new Date(nota.fechaCreacion).toLocaleTimeString('es-VE')}
+                </small>
+            </div>
+        `;
+    });
+
+    contenedor.innerHTML = html;
+}
+
+/* - Función para guardar una nota - */
+async function guardarNota() {
+    const idEditando = document.getElementById('idNotaEditando').value;
+    const titulo = document.getElementById('tituloNota').value.trim();
+    const contenido = document.getElementById('contenidoNota').value.trim();
+
+    if (!titulo || !contenido) {
+        mostrarToast('❌ Título y contenido son obligatorios', 'danger');
+        return;
+    }
+
+    const nota = {
+        titulo,
+        contenido,
+        fechaCreacion: new Date().toISOString()
+    };
+
+    try {
+        if (idEditando) {
+            // Actualizar nota existente
+            nota.id = parseInt(idEditando);
+            await updateNota(nota);
+            mostrarToast('✅ Nota actualizada', 'success');
+        } else {
+            // Crear nueva nota
+            await addNota(nota);
+            mostrarToast('✅ Nota guardada', 'success');
+        }
+
+        limpiarFormularioNota();
+        await renderizarNotas(); // Recargar la lista
+    } catch (error) {
+        console.error("Error al guardar la nota:", error);
+        mostrarToast('❌ Error al guardar la nota', 'danger');
+    }
+}
+
+/* - Función para editar una nota - */
+async function editarNota(id) {
+    const notas = await getAllNotas();
+    const nota = notas.find(n => n.id === id);
+
+    if (!nota) return;
+
+    document.getElementById('idNotaEditando').value = nota.id;
+    document.getElementById('tituloNota').value = nota.titulo;
+    document.getElementById('contenidoNota').value = nota.contenido;
+
+    // ✅ Mostrar toast informativo
+    mostrarToast(`✏️ Editando nota: "${nota.titulo}"`, 'info');
+
+    // Cambiar el texto del botón (opcional)
+    const btnGuardar = document.querySelector('#side-notas button[onclick="guardarNota()"]');
+    if (btnGuardar) btnGuardar.textContent = 'Actualizar Nota';
+
+    // Desplazar hacia el formulario
+    document.getElementById('formularioNota').scrollIntoView({ behavior: 'smooth' });
+}
+
+/* - Función para eliminar una nota - */
+async function eliminarNota(id) {
+    // Usar la función de confirmación moderna (modal personalizado)
+    const confirmado = await mostrarConfirmacion('¿Estás seguro de que quieres eliminar esta nota?');
+
+    if (!confirmado) return; // Si el usuario cancela, no hacemos nada
+
+    try {
+        await deleteNota(id);
+        mostrarToast('✅ Nota eliminada con éxito', 'success'); // Mensaje específico
+        await renderizarNotas(); // Recargar la lista
+    } catch (error) {
+        console.error("Error al eliminar la nota:", error);
+        mostrarToast('❌ Error al eliminar la nota', 'danger');
+    }
+}
+
+/* - Función para limpiar el formulario - */
+function limpiarFormularioNota() {
+    document.getElementById('idNotaEditando').value = '';
+    document.getElementById('tituloNota').value = '';
+    document.getElementById('contenidoNota').value = '';
+    // Restaurar texto del botón (opcional)
+    const btnGuardar = document.querySelector('#side-notas button[onclick="guardarNota()"]');
+    if (btnGuardar) btnGuardar.textContent = '💾 Guardar Nota';
+}
+
+/* - Función para mostrar ayuda de Notas - */
+function mostrarAyudaNotas() {
+    const contenido = `
+        <h2 style="color:var(--primary); margin-bottom:1.5rem; text-align:center;">📝 Guía de Notas</h2>
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="color:var(--text); margin-bottom:0.75rem;">✅ Funcionalidades:</h3>
+            <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+                <li><strong>Agregar notas:</strong> Escribe títulos y contenido para guardar tus ideas.</li>
+                <li><strong>Editar notas:</strong> Haz clic en el lápiz (✏️) para modificar una nota existente.</li>
+                <li><strong>Eliminar notas:</strong> Usa la papelera (🗑️) para borrar notas que ya no necesitas.</li>
+            </ul>
+        </div>
+        <div style="background:var(--info-bg); padding:1rem; border-radius:8px; border-left:4px solid var(--info); margin-top:1.5rem;">
+            <p style="margin:0; color:var(--info-text); font-size:0.875rem;"><strong>💡 Consejo:</strong> Usa las notas para recordatorios personales, ideas de inversión o cualquier dato que quieras tener a mano.</p>
+        </div>
+    `;
+    mostrarModalAyuda(contenido, 'modalAyudaNotas');
+}
 
 // ------------------------------------------------------------------------------------------------------------------------------------
 //                                 Inicialización y Event Listeners
