@@ -3,8 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SISTEMA FINANCIERO</title>
-  <link rel="icon" type="image/x-icon" href="recursos/ICONO.png">
+  <title>Sistema de Gestión Financiera</title>
+  <link rel="icon" type="image/x-icon" href="recursos/c.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="styles.css?v=20251021" />
   <link rel="stylesheet" href="deudas.css?v=20251021" />
@@ -24,12 +28,17 @@
     <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhEUOlV1TFXhAxQ==" type="audio/wav">
   </audio>
 
-  <div style="display: flex; justify-content: flex-end; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-    <button id="btnTema" title="Cambiar tema">🌓</button>
-    <button id="btnBloqueoManual" title="Bloquear aplicación" style="display: none; background: none; border: none; color: #dc2626; font-size: 1.2rem; cursor: pointer; padding: 0; margin: 0; line-height: 1;">🔒</button>
-  </div>
+  <!-- Contenedor para el título y el botón de tema con estilo de cristal -->
+<div style="position: relative; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; padding: 0.75rem; background: rgba(255, 255, 255, 0.8); border-radius: var(--radius); box-shadow: var(--shadow-sm); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.5); /* Borde sutil */">
+  <!-- Botón de tema -->
+  <button id="btnTema" title="Cambiar tema" style="background: none; border: 1px solid var(--text); color: var(--text); border-radius: 50%; width: 2.2rem; height: 2.2rem; font-size: 1.2rem; cursor: pointer; transition: all 0.2s; padding: 0.25rem; box-shadow: var(--shadow-sm);">🌓</button>
 
-  <h1 style="text-align:center; margin-bottom:1rem;">SISTEMA DE FINANZAS</h1>
+  <!-- Título -->
+  <h1 style="text-align: center; margin: 0; font-size: 3rem; color: var(--primary); font-weight: 500; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);">Sistema de Gestión Financiera</h1>
+
+  <!-- Botón de bloqueo manual (opcional) -->
+  <button id="btnBloqueoManual" title="Bloquear aplicación" style="display: none; background: none; border: none; color: #dc2626; font-size: 1.2rem; cursor: pointer; padding: 0.25rem; border-radius: 50%; transition: transform 0.2s; box-shadow: var(--shadow-sm);">🔒</button>
+</div>
   
   
   <div class="sidebar">
@@ -38,12 +47,20 @@
 
     <aside class="win11-nav">
       <div class="nav-header">
-        <img src="recursos/ICONO.png" class="nav-logo">
-        <span class="nav-title">SFP</span>
-        <div class="nav-search">
-          <input type="text" id="navSearch" placeholder="🔍 Buscar pestañas..." />
+    <!-- Logo grande en la parte superior -->
+    <div style="display: flex; justify-content: center; align-items: center; margin: 0.5rem 0;">
+        <div style="position: relative; width: 50px; height: 50px; border-radius: 50%; background: var(--card-bg); padding: 0.2rem; box-shadow: var(--shadow-xs); transition: transform 0.3s ease;">
+            <img src="recursos/logo/L2.png" alt="Logo del Sistema" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.2)); transform: scale(1.3); transition: transform 0.3s ease;">
+            <!-- Efecto de brillo en el borde -->
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; background: linear-gradient(45deg, transparent, rgba(26, 115, 232, 0.1), transparent); pointer-events: none;"></div>
         </div>
-      </div>
+    </div>
+
+    <!-- Barra de búsqueda en la parte inferior -->
+    <div class="nav-search">
+        <input type="text" id="navSearch" placeholder="🔍Buscar pestañas..." />
+    </div>
+</div>
     
       <nav class="side-tabs">
 
@@ -52,134 +69,135 @@
 <!-- FINANZAS -->
 <div class="category-badge">💰 FINANZAS</div>
 <button class="side-tab active" onclick="mostrarSideTab('dashboard')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#4F46E5">
-    <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
-  </svg>
+  <img class="icon-png" src="recursos/icons/Inicio.png" alt="Inicio">
   Inicio
 </button>
 
 <button class="side-tab" onclick="mostrarSideTab('movimientos')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#059669">
-    <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
-  </svg>
+  <img class="icon-png" src="recursos/icons/Tarjeta.png" alt="Movimientos">
   Movimientos
 </button>
 
 <button class="side-tab" onclick="mostrarSideTab('analisis')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#DC2626">
-    <path d="M3 3v18h18V3H3zm16 16H5V5h14v14zM7 7h4v10H7V7zm6 0h4v6h-4V7z"/>
-  </svg>
+  <img class="icon-png" src="recursos/icons/Analisis.png" alt="Analisis">
   Análisis
 </button>
 
 <!-- ✅ NUEVA PESTAÑA: PRESUPUESTO -->
 <button class="side-tab" onclick="mostrarSideTab('presupuesto')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#EA580C">
-    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-  </svg>
+  <img class="icon-png" src="recursos/icons/Presupuesto.png" alt="Presupuesto">
   Presupuesto
 </button>
 
 <!-- ✅ NUEVA PESTAÑA: PRESUPUESTO SUGERIDO -->
 <button class="side-tab" onclick="mostrarSideTab('presupuesto-sugerido')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#8B5CF6">
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-  </svg>
-  💰 Presupuesto Sugerido
+  <img class="icon-png" src="recursos/icons/Presupuesto sugerido.png" alt="Presupuesto sugerido">
+  Presupuesto Sugerido
 </button>
 
-<!-- ✅ NUEVAS PESTAÑAS EN FINANZAS -->
+<!-- ✅ NUEVA PESTAÑA DEUDAS -->
 <button class="side-tab" onclick="mostrarSideTab('deudas')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#8B5CF6">
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-  </svg>
+  <img class="icon-png" src="recursos/icons/Deudas.png" alt="Deudas">
   Deudas
 </button>
 
+<!-- ✅ NUEVA PESTAÑA: PROVEEDORES Y PAGOS -->
+<button class="side-tab" onclick="mostrarSideTab('proveedores-pagos')">
+  <img class="icon-png" src="recursos/icons/Proveedores y pagos.png" alt="Proveedores y pagos">
+Proveedores y Pagos
+</button>
+
+<!-- ✅ NUEVA PESTAÑA: INVENTARIO / ACTIVOS -->
+<button class="side-tab" onclick="mostrarSideTab('inventario-activos')">
+  <img class="icon-png" src="recursos/icons/Inventario - activos.png" alt="Inventario / activos">
+Inventario / Activos
+</button>
+
+<!-- ✅ PESTAÑA AHORRO -->
 <button class="side-tab" onclick="mostrarSideTab('ahorro')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#10B981">
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-  </svg>
+  <img class="icon-png" src="recursos/icons/Ahorro.png" alt="Ahorro">
   Ahorro
 </button>
 
 <!-- ✅ MOVER INVERSIONES A FINANZAS -->
 <button class="side-tab" onclick="mostrarSideTab('inversiones')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#16A34A">
-    <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.3L22 12V6z"/>
-  </svg>
+  <img class="icon-png" src="recursos/icons/Inversiones.png" alt="Inversiones">
   Inversiones
-</button>
-
-<!-- RECORDATORIOS -->
-<div class="category-badge">⏰ RECORDATORIOS</div>
-<button class="side-tab" onclick="mostrarSideTab('recordatorios')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#f59e0b">
-    <path d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4a2.5 2.5 0 0 0-5 0v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
-  </svg>
-  Recordatorios
 </button>
 
 <div class="nav-category-separator"></div>
 
-<!-- HERRAMIENTAS -->
+<!-- SEPARADOR -->
 <div class="category-badge">🛠️ HERRAMIENTAS</div>
+
+<!-- HERRAMIENTAS -->
 <button class="side-tab" onclick="mostrarSideTab('herramientas')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#6B7280">
-    <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/>
-  </svg>
+  <img class="icon-png" src="recursos/icons/Herramientas.png" alt="Herramientas">
   Herramientas
 </button>
 
+<!-- RECORDATORIOS -->
+<button class="side-tab" onclick="mostrarSideTab('recordatorios')">
+  <img class="icon-png" src="recursos/icons/Recordatorios.png" alt="Recordatorios">
+  Recordatorios
+</button>
+
 <!-- ✅ NUEVA PESTAÑA: NOTAS -->
-<button class="side-tab" onclick="mostrarSideTab('notas')"><svg class="icon" viewBox="0 0 24 24" fill="#6B7280"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-7h7v7zm3-8H7V7h10v2z"/></svg>Notas</button>
+<button class="side-tab" onclick="mostrarSideTab('notas')">
+  <img class="icon-png" src="recursos/icons/Notas.png" alt="Notas">
+  Notas
+</button>
 
 <!-- ✅ NUEVA PESTAÑA: CALENDARIO VISUAL -->
 <button class="side-tab" onclick="mostrarSideTab('calendario')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#1a73e8">
-    <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-6 13H9v-2h4v2zm3-4H9V9h7v3z"/>
-  </svg>
+  <img class="icon-png" src="recursos/icons/Calendario.png" alt="Calendario">
   Calendario
 </button>
 
 <!-- ✅ NUEVA PESTAÑA: TASAS BCV -->
 <button class="side-tab" onclick="mostrarSideTab('tasas-bcv')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#059669">
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-  </svg>
+  <img class="icon-png" src="recursos/icons//Tasas BCV.png" alt="Tasas">
   Tasas BCV
 </button>
 
 <!-- ✅ NUEVA PESTAÑA: OPTIMIZACIÓN FISCAL -->
 <button class="side-tab" onclick="mostrarSideTab('optimizacion-fiscal')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#059669">
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-  </svg>
-  💰 Optimización Fiscal
+  <img class="icon-png" src="recursos/icons/Optimización fiscal.png" alt="Optimización fiscal">
+  Optimización Fiscal
 </button>
 
+<!-- ✅ NUEVA PESTAÑA: REPORTES GERENCIALES -->
+<button class="side-tab" onclick="mostrarSideTab('reportes-gerenciales')">
+  <img class="icon-png" src="recursos/icons/Reportes gerenciales.png" alt="Reportes gerenciales">
+Reportes Gerenciales
+</button>
+
+<!-- ✅ NUEVA PESTAÑA: ASISTENTE FINANCIERO -->
+<button class="side-tab" onclick="mostrarSideTab('asistente-financiero')">
+  <img class="icon-png" src="recursos/icons/Asistente financiero.png" alt="Asistente financiero">
+Asistente Financiero
+</button>
+
+<!-- SEPARADOR -->
 <div class="nav-category-separator"></div>
 
 <!-- CONFIGURACIÓN -->
 <div class="category-badge">⚙️ CONFIGURACIÓN</div>
+
+<!-- PESTAÑA CONFIGURACIÓN -->
 <button class="side-tab" onclick="mostrarSideTab('cambios')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#CA8A04">
-    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-  </svg>
+  <img class="icon-png" src="recursos/icons/Cambios.png" alt="Cambios">
   Cambios
 </button>
 
+<!-- PESTAÑA CONFIGURACIÓN -->
 <button class="side-tab" onclick="mostrarSideTab('config')">
-  <svg class="icon" viewBox="0 0 24 24" fill="#6B7280">
-    <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.65 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
-  </svg>
+  <img class="icon-png" src="recursos/icons/Configuración.png" alt="Configuración">
   Configuración
 </button>
-      </nav>
 
-    <footer class="nav-footer">
-      <button class="nav-toggle" title="Contraer menú">☰</button>
-    </footer>
+
+</nav>
   </aside>
 
   <div class="side-content active" id="side-dashboard">
@@ -241,33 +259,30 @@
         </div>
       </section>
 
-<!-- WIDGETS PERSONALIZABLES -->
-<section id="widgetsPersonalizables">
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-    <h2>📊 Widgets Personalizables
-      <button onclick="mostrarAyudaWidgets()"
-              style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
-              title="¿Cómo personalizar los widgets?">❓</button>
-    </h2>
+<!-- ✅ NUEVA SECCIÓN: WIDGETS PERSONALIZABLES (OCULTA POR DEFECTO) -->
+<div style="margin-top: 1rem; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;">
+  <!-- Botón para desplegar/ocultar -->
+  <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: var(--card-bg); cursor: pointer; transition: all 0.2s ease;" onclick="toggleWidgets()">
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <svg class="icon" id="flechaWidgets" viewBox="0 0 24 24" fill="#6B7280" style="width: 1rem; height: 1rem; transition: transform 0.2s;"><path d="M16 12l-4 4-4-4H16z"/></svg>
+      <h2 style="color: var(--text); margin: 0; font-size: 1rem;">📊 Widgets Personalizables<button onclick="mostrarAyudaWidgets()"style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"title="¿Cómo personalizar los widgets?">❓</button></h2>
+    </div>
     <div style="display: flex; gap: 0.5rem;">
-      <button onclick="mostrarConfiguracionWidgets()" id="btnConfigWidgets"
-              style="padding: 0.5rem; background: var(--primary); color: white; border: none; border-radius: 6px; font-size: 0.8rem; cursor: pointer;"
-              title="Configurar widgets">⚙️</button>
-      <button onclick="agregarWidget()" id="btnAgregarWidget"
-              style="padding: 0.5rem; background: var(--success); color: white; border: none; border-radius: 6px; font-size: 0.8rem; cursor: pointer;"
-              title="Agregar nuevo widget">➕</button>
+      <button onclick="mostrarConfiguracionWidgets()" id="btnConfigWidgets" style="background: none; border: none; color: var(--primary); cursor: pointer; padding: 0.25rem; border-radius: 4px; font-size: 0.8rem; transition: background 0.2s;" title="Configurar widgets">⚙️</button>
+      <button onclick="agregarWidget()" style="background: var(--success); color: white; border: none; border-radius: 6px; padding: 0.5rem; font-size: 0.8rem; cursor: pointer;">➕</button>
     </div>
   </div>
 
-  <div id="contenedorWidgets" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+  <!-- Contenido oculto (se mostrará con animación) -->
+  <div id="contenidoWidgets" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease, opacity 0.3s ease; opacity: 0; padding: 0 1.5rem 1.5rem 1.5rem; background: var(--card-bg);">
     <!-- Los widgets se cargarán dinámicamente aquí -->
+    <div id="contenedorWidgets"></div>
+    <div id="mensajeSinWidgets" style="text-align: center; padding: 2rem; color: var(--text-light);">
+      <p>📭 No tienes widgets personalizados aún.</p>
+      <p>Haz clic en "➕" para agregar tu primer widget.</p>
+    </div>
   </div>
-
-  <div id="mensajeSinWidgets" style="text-align: center; padding: 2rem; color: var(--text-light); display: none;">
-    <p>📭 No tienes widgets personalizados aún.</p>
-    <p>Haz clic en "➕" para agregar tu primer widget.</p>
-  </div>
-</section>
+</div>
 
       <section id="alertaSaldo" style="display:none;">
         <p style="color:var(--danger); font-weight:500;">
@@ -981,30 +996,117 @@
   </div>
 </div>
 
+<!-- ✅ NUEVA SECCIÓN: REGISTRO DE CAMBIOS -->
 <!-- Cambios y actualizaciones-->
 <div class="side-content" id="side-cambios">
   <div class="sidebar-content">
     <section id="cambios">
 
-    <h2>Cambios y Actualizaciones</h2>
+     <!-- Imagen de logo (ajustado al máximo sin perder calidad) -->
+<div style="display: flex; justify-content: center; align-items: center; margin-bottom: 1rem;">
+    <div style="position: relative; width: 90px; height: 90px; border-radius: 50%; background: var(--card-bg); padding: 0.2rem; box-shadow: var(--shadow-md); transition: transform 0.3s ease;">
+        <img src="recursos/logo/L2.png" alt="Logo del Sistema" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.2)); transform: scale(1.25); transition: transform 0.3s ease;">
+        <!-- Efecto de brillo en el borde -->
+        <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; background: linear-gradient(45deg, transparent, rgba(26, 115, 232, 0.1), transparent); pointer-events: none;"></div>
+    </div>
+</div>
 
-    <p style="text-align: center; margin-bottom: 1.5rem; font-size: 0.875rem; color: var(--text-light);">
-      Versión actual del sistema: <span id="versionActual" style="font-weight: 600; color: var(--primary);">1.1.1</span>
-  </p>
+      <h2>🔄 Registro de Cambios</h2>
+      <p style="text-align: center; margin-bottom: 1.5rem; font-size: 0.875rem; color: var(--text-light);">
+        Versión actual del sistema: <span id="versionActual" style="font-weight: 600; color: var(--primary);">1.1.2</span>
+      </p>
 
-    <ul>
-      <li>Versión 1.0.1: Corrección de errores en el modo literal de entrada de números.</li>
-      <li>Versión 1.0.2: Mejora en la interfaz de usuario para la gestión de movimientos.</li>
-      <li>Versión 1.0.3: Mejoras en el diseño general del sistema.</li>
-      <li>Versión 1.0.3: Rediseño del menú lateral de pestañas</li>
-      <li>Versión 1.0.3: Mejoras visuales de los datos en la pestañas "Presupuesto" y "Calendario".</li>
-      <li>Versión 1.0.3: Buscador del Dasboard completamente funcional.</li>
-      <li>Versión 1.0.3: Categorías y bancos en orden alfabético.</li>
-      <!-- Añade más elementos según sea necesario -->
-    </ul>
+      <!-- Versión 1.1.2 -->
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem; border-left: 4px solid var(--success);">
+        <h3 style="margin: 0 0 0.5rem 0; color: var(--success);">✨ Versión 1.1.2 - <span style="color: var(--text-light); font-weight: normal;">(23 Oct 2025)</span></h3>
+        <ul style="color: var(--text-light); line-height: 1.6; margin: 0; padding-left: 1.5rem;">
+          <li><strong>🔒 Seguridad Mejorada:</strong> Sistema de bloqueo con PIN y preguntas de seguridad, reemplazando la opción de "reset".</li>
+          <li><strong>💬 Asistente Financiero Actualizado:</strong> Eliminado el modo conversacional no profesional y enfocado en datos financieros empresariales.</li>
+          <li><strong>🎨 Diseño de Cristal (Glassmorphism):</strong> Nuevo estilo de fondo en el encabezado con efecto de vidrio elegante.</li>
+          <li><strong>📌 Organización de Pestañas:</strong> Movida la pestaña "Recordatorios" dentro de "Herramientas" para mayor coherencia.</li>
+          <li><strong>📊 Funcionalidad de Notificaciones:</strong> Sistema de notificaciones push para recordatorios y alertas.</li>
+          <li><strong>🛠️ Herramientas de Formateo:</strong> Mejoras en la herramienta de formato de números y conversiones.</li>
+          <li><strong>📦 Inventario / Activos:</strong> Nueva sección para registrar y gestionar bienes físicos o intangibles.</li>
+        </ul>
+      </div>
 
-  </section>
-</div> <!-- cierre sidebar-content CAMBIOS -->
+      <!-- Versión 1.1.1 -->
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem; border-left: 4px solid var(--info);">
+        <h3 style="margin: 0 0 0.5rem 0; color: var(--info);">🚀 Versión 1.1.1 - <span style="color: var(--text-light); font-weight: normal;">(22 Oct 2025)</span></h3>
+        <ul style="color: var(--text-light); line-height: 1.6; margin: 0; padding-left: 1.5rem;">
+          <li><strong>🎨 Rediseño Completo de Iconos:</strong> Todos los íconos de la barra lateral han sido actualizados a un estilo moderno y consistente.</li>
+          <li><strong>🧩 Nueva Pestaña de Asistente Financiero:</strong> Agregado el módulo de IA para sugerencias inteligentes y automatización de tareas.</li>
+          <li><strong>📈 Mejoras en Reportes Gerenciales:</strong> Se ha optimizado la visualización de datos y se han añadido nuevas métricas.</li>
+          <li><strong>🔧 Optimización Fiscal:</strong> Nueva sección para gestionar deducciones y optimizar impuestos.</li>
+          <li><strong>🛠️ Correcciones de Bug:</strong> Solucionado el problema de renderizado en Firefox y Chrome.</li>
+        </ul>
+      </div>
+
+      <!-- Versión 1.1.0 -->
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem; border-left: 4px solid var(--success);">
+        <h3 style="margin: 0 0 0.5rem 0; color: var(--success);">✨ Versión 1.1.0 - <span style="color: var(--text-light); font-weight: normal;">(15 Oct 2025)</span></h3>
+        <ul style="color: var(--text-light); line-height: 1.6; margin: 0; padding-left: 1.5rem;">
+          <li><strong>📅 Calendario Visual Interactivo:</strong> Nuevo calendario que muestra tus movimientos por día con tarjetas dinámicas.</li>
+          <li><strong>💰 Presupuesto Sugerido:</strong> Sistema inteligente que propone un presupuesto basado en tus gastos históricos.</li>
+          <li><strong>📊 Gráficos de Comparación de Bancos:</strong> Ahora puedes ver la distribución de tus fondos entre diferentes cuentas bancarias.</li>
+          <li><strong>🔔 Recordatorios Avanzados:</strong> Añadida la opción de repetición (diaria, semanal, mensual) y configuración global.</li>
+          <li><strong>📦 Inventario / Activos:</strong> Nueva sección para registrar y gestionar tus bienes físicos o intangibles.</li>
+        </ul>
+      </div>
+
+      <!-- Versión 1.0.4 -->
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem; border-left: 4px solid var(--warning);">
+        <h3 style="margin: 0 0 0.5rem 0; color: var(--warning);">⚙️ Versión 1.0.4 - <span style="color: var(--text-light); font-weight: normal;">(05 Oct 2025)</span></h3>
+        <ul style="color: var(--text-light); line-height: 1.6; margin: 0; padding-left: 1.5rem;">
+          <li><strong>📱 Diseño Responsivo Mejorado:</strong> El sistema ahora se adapta perfectamente a pantallas pequeñas y móviles.</li>
+          <li><strong>🔊 Sonidos Personalizables:</strong> Puedes activar/desactivar los sonidos al cambiar de pestañas y elegir el tono.</li>
+          <li><strong>🔒 Seguridad Mejorada:</strong> Implementado el sistema de bloqueo manual con PIN para mayor privacidad.</li>
+          <li><strong>📚 Herramientas de Formateo:</strong> Nuevas herramientas para formatear números y convertir monedas de forma rápida.</li>
+          <li><strong>📋 Notas Personales:</strong> Agregada la posibilidad de crear, editar y eliminar notas dentro del sistema.</li>
+        </ul>
+      </div>
+
+      <!-- Versión 1.0.3 -->
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem; border-left: 4px solid var(--primary);">
+        <h3 style="margin: 0 0 0.5rem 0; color: var(--primary);">📌 Versión 1.0.3 - <span style="color: var(--text-light); font-weight: normal;">(01 Oct 2025)</span></h3>
+        <ul style="color: var(--text-light); line-height: 1.6; margin: 0; padding-left: 1.5rem;">
+          <li><strong>🎯 Rediseño del Menú Lateral:</strong> Nueva organización por categorías y mejor jerarquía visual.</li>
+          <li><strong>🔍 Buscador del Dashboard:</strong> Funcionalidad completa para buscar movimientos directamente desde el resumen.</li>
+          <li><strong>📊 Análisis de Gastos:</strong> Gráficos de barras y torta para entender mejor tus patrones de gasto.</li>
+          <li><strong>📉 Presupuesto Dinámico:</strong> El sistema ahora calcula automáticamente tu progreso hacia la meta mensual.</li>
+          <li><strong>💾 Backup Automático:</strong> Copias de seguridad automáticas para proteger tus datos financieros.</li>
+        </ul>
+      </div>
+
+      <!-- Versión 1.0.2 -->
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem; border-left: 4px solid var(--danger);">
+        <h3 style="margin: 0 0 0.5rem 0; color: var(--danger);">🐛 Versión 1.0.2 - <span style="color: var(--text-light); font-weight: normal;">(25 Sep 2025)</span></h3>
+        <ul style="color: var(--text-light); line-height: 1.6; margin: 0; padding-left: 1.5rem;">
+          <li><strong>✅ Corrección de Bugs:</strong> Solucionado el error en el modo literal de entrada de números.</li>
+          <li><strong>🖼️ Mejoras Visuales:</strong> Actualizados los colores y estilos de los botones y tarjetas.</li>
+          <li><strong>⏱️ Rendimiento Optimizado:</strong> El sistema carga más rápido y consume menos memoria.</li>
+          <li><strong>📝 Documentación Interna:</strong> Añadidas guías de ayuda (tooltips) para todas las funciones principales.</li>
+        </ul>
+      </div>
+
+      <!-- Versión 1.0.1 -->
+      <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem; border-left: 4px solid var(--text-light);">
+        <h3 style="margin: 0 0 0.5rem 0; color: var(--text-light);">📦 Versión 1.0.1 - <span style="color: var(--text-light); font-weight: normal;">(20 Sep 2025)</span></h3>
+        <ul style="color: var(--text-light); line-height: 1.6; margin: 0; padding-left: 1.5rem;">
+          <li><strong>📁 Estructura Inicial:</strong> Primera versión estable del sistema con funcionalidades básicas.</li>
+          <li><strong>💸 Gestión de Movimientos:</strong> Módulo principal para registrar ingresos y gastos.</li>
+          <li><strong>📊 Resumen General:</strong> Dashboard inicial con saldo total y resumen por banco.</li>
+          <li><strong>⚙️ Configuración Básica:</strong> Opciones para cambiar el tema (claro/oscuro) y guardar preferencias.</li>
+        </ul>
+      </div>
+
+      <div style="text-align: center; padding: 1rem; background: var(--card-bg); border-radius: var(--radius); border: 1px solid var(--border); margin-top: 2rem;">
+        <p style="margin: 0; color: var(--text-light); font-size: 0.9rem;">
+          <strong>💡 Consejo:</strong> Siempre revisa esta pestaña para estar al tanto de las últimas novedades y mejoras en tu sistema financiero.
+        </p>
+      </div>
+    </section> <!-- CIERRE DE LA PESTAÑA CAMBIOS -->
+  </div>
 </div>
 
 <!-- ✅ NUEVA PESTAÑA: TASAS BCV -->
@@ -1066,7 +1168,7 @@
           <p style="text-align: center; color: var(--text-light); font-style: italic;">No hay historial aún. Consulta algunas tasas.</p>
         </div>
       </div>
-    </section>
+    </section> <!-- CIERRE SECCIÓN TASAS BCV -->
   </div>
 </div>
 
@@ -1075,13 +1177,13 @@
     <section id="panelReglas">
 
       <div style="text-align: center; margin-bottom: 1.5rem; padding: 1rem; background: var(--card-bg); border-radius: var(--radius); border: 1px solid var(--text-light);">
-        <h3 style="margin: 0 0 0.5rem 0; color: var(--text);">Sistema de Finanzas</h3>
+        <h3 style="margin: 0 0 0.5rem 0; color: var(--text);">Sistema de Gestión Financiera</h3>
         <p style="margin: 0; font-size: 0.875rem; color: var(--text-light);">
-            Versión <span id="versionConfig" style="font-weight: 600; color: var(--primary);">1.1.1</span>
+            Versión <span id="versionConfig" style="font-weight: 600; color: var(--primary);">1.1.2</span>
         </p>
       </div>
 
-      <h2>Reglas de automatización 
+      <h2>Ajustes del sistema 
         <button onclick="mostrarAyudaConfiguracion()" 
                 style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
                 title="¿Cómo configurar reglas y categorías?">❓</button>
@@ -1143,30 +1245,60 @@
         </details>
 
               <!-- BLOQUEO DE SEGURIDAD -->
-              <details style="margin-top: 1.5rem;">
-        <summary>🔒 Bloqueo de App (PIN)</summary>
-        <p style="color: var(--text-light); margin-bottom: 1rem;">
-          Activa un bloqueo con PIN para proteger tu app. Solo tú podrás acceder.
-        </p>
-        <div style="margin-bottom: 1rem;">
-          <label>
-            <input type="checkbox" id="bloqueoActivo" />
-            Activar bloqueo de app
-          </label>
-        </div>
-        <div id="bloqueoPINContainer" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--card-bg); border-radius: var(--radius); border: 1px solid var(--text-light);">
-          <label for="bloqueoPIN">Ingresa tu PIN de 4 dígitos:</label>
-          <input type="password" id="bloqueoPIN" maxlength="4" minlength="4" placeholder="Ej: 1234" style="width:100%; margin-bottom:0.75rem;" />
-          <label for="bloqueoPINConfirmar">Confirma tu PIN:</label>
-          <input type="password" id="bloqueoPINConfirmar" maxlength="4" minlength="4" placeholder="Vuelve a ingresar" style="width:100%; margin-bottom:0.75rem;" />
-          <button onclick="guardarPIN()" style="width:100%;">Guardar PIN</button>
-          <button onclick="eliminarPIN()" style="width:100%; background:var(--danger); margin-top:0.5rem;">Eliminar PIN</button>
-        </div>
-        <p style="font-size:0.8rem; color:var(--text-light); margin-top:1rem;">
-          ⚠️ Si olvidas tu PIN, no podrás acceder a tu app. <br>
-          ¡Guarda tu PIN en un lugar seguro!
-        </p>
-      </details>
+<details style="margin-top: 1.5rem;">
+  <summary>🔒 Bloqueo de App (PIN)</summary>
+  <p style="color: var(--text-light); margin-bottom: 1rem;">Activa un bloqueo con PIN para proteger tu app. Solo tú podrás acceder.</p>
+  <div style="margin-bottom: 1rem;">
+    <label><input type="checkbox" id="bloqueoActivo" />Activar bloqueo de app</label>
+  </div>
+
+  <div id="bloqueoPINContainer" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--card-bg); border-radius: var(--radius); border: 1px solid var(--text-light);">
+    <label for="bloqueoPIN">Ingresa tu PIN de 4 dígitos:</label>
+    <input type="password" id="bloqueoPIN" maxlength="4" minlength="4" placeholder="Ej: 1234" style="width:100%; margin-bottom:0.75rem;" />
+    <label for="bloqueoPINConfirmar">Confirma tu PIN:</label>
+    <input type="password" id="bloqueoPINConfirmar" maxlength="4" minlength="4" placeholder="Vuelve a ingresar" style="width:100%; margin-bottom:0.75rem;" />
+
+    <!-- Preguntas de Seguridad -->
+    <div style="margin-top: 1rem; padding: 1rem; background: var(--bg); border-radius: var(--radius); border: 1px solid var(--border);">
+      <h4 style="margin: 0 0 0.75rem 0; color: var(--text);">🔐 Preguntas de Seguridad</h4>
+      <p style="color: var(--text-light); margin-bottom: 1rem; font-size: 0.9rem;">Establece 2 preguntas de seguridad para recuperar tu acceso si olvidas tu PIN.</p>
+
+      <div style="margin-bottom: 1rem;">
+        <label for="preguntaSeguridad1">Pregunta 1:</label>
+        <select id="preguntaSeguridad1" style="width:100%; margin-bottom:0.75rem; padding:0.5rem; border:1px solid #ccc; border-radius:6px;">
+          <option value="">Selecciona una pregunta</option>
+          <option value="nombreMadre">Nombre de tu madre</option>
+          <option value="nombrePadre">Nombre de tu padre</option>
+          <option value="nombreMascota">Nombre de tu primera mascota</option>
+          <option value="ciudadNatal">Ciudad donde naciste</option>
+          <option value="mejorAmigo">Nombre de tu mejor amigo/a de la infancia</option>
+          <option value="primeraEscuela">Nombre de tu primera escuela</option>
+          <option value="comidaFavorita">Tu comida favorita</option>
+        </select>
+        <input type="text" id="respuestaSeguridad1" placeholder="Respuesta" style="width:100%; margin-bottom:0.75rem; padding:0.5rem; border:1px solid #ccc; border-radius:6px;" />
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <label for="preguntaSeguridad2">Pregunta 2:</label>
+        <select id="preguntaSeguridad2" style="width:100%; margin-bottom:0.75rem; padding:0.5rem; border:1px solid #ccc; border-radius:6px;">
+          <option value="">Selecciona una pregunta</option>
+          <option value="nombreMadre">Nombre de tu madre</option>
+          <option value="nombrePadre">Nombre de tu padre</option>
+          <option value="nombreMascota">Nombre de tu primera mascota</option>
+          <option value="ciudadNatal">Ciudad donde naciste</option>
+          <option value="mejorAmigo">Nombre de tu mejor amigo/a de la infancia</option>
+          <option value="primeraEscuela">Nombre de tu primera escuela</option>
+          <option value="comidaFavorita">Tu comida favorita</option>
+        </select>
+        <input type="text" id="respuestaSeguridad2" placeholder="Respuesta" style="width:100%; margin-bottom:0.75rem; padding:0.5rem; border:1px solid #ccc; border-radius:6px;" />
+      </div>
+    </div>
+
+    <button onclick="guardarPIN()" style="width:100%;">Guardar PIN y Preguntas de Seguridad</button>
+    <button onclick="eliminarPIN()" style="width:100%; background:var(--danger); margin-top:0.5rem;">Eliminar PIN</button>
+  </div>
+  <p style="font-size:0.8rem; color:var(--text-light); margin-top:1rem;">⚠️ Si olvidas tu PIN, puedes usar las preguntas de seguridad para recuperar el acceso. <br>¡Guarda tus respuestas en un lugar seguro!</p>
+</details>
 
       <!-- COPIA DE SEGURIDAD -->
 <details style="margin-top: 1.5rem;">
@@ -1179,13 +1311,24 @@
     <button onclick="exportarBackup()" style="flex: 1; padding: 1rem; background: #0b57d0; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
       <span style="font-size: 1.2rem;">📤</span> Exportar
     </button>
-    <button onclick="importarBackup()" style="flex: 1; padding: 1rem; background: #018642; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-      <span style="font-size: 1.2rem;">📥</span> Importar
-    </button>
-    <button onclick="guardarBackupActual()" style="flex: 1; padding: 1rem; background: #6d28d9; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-      <span style="font-size: 1.2rem;">💾</span> Guardar
-    </button>
+
+<!-- ✅ Botón para guardar el backup localmente -->
+<button onclick="guardarBackupActual()" style="flex: 1; padding: 1rem; background: #6d28d9; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+    <span style="font-size: 1.2rem;">💾</span> Guardar
+</button>
+
+    <!-- ✅ NUEVO: Campo para nombre personalizado del backup -->
+<div style="margin-top: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+    <label for="nombreBackup">Nombre del Backup:</label>
+    <input type="text" id="nombreBackup" placeholder="Ej: Backup Finanzas Empresa X" style="flex: 1; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem;" />
+</div>
+
+    <button onclick="importarBackupDesdeDisco()" 
+      style="flex: 1; padding: 1rem; background: #018642; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+      <span style="font-size: 1.2rem;">📥</span> Importar desde Disco
+  </button>
   </div>
+  
   
   <!-- Sección de Backups Guardados -->
   <div style="margin-top: 1.5rem;">
@@ -1778,20 +1921,289 @@
               </div>
             </div>
 
-    </section>
+    </section> <!-- CIERRE DE LA SECCIÓN PRESUPUESTO SUGERIDO -->
   </div>
+</div>
+
+<!-- ✅ NUEVA PESTAÑA: PROVEEDORES Y PAGOS -->
+<div class="side-content" id="side-proveedores-pagos">
+    <div class="sidebar-content">
+        <section id="registroProveedor">
+            <h2>➕ Registrar Nuevo Pago<button onclick="mostrarAyudaProveedores()"
+                style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                title="¿Cómo gestionar proveedores y pagos?">❓</button></h2>
+            <p style="color: var(--text-light); margin-bottom: 1.5rem;">Registra los pagos que haces a tus proveedores, contratistas o servicios recurrentes.</p>
+
+            <!-- Formulario para registrar un nuevo pago -->
+            <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem;">
+                <input type="hidden" id="idPagoEditando" value="">
+                <label for="nombreProveedor">Nombre del Proveedor:</label>
+                <input type="text" id="nombreProveedor" placeholder="Ej: Juan Pérez - Servicios IT" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;" />
+                <label for="montoPago">Monto (Bs):</label>
+                <input type="text" id="montoPago" placeholder="Ej: 5.000,00" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;" />
+                <label for="fechaPago">Fecha de Pago:</label>
+                <input type="date" id="fechaPago" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;" />
+                <label for="metodoPago">Método de Pago:</label>
+                <select id="metodoPago" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;">
+                    <option value="">Selecciona un método</option>
+                    <option value="transferencia">Transferencia Bancaria</option>
+                    <option value="pago móvil">Otro</option>
+                    <option value="efectivo">Efectivo</option>
+                    <option value="tarjeta">Tarjeta de Crédito/Débito</option>
+                    <option value="cheque">Cheque</option>
+                    <option value="otro">Otro</option>
+                </select>
+                <label for="estadoPago">Estado:</label>
+                <select id="estadoPago" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;">
+                    <option value="pendiente">Pendiente</option>
+                    <option value="pagado">Pagado</option>
+                </select>
+                <label for="descripcionPago">Descripción (opcional):</label>
+                <textarea id="descripcionPago" placeholder="Detalles del servicio o contrato..." style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem; min-height:80px; resize:vertical;"></textarea>
+                <div style="display: flex; gap: 0.75rem;">
+                    <button onclick="guardarPago()" style="flex:1; background:var(--primary); color:white; border:none; border-radius:8px; padding:0.75rem; font-size:1rem; cursor:pointer;">💾 Guardar Pago</button>
+                    <button onclick="limpiarFormularioPago()" style="flex:1; background:#6b7280; color:white; border:none; border-radius:8px; padding:0.75rem; font-size:1rem; cursor:pointer;">🧹 Limpiar</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="listaPagos">
+            <h2>📋 Mis Pagos</h2>
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                <select id="filtroEstadoPago" style="padding:0.5rem; border:1px solid #ccc; border-radius:6px; flex:1;">
+                    <option value="">Todos los estados</option>
+                    <option value="pendiente">Pendientes</option>
+                    <option value="pagado">Pagados</option>
+                </select>
+                <select id="filtroProveedor" style="padding:0.5rem; border:1px solid #ccc; border-radius:6px; flex:1;">
+                    <option value="">Todos los proveedores</option>
+                    <!-- Las opciones se cargarán dinámicamente -->
+                </select>
+            </div>
+            <div id="contenedorPagos" style="margin-top:1rem;">
+                <!-- Los pagos se cargarán dinámicamente aquí -->
+                <p style="text-align: center; color: var(--text-light);">No hay pagos registrados aún.</p>
+            </div>
+        </section>
+
+        <section id="graficoGastosProveedores">
+            <h2>📊 Gasto por Proveedor</h2>
+            <canvas id="graficoProveedores" style="max-width:100%; height:auto;"></canvas>
+        </section> <!-- CIERRE DE LA SECCIÓN PROVEEDORES Y PAGOS -->
+    </div>
+</div>
+
+<!-- ✅ NUEVA PESTAÑA: INVENTARIO / ACTIVOS -->
+<div class="side-content" id="side-inventario-activos">
+    <div class="sidebar-content">
+        <section id="registroActivo">
+            <h2>➕ Registrar Nuevo Activo<button onclick="mostrarAyudaInventario()"
+                style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                title="¿Cómo gestionar inventario y activos?">❓</button></h2>
+            <p style="color: var(--text-light); margin-bottom: 1.5rem;">Registra equipos, herramientas o cualquier activo con valor contable.</p>
+
+            <!-- Formulario para registrar un nuevo activo -->
+            <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem;">
+                <input type="hidden" id="idActivoEditando" value="">
+                <label for="nombreActivo">Nombre del Activo:</label>
+                <input type="text" id="nombreActivo" placeholder="Ej: Computadora Portátil Dell" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;" />
+                <label for="valorActivo">Valor Inicial (Bs):</label>
+                <input type="text" id="valorActivo" placeholder="Ej: 10.000,00" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;" />
+                <label for="fechaCompra">Fecha de Compra:</label>
+                <input type="date" id="fechaCompra" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;" />
+                <label for="depreciacionEstimada">Depreciación Estimada (% anual):</label>
+                <input type="number" id="depreciacionEstimada" placeholder="Ej: 10" min="0" max="100" step="0.01" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;" />
+                <label for="descripcionActivo">Descripción (opcional):</label>
+                <textarea id="descripcionActivo" placeholder="Detalles del activo, modelo, serial, etc." style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem; min-height:80px; resize:vertical;"></textarea>
+                <label for="categoriaActivo">Categoría (opcional):</label>
+                <input type="text" id="categoriaActivo" placeholder="Ej: Equipos de Oficina, Herramientas, Vehículos" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;" />
+                <div style="display: flex; gap: 0.75rem;">
+                    <button onclick="guardarActivo()" style="flex:1; background:var(--primary); color:white; border:none; border-radius:8px; padding:0.75rem; font-size:1rem; cursor:pointer;">💾 Guardar Activo</button>
+                    <button onclick="limpiarFormularioActivo()" style="flex:1; background:#6b7280; color:white; border:none; border-radius:8px; padding:0.75rem; font-size:1rem; cursor:pointer;">🧹 Limpiar</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="listaActivos">
+            <h2>📋 Mis Activos</h2>
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                <select id="filtroEstadoActivo" style="padding:0.5rem; border:1px solid #ccc; border-radius:6px; flex:1;">
+                    <option value="">Todos los estados</option>
+                    <option value="activo">Activo</option>
+                    <option value="depreciado">Depreciado</option>
+                    <option value="vendido">Vendido</option>
+                </select>
+                <select id="filtroCategoriaActivo" style="padding:0.5rem; border:1px solid #ccc; border-radius:6px; flex:1;">
+                    <option value="">Todas las categorías</option>
+                    <!-- Las opciones se cargarán dinámicamente -->
+                </select>
+            </div>
+            <div id="contenedorActivos" style="margin-top:1rem;">
+                <!-- Los activos se cargarán dinámicamente aquí -->
+                <p style="text-align: center; color: var(--text-light);">No hay activos registrados aún.</p>
+            </div>
+        </section>
+
+        <section id="exportarInventario">
+            <h2>📄 Exportar Inventario</h2>
+            <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+                <button onclick="exportarInventarioExcel()" style="flex:1; background:var(--success); color:white; border:none; border-radius:8px; padding:0.75rem; font-size:1rem; cursor:pointer;">📊 Exportar Excel</button>
+                <button onclick="exportarInventarioPDF()" style="flex:1; background:var(--primary); color:white; border:none; border-radius:8px; padding:0.75rem; font-size:1rem; cursor:pointer;">📄 Exportar PDF</button>
+            </div>
+        </section> <!-- Cierre de la sección Inventario y activos -->
+    </div>
+</div>
+
+<!-- ✅ NUEVA PESTAÑA: REPORTES GERENCIALES -->
+<div class="side-content" id="side-reportes-gerenciales">
+    <div class="sidebar-content">
+        <section id="filtroReporte">
+            <h2>⚙️ Configurar Reporte<button onclick="mostrarAyudaReportes()"
+                style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                title="¿Cómo configurar los reportes gerenciales?">❓</button></h2>
+            <p style="color: var(--text-light); margin-bottom: 1.5rem;">Selecciona el período y las métricas que deseas incluir en tu reporte.</p>
+
+            <!-- Formulario para configurar el reporte -->
+            <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem;">
+                <label for="periodoReporte">Período:</label>
+                <select id="periodoReporte" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;">
+                    <option value="mensual">Mensual</option>
+                    <option value="trimestral">Trimestral</option>
+                    <option value="anual">Anual</option>
+                </select>
+                <label for="fechaInicioReporte">Fecha de Inicio:</label>
+                <input type="date" id="fechaInicioReporte" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;" />
+                <label for="fechaFinReporte">Fecha de Fin:</label>
+                <input type="date" id="fechaFinReporte" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;" />
+                <label for="metricasReporte">Métricas a incluir:</label>
+                <select id="metricasReporte" multiple style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem; height: 100px;">
+                    <option value="ingresosGastos" selected>Ingresos vs Gastos</option>
+                    <option value="topCategorias" selected>Top Categorías</option>
+                    <option value="rentabilidad" selected>Rentabilidad</option>
+                    <option value="comparativaMensual" selected>Comparativa Mensual</option>
+                </select>
+                <div style="display: flex; gap: 0.75rem;">
+                    <button onclick="generarReporteGerencial()" style="flex:1; background:var(--primary); color:white; border:none; border-radius:8px; padding:0.75rem; font-size:1rem; cursor:pointer;">📊 Generar Reporte</button>
+                    <button onclick="limpiarConfiguracionReporte()" style="flex:1; background:#6b7280; color:white; border:none; border-radius:8px; padding:0.75rem; font-size:1rem; cursor:pointer;">🧹 Limpiar</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="contenidoReporte" style="display: none;">
+            <h2>📈 Resultados del Reporte</h2>
+            <!-- Aquí se mostrará el contenido del reporte generado -->
+            <div id="contenedorReporte" style="margin-top:1rem;"></div>
+        </section>
+
+        <section id="exportarReporte">
+            <h2>📄 Exportar Reporte</h2>
+            <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
+                <button onclick="exportarReporteExcel()" style="flex:1; background:var(--success); color:white; border:none; border-radius:8px; padding:0.75rem; font-size:1rem; cursor:pointer;">📊 Exportar Excel</button>
+                <button onclick="exportarReportePDF()" style="flex:1; background:var(--primary); color:white; border:none; border-radius:8px; padding:0.75rem; font-size:1rem; cursor:pointer;">📄 Exportar PDF</button>
+            </div>
+        </section> <!-- Cierre de la sección Reportes Gerenciales -->
+    </div>
+</div>
+
+<!-- ✅ NUEVA PESTAÑA: ASISTENTE FINANCIERO -->
+<div class="side-content" id="side-asistente-financiero">
+    <div class="sidebar-content">
+        <section id="configuracionAsistente">
+            <h2>⚙️ Configurar Asistente
+    <button onclick="mostrarAyudaAsistenteFinanciero()"
+        style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+        title="¿Cómo funciona el asistente financiero?">❓</button>
+    <!-- ✅ NUEVO: Botón de ejemplo (solo texto) -->
+<button onclick="mostrarEjemploAsistente()" 
+    style="background: var(--info); color: rgb(151, 145, 145); border: none; border-radius: 6px; padding: 0.4rem 0.8rem; font-size: 0.9rem; font-weight: 500; cursor: pointer; margin-left: 0.5rem; transition: background 0.2s;"
+    title="Ver ejemplo de uso">
+    Ejemplo
+</button>
+</h2>
+
+            <p style="color: var(--text-light); margin-bottom: 1.5rem;">Define las reglas que el asistente usará para sugerir acciones automáticas.</p>
+
+            <!-- Formulario para configurar reglas del asistente -->
+            <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem;">
+                <label for="reglaPalabraClave">Palabra clave:</label>
+                <input type="text" id="reglaPalabraClave" placeholder="Ej: servicios, comida, transporte" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;" />
+                <label for="reglaCategoria">Categoría objetivo:</label>
+                <select id="reglaCategoria" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;">
+                    <option value="">Selecciona una categoría</option>
+                    <!-- Las opciones se cargarán dinámicamente -->
+                </select>
+                <label for="reglaAccion">Acción sugerida:</label>
+                <select id="reglaAccion" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;">
+                    <option value="sugerirAhorro">Sugerir plan de ahorro</option>
+                    <option value="alertarGasto">Alertar por gasto alto</option>
+                    <option value="recomendarCambio">Recomendar cambio de proveedor</option>
+                </select>
+                <div style="display: flex; gap: 0.75rem;">
+                    <button onclick="agregarReglaAsistente()" style="flex:1; background:var(--primary); color:white; border:none; border-radius:8px; padding:0.75rem; font-size:1rem; cursor:pointer;">➕ Agregar Regla</button>
+                    <button onclick="limpiarFormularioRegla()" style="flex:1; background:#6b7280; color:white; border:none; border-radius:8px; padding:0.75rem; font-size:1rem; cursor:pointer;">🧹 Limpiar</button>
+                </div>
+            </div>
+
+            <!-- ✅ BOTÓN PARA DESPLEGAR AJUSTES -->
+<div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--card-bg); border-radius: var(--radius); cursor: pointer;" onclick="toggleAjustesAsistente()">
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <svg class="icon" viewBox="0 0 24 24" fill="#6B7280" style="width: 1rem; height: 1rem; transform: rotate(90deg); transition: transform 0.2s;">
+            <path d="M12 2L2 7l10 5 10-5V2z"/>
+        </svg>
+        <span style="font-weight: 500;">Ajustes</span>
+    </div>
+    <svg class="icon" id="flechaAjustes" viewBox="0 0 24 24" fill="#6B7280" style="width: 1rem; height: 1rem; transition: transform 0.2s;">
+        <path d="M16 12l-4 4-4-4H16z"/>
+    </svg>
+</div>
+
+<!-- ✅ SECCIÓN DE AJUSTES (oculta por defecto) -->
+<div id="seccionAjustes" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--card-bg); border-radius: var(--radius); border-left: 4px solid var(--primary); transition: all 0.2s ease;">
+    <h3 style="margin: 0 0 1rem 0; color: var(--text);">⚙️ Opciones de Categorías</h3>
+    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <input type="checkbox" id="mostrarTodasCategorias" onchange="actualizarSelectCategoriasAsistente()" style="transform: scale(1.2); accent-color: var(--info);">
+            <span>Mostrar todas las categorías del sistema</span>
+        </label>
+    </div>
+    <p style="color: var(--text-light); font-size: 0.875rem; margin: 0;">Si está activado, podrás usar cualquier categoría del sistema. Si está desactivado, solo verás las categorías específicas del asistente.</p>
+</div>
+
+            
+        </section>
+
+        <section id="sugerenciasAsistente">
+            <h2>📌 Sugerencias del Asistente</h2>
+            <div id="contenedorSugerencias" style="margin-top:1rem;">
+                <!-- Las sugerencias se cargarán dinámicamente aquí -->
+                <p style="text-align: center; color: var(--text-light);">No hay sugerencias disponibles en este momento.</p>
+            </div>
+        </section>
+
+        <section id="historialAsistente">
+            <h2>📋 Historial de Acciones</h2>
+            <div id="contenedorHistorial" style="margin-top:1rem;">
+                <!-- El historial de acciones se cargará dinámicamente aquí -->
+                <p style="text-align: center; color: var(--text-light);">No hay acciones registradas aún.</p>
+            </div>
+        </section> <!-- Cierre de la sección Asistente Financiero -->
+    </div>
 </div>
 
   <script src="chart.umd.min.js?v=20251021"></script>
   <script src="xlsx.full.min.js?v=20251021"></script>
   <script src="equivalente-calculator.js"></script>
   <script src="presupuesto-sugerido.js"></script>
+  <script src="Entertainment/juego-adivina-numero.js"></script>
+  <script src="Entertainment/juego-memoria.js"></script>
+  <script src="Entertainment/juego-ahorcado.js"></script>
   <script src="app.js?v=20251021"></script>
   
   <!-- MODAL DE BLOQUEO (SIN CANCELAR) -->
 <div id="modalBloqueo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1001; justify-content:center; align-items:center;">
   <div style="background:var(--card-bg); border-radius:var(--radius); box-shadow:var(--shadow-lg); padding:2rem; width:90%; max-width:350px; text-align:center;">
-    <h2>🔒 SISTEMA DE FINANZAS</h2>
+    <img class="icon-png" src="recursos/icons/privacy.png" alt="Lock">
+    <h2 style="text-align: center;">Sistema de Gestión Financiera</h2>
     <p style="color:var(--text-light); margin-bottom:1.5rem;">Ingresa tu PIN de 4 dígitos para acceder.</p>
     <input type="password" id="pinInput" maxlength="4" minlength="4" placeholder="PIN de 4 dígitos" 
            style="width:100%; padding:1rem; font-size:1.5rem; text-align:center; margin-bottom:1.5rem; border:1px solid var(--text-light); border-radius:8px;"
@@ -1802,7 +2214,7 @@
       ¿Olvidaste tu PIN?
     </button>
     <p id="avisoPinOlvidado" style="font-size:0.75rem; color:var(--text-light); margin-top:1.5rem; font-style:italic; display:none;">
-      ⚠️ ¿Olvidaste tu PIN? Escribe <strong>"reset"</strong> en el campo y presiona <strong>Desbloquear</strong>.
+      ⚠️ ¿No puedes acceder al sistema? Pulsa el botón <strong>"¿Olvidaste tu PIN?"</strong> y responde a las preguntas de seguridad.
     </p>
   </div>
 </div>
