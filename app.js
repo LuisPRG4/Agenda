@@ -1,7 +1,7 @@
 // Variable global para la base de datos
 let db;
 const DB_NAME = 'sfpDB';
-const DB_VERSION = 4; // ✅ Versión actual de la base de datos
+const DB_VERSION = 9; // ✅ Versión actual de la base de datos
 
 // (variable global)
 let idRecordatorioEditando = null;
@@ -39,7 +39,11 @@ const STORES = {
     SALDO_INICIAL: 'saldo_inicial',
     INVERSIONES: 'inversiones',
     // ✅ NUEVO: Almacenamiento para Notas
-    NOTAS: 'notas'
+    NOTAS: 'notas',
+    PROVEEDORES: 'proveedores',
+    INVENTARIO: 'inventario',
+    ASISTENTE: 'asistente',
+    CATEGORIAS_ASISTENTE: 'categorias_asistente'
 };
 
 // ======================================================================================
@@ -258,7 +262,7 @@ function parseNumberVE(str) {
 }
 
 //Versión del sistema:
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.1.2';
 
 // ✅ Función para crear datos de backup (necesaria para el almacén)
 async function crearBackupData() {
@@ -1329,12 +1333,14 @@ function mostrarSideTab(id) {
             cargarDeudas();
             break;
         case 'config':
-            // No necesita acción específica
+            renderizarReglas(); // Cargar las reglas al mostrar la pestaña
+            renderizarCategoriasEditables(); // Cargar las categorías editables
+            renderizarBancosEditables(); // Cargar los bancos editables
+            cargarBackupsGuardados(); // ✅ Cargar los backups guardados automáticamente
             break;
-            case 'cambios':
-                // ✅ Mostrar información de versión del sistema
-                mostrarInfoCambios();
-                break;
+        case 'cambios':
+                
+            break;
 
         case 'recordatorios':
             (async () => {
@@ -1351,7 +1357,32 @@ function mostrarSideTab(id) {
         case 'asistente-ia':
             // No necesita cargar datos específicos, solo mostrar la interfaz
             break;
-        
+
+        case 'proveedores-pagos':
+            renderizarPagos(); // Cargar los pagos al mostrar la pestaña
+            renderizarGraficoProveedores(); // Cargar el gráfico
+        break;
+
+        case 'inventario-activos':
+            renderizarActivos(); // Cargar los activos al mostrar la pestaña
+        break;
+
+        case 'reportes-gerenciales':
+            // No necesita cargar datos específicos, solo mostrar la interfaz
+        break;
+
+        case 'asistente-financiero':
+            renderizarReglasAsistente(); // Cargar las reglas al mostrar la pestaña
+
+                // ✅ Cargar el estado del checkbox desde localStorage
+            const mostrarTodasGuardado = localStorage.getItem('mostrarTodasCategorias');
+            if (mostrarTodasGuardado !== null) {
+                document.getElementById('mostrarTodasCategorias').checked = mostrarTodasGuardado === 'true';
+                // Actualizar el select con el estado cargado
+                actualizarSelectCategoriasAsistente();
+            }
+
+        break;
     }
 
     // ✅ MOSTRAR VERSIÓN EN EL PANEL DE CONFIGURACIÓN
@@ -1699,7 +1730,7 @@ class SidebarManager {
             searchInput.placeholder = '❌ No encontrado...';
         } else {
             searchInput.style.borderColor = '';
-            searchInput.placeholder = '🔍 Buscar pestañas...';
+            searchInput.placeholder = '🔍Buscar pestañas...';
         }
     }
 
@@ -2587,83 +2618,93 @@ function cerrarModalBloqueo() {
     localStorage.setItem('intentosFallidos', '0'); // ✅ REINICIAR CONTADOR
 }
 
-// Desbloquear la app con el PIN
+// ✅ Función para desbloquear la aplicación
 async function desbloquearApp() {
-    const pinIngresado = document.getElementById('pinInput').value.trim().toLowerCase();
+    const pinIngresado = document.getElementById('pinInput').value.trim();
     const pinGuardado = localStorage.getItem('bloqueoPIN');
     const aviso = document.getElementById('avisoPinOlvidado');
-
+  
     // ✅ Reiniciar contador si se ingresa algo válido
-    if (pinIngresado === 'reset' || (pinIngresado.length === 4 && pinIngresado === pinGuardado)) {
-        localStorage.setItem('intentosFallidos', '0'); // Reiniciar contador
-        aviso.style.display = 'none';
-    }
-
-    // ✅ MODO DE EMERGENCIA: Si se ingresa "reset", desactiva el bloqueo
-    if (pinIngresado === 'reset') {
-        if (confirm('⚠️ ¿Estás seguro de que quieres desactivar el bloqueo de la app? \n\nEsto eliminará tu PIN y permitirá el acceso sin restricciones. \n\nSolo haz esto si olvidaste tu PIN y no tienes otra copia de seguridad.')) {
-            localStorage.removeItem('bloqueoPIN');
-            localStorage.removeItem('bloqueoActivo');
-            localStorage.removeItem('bloqueoDesbloqueado');
-            alert('🔒 Bloqueo desactivado con éxito. Ahora puedes acceder sin PIN.');
-            cerrarModalBloqueo();
-        }
-        return;
-    }
-
-    // Validación normal de PIN
-    if (!pinIngresado || pinIngresado.length !== 4) {
-        alert('Ingresa un PIN de 4 dígitos o escribe "reset" para desactivar el bloqueo.');
-        return;
-    }
-
     if (pinIngresado === pinGuardado) {
-        localStorage.setItem('bloqueoDesbloqueado', 'true');
-        localStorage.setItem('intentosFallidos', '0'); // Reiniciar contador
-        aviso.style.display = 'none';
-        cerrarModalBloqueo();
-        const pestaña = localStorage.getItem('agendaPestañaActiva');
-        if (pestaña) mostrarSideTab(pestaña);
-    } else {
-        // Contar intentos fallidos
-        let intentos = parseInt(localStorage.getItem('intentosFallidos')) || 0;
-        intentos++;
-        localStorage.setItem('intentosFallidos', intentos.toString());
-
-        // Mostrar aviso después de 2 intentos fallidos
-        if (intentos >= 2) {
-            aviso.style.display = 'block';
-        }
-
-        alert('PIN incorrecto. Intenta de nuevo.\n\n¿Olvidaste tu PIN? Escribe "reset" para desactivar el bloqueo.');
-        document.getElementById('pinInput').value = '';
+      localStorage.setItem('intentosFallidos', '0'); // Reiniciar contador
+      aviso.style.display = 'none';
+      localStorage.setItem('bloqueoDesbloqueado', 'true');
+      cerrarModalBloqueo();
+      const pestaña = localStorage.getItem('agendaPestañaActiva');
+      if (pestaña) mostrarSideTab(pestaña);
+      mostrarToast('✅ Aplicación desbloqueada.', 'success');
+      return;
     }
-}
+  
+    // Contar intentos fallidos
+    let intentos = parseInt(localStorage.getItem('intentosFallidos')) || 0;
+    intentos++;
+    localStorage.setItem('intentosFallidos', intentos.toString());
+  
+    // Mostrar aviso después de 2 intentos fallidos
+    if (intentos >= 2) {
+      aviso.style.display = 'block';
+    }
+  
+    alert('PIN incorrecto. Intenta de nuevo.');
+  
+    // ✅ Mostrar opción de recuperación con preguntas de seguridad
+    if (intentos >= 3) {
+      if (confirm('¿Deseas recuperar el acceso mediante las preguntas de seguridad?')) {
+        mostrarAyudaPinOlvidado();
+      }
+    }
+  }
 
-// Guardar PIN
+// ✅ Función para guardar el PIN y las preguntas de seguridad
 async function guardarPIN() {
     const pin = document.getElementById('bloqueoPIN').value.trim();
     const pinConfirm = document.getElementById('bloqueoPINConfirmar').value.trim();
-
+    const pregunta1 = document.getElementById('preguntaSeguridad1').value;
+    const respuesta1 = document.getElementById('respuestaSeguridad1').value.trim();
+    const pregunta2 = document.getElementById('preguntaSeguridad2').value;
+    const respuesta2 = document.getElementById('respuestaSeguridad2').value.trim();
+  
     if (!pin || pin.length !== 4 || !pinConfirm || pinConfirm.length !== 4) {
-        alert('El PIN debe tener exactamente 4 dígitos.');
-        return;
+      alert('El PIN debe tener exactamente 4 dígitos.');
+      return;
     }
-
+  
     if (pin !== pinConfirm) {
-        alert('Los PINs no coinciden. Vuelve a intentarlo.');
-        document.getElementById('bloqueoPIN').value = '';
-        document.getElementById('bloqueoPINConfirmar').value = '';
-        return;
+      alert('Los PINs no coinciden. Vuelve a intentarlo.');
+      document.getElementById('bloqueoPIN').value = '';
+      document.getElementById('bloqueoPINConfirmar').value = '';
+      return;
     }
-
+  
+    if (!pregunta1 || !respuesta1 || !pregunta2 || !respuesta2) {
+      alert('Debes seleccionar y responder ambas preguntas de seguridad.');
+      return;
+    }
+  
+    // Validar que las preguntas sean diferentes
+    if (pregunta1 === pregunta2) {
+      alert('Las preguntas de seguridad deben ser diferentes.');
+      return;
+    }
+  
+    // Guardar el PIN y las preguntas de seguridad en localStorage
     localStorage.setItem('bloqueoPIN', pin);
-    alert('✅ PIN guardado con éxito.');
+    localStorage.setItem('preguntaSeguridad1', pregunta1);
+    localStorage.setItem('respuestaSeguridad1', respuesta1);
+    localStorage.setItem('preguntaSeguridad2', pregunta2);
+    localStorage.setItem('respuestaSeguridad2', respuesta2);
+  
+    alert('✅ PIN y preguntas de seguridad guardados con éxito.');
     document.getElementById('bloqueoPIN').value = '';
     document.getElementById('bloqueoPINConfirmar').value = '';
-
+    document.getElementById('preguntaSeguridad1').value = '';
+    document.getElementById('respuestaSeguridad1').value = '';
+    document.getElementById('preguntaSeguridad2').value = '';
+    document.getElementById('respuestaSeguridad2').value = '';
+  
     actualizarBotonBloqueo();
-}
+  }
 
 // Eliminar PIN
 async function eliminarPIN() {
@@ -2675,6 +2716,66 @@ async function eliminarPIN() {
     alert('PIN eliminado.');
 
     actualizarBotonBloqueo();
+}
+
+// ✅ Función para mostrar el formulario de recuperación con preguntas de seguridad
+function mostrarRecuperacionConPreguntas() {
+    const modal = document.getElementById('modalBloqueo');
+    if (!modal) {
+      console.error('❌ Modal de bloqueo no encontrado.');
+      return;
+    }
+  
+    const pregunta1 = localStorage.getItem('preguntaSeguridad1');
+    const pregunta2 = localStorage.getItem('preguntaSeguridad2');
+  
+    if (!pregunta1 || !pregunta2) {
+      alert('No se han configurado preguntas de seguridad.');
+      return;
+    }
+  
+    const html = `
+      <div style="background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 2rem; width: 90%; max-width: 500px; text-align: center;">
+        <h2 style="color: var(--primary); margin-bottom: 1rem;">🔐 Recuperación de Acceso</h2>
+        <p style="color: var(--text-light); line-height: 1.6; margin-bottom: 1.5rem;">
+          Responde las siguientes preguntas de seguridad para recuperar el acceso.
+        </p>
+  
+        <div style="margin-bottom: 1rem;">
+          <p style="color: var(--text-light); margin: 0 0 0.5rem 0;"><strong>${pregunta1}</strong></p>
+          <input type="text" id="respuestaRecuperacion1" placeholder="Respuesta" style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; margin-bottom: 1rem;" />
+        </div>
+  
+        <div style="margin-bottom: 1rem;">
+          <p style="color: var(--text-light); margin: 0 0 0.5rem 0;"><strong>${pregunta2}</strong></p>
+          <input type="text" id="respuestaRecuperacion2" placeholder="Respuesta" style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; margin-bottom: 1rem;" />
+        </div>
+  
+       <button onclick="verificarRespuestasRecuperacion()" style="width: 100%; padding: 0.75rem; font-size: 1rem; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer;">✅ Verificar Respuestas</button>
+        <button onclick="cerrarModalBloqueo()" style="width: 100%; padding: 0.75rem; font-size: 1rem; background: var(--danger); color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 1rem;">Cancelar</button>
+      </div>
+    `;
+  
+    modal.innerHTML = html;
+  }
+  
+// ✅ Función para verificar las respuestas de recuperación
+function verificarRespuestasRecuperacion() {
+    const respuesta1 = document.getElementById('respuestaRecuperacion1').value.trim().toLowerCase();
+    const respuesta2 = document.getElementById('respuestaRecuperacion2').value.trim().toLowerCase();
+    const respuestaGuardada1 = localStorage.getItem('respuestaSeguridad1').toLowerCase();
+    const respuestaGuardada2 = localStorage.getItem('respuestaSeguridad2').toLowerCase();
+  
+    if (respuesta1 === respuestaGuardada1 && respuesta2 === respuestaGuardada2) {
+      localStorage.setItem('bloqueoDesbloqueado', 'true');
+      localStorage.setItem('intentosFallidos', '0');
+      cerrarModalBloqueo();
+      const pestaña = localStorage.getItem('agendaPestañaActiva');
+      if (pestaña) mostrarSideTab(pestaña);
+      mostrarToast('✅ Acceso recuperado con éxito.', 'success');
+    } else {
+      alert('Respuestas incorrectas. Inténtalo de nuevo.');
+    }
 }
 
 // Controlar el checkbox de activación
@@ -3065,12 +3166,20 @@ Se actualizó${afectados !== 1 ? 'ron' : ''} ${afectados} movimiento${afectados 
 }
 
 // ✅ EXPORTAR BACKUP COMPLETO (todo el estado de la app)
+// ✅ EXPORTAR BACKUP COMPLETO (todo el estado de la app)
 async function exportarBackup() {
     try {
-        // Primero, guardar localmente
-        await guardarBackupActual();
-        
-        // Luego, proceder con la descarga
+        // Obtener el nombre personalizado del usuario
+        const nombrePersonalizado = document.getElementById('nombreBackup').value.trim();
+
+        // Si el usuario no ingresó un nombre, usar uno por defecto
+        const nombreBase = nombrePersonalizado || 'Backup_Sistema_Financiero';
+
+        // Generar nombre único con la fecha y hora
+        const fecha = new Date();
+        const nombreBackup = `${nombreBase}_${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}_${String(fecha.getHours()).padStart(2, '0')}${String(fecha.getMinutes()).padStart(2, '0')}.json`;
+
+        // Crear los datos del backup
         const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
         const categorias = await getAllEntries(STORES.CATEGORIAS);
         const bancos = await getAllEntries(STORES.BANCOS);
@@ -3102,21 +3211,33 @@ async function exportarBackup() {
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backup, null, 2));
         const downloadAnchorNode = document.createElement('a');
         downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", `SFP_Backup_${new Date().toISOString().split('T')[0]}.json`);
+        downloadAnchorNode.setAttribute("download", nombreBackup);
         document.body.appendChild(downloadAnchorNode);
         downloadAnchorNode.click();
         downloadAnchorNode.remove();
 
+        mostrarToast(`✅ Backup exportado como "${nombreBackup}"`, 'success');
+
     } catch (error) {
         console.error("Error al exportar backup:", error);
-        alert("❌ Error al exportar el backup. Revisa la consola.");
+        mostrarToast('❌ Error al exportar el backup', 'danger');
     }
 }
 
-// Función auxiliar para guardar el backup localmente
+// ✅ Función auxiliar para guardar el backup localmente (con nombre personalizado)
 async function guardarBackupActual() {
     try {
-        // Obtener todos los datos actuales
+        // Obtener el nombre personalizado del usuario
+        const nombrePersonalizado = document.getElementById('nombreBackup').value.trim();
+
+        // Si el usuario no ingresó un nombre, usar uno por defecto
+        const nombreBase = nombrePersonalizado || 'Backup_Sistema_Financiero';
+
+        // Generar nombre único con la fecha y hora
+        const fecha = new Date();
+        const nombreBackup = `${nombreBase}_${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}_${String(fecha.getHours()).padStart(2, '0')}${String(fecha.getMinutes()).padStart(2, '0')}.json`;
+
+        // Crear los datos del backup
         const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
         const categorias = await getAllEntries(STORES.CATEGORIAS);
         const bancos = await getAllEntries(STORES.BANCOS);
@@ -3144,17 +3265,13 @@ async function guardarBackupActual() {
             tema: tema
         };
 
-        // Generar nombre único para el backup
-        const fecha = new Date();
-        const nombreBackup = `backup_${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}_${String(fecha.getHours()).padStart(2, '0')}${String(fecha.getMinutes()).padStart(2, '0')}.json`;
-        
-        // Guardar en localStorage
+        // Guardar en localStorage con el nombre personalizado
         localStorage.setItem(nombreBackup, JSON.stringify(backup));
-        
+
         // Mostrar notificación
-        alert(`✅ Backup guardado correctamente como \"${nombreBackup.replace('backup_', '').replace('.json', '')}\"`);
+        alert(`✅ Backup guardado correctamente como "${nombreBackup.replace('backup_', '').replace('.json', '')}"`);
         return true;
-        
+
     } catch (error) {
         console.error('Error al guardar backup:', error);
         alert('❌ Error al guardar el backup. Revisa la consola para más detalles.');
@@ -3162,18 +3279,16 @@ async function guardarBackupActual() {
     }
 }
 
-// ✅ IMPORTAR BACKUP COMPLETO (restaura todo)
-async function importarBackup() {
+// ✅ IMPORTAR BACKUP DESDE DISCO (restaura todo)
+async function importarBackupDesdeDisco() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
     input.style.display = 'none';
     document.body.appendChild(input);
-
     input.onchange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = async (event) => {
             try {
@@ -3191,19 +3306,7 @@ async function importarBackup() {
                 }
 
                 // 1. Borrar todo lo existente
-                const transaction = db.transaction([STORES.MOVIMIENTOS, STORES.CATEGORIAS, STORES.BANCOS, STORES.REGLAS, STORES.SALDO_INICIAL], 'readwrite');
-                const movStore = transaction.objectStore(STORES.MOVIMIENTOS);
-                const catStore = transaction.objectStore(STORES.CATEGORIAS);
-                const banStore = transaction.objectStore(STORES.BANCOS);
-                const regStore = transaction.objectStore(STORES.REGLAS);
-                const salStore = transaction.objectStore(STORES.SALDO_INICIAL);
-
-                // Limpiar almacenes
-                movStore.clear();
-                catStore.clear();
-                banStore.clear();
-                regStore.clear();
-                salStore.clear();
+                await clearAllStores();
 
                 // 2. Restaurar categorías
                 if (backup.categorias && backup.categorias.length > 0) {
@@ -3248,8 +3351,6 @@ async function importarBackup() {
                 // 8. Limpiar input y refrescar app
                 input.remove();
                 alert("✅ Backup importado con éxito. Recargando la app...");
-
-                // Recargar la app para reflejar cambios
                 location.reload();
 
             } catch (error) {
@@ -3260,8 +3361,108 @@ async function importarBackup() {
         };
         reader.readAsText(file);
     };
-
     input.click();
+}
+
+// ✅ Función para importar un backup local (desde localStorage)
+async function importarBackupLocal(nombreBackup) {
+    try {
+        // Obtener el backup desde localStorage
+        const backup = JSON.parse(localStorage.getItem(nombreBackup));
+
+        // Validar versión
+        if (backup.version !== '1.0') {
+            alert("⚠️ Este archivo de backup no es compatible con esta versión de la app.");
+            return;
+        }
+
+        // Confirmar antes de sobrescribir
+        if (!confirm("⚠️ ¡ADVERTENCIA! Esto borrará todos tus datos actuales y los reemplazará con los del backup. ¿Continuar?")) {
+            return;
+        }
+
+        // 1. Borrar todo lo existente
+        await clearAllStores();
+
+        // 2. Restaurar categorías
+        if (backup.categorias && backup.categorias.length > 0) {
+            for (const cat of backup.categorias) {
+                await addEntry(STORES.CATEGORIAS, cat);
+            }
+        }
+
+        // 3. Restaurar bancos
+        if (backup.bancos && backup.bancos.length > 0) {
+            for (const ban of backup.bancos) {
+                await addEntry(STORES.BANCOS, ban);
+            }
+        }
+
+        // 4. Restaurar reglas
+        if (backup.reglas && backup.reglas.length > 0) {
+            for (const reg of backup.reglas) {
+                await addEntry(STORES.REGLAS, reg);
+            }
+        }
+
+        // 5. Restaurar saldo inicial
+        if (backup.saldoInicial) {
+            await addEntry(STORES.SALDO_INICIAL, backup.saldoInicial);
+        }
+
+        // 6. Restaurar movimientos
+        if (backup.movimientos && backup.movimientos.length > 0) {
+            for (const mov of backup.movimientos) {
+                await addEntry(STORES.MOVIMIENTOS, mov);
+            }
+        }
+
+        // 7. Restaurar localStorage
+        localStorage.setItem('metaPresupuesto', backup.metaPresupuesto || '');
+        localStorage.setItem('tasaCambio', backup.tasaCambio || '');
+        localStorage.setItem('bloqueoActivo', backup.bloqueoActivo ? 'true' : 'false');
+        localStorage.setItem('bloqueoPIN', backup.bloqueoPIN || '');
+        localStorage.setItem('agendaTema', backup.tema || '');
+
+        // 8. Limpiar input y refrescar app
+        alert("✅ Backup importado con éxito. Recargando la app...");
+        location.reload();
+
+    } catch (error) {
+        console.error("Error al importar backup local:", error);
+        alert("❌ Error al importar el backup. El archivo puede estar corrupto o no compatible.");
+    }
+}
+
+// ✅ Función para cargar los backups guardados automáticamente
+async function cargarBackupsGuardados() {
+    const lista = document.getElementById('listaBackups');
+    if (!lista) return;
+
+    // Filtrar claves de localStorage que terminen en ".json"
+    const claves = Object.keys(localStorage).filter(key => key.endsWith('.json'));
+
+    if (claves.length === 0) {
+        lista.innerHTML = '<p style="text-align: center; color: var(--text-light);">No hay backups guardados.</p>';
+        return;
+    }
+
+    let html = '';
+    claves.forEach(clave => {
+        const backup = JSON.parse(localStorage.getItem(clave));
+        const fecha = new Date(backup.fecha).toLocaleString('es-VE');
+        html += `
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid var(--border);">
+        <span style="color: var(--text-light); font-size: 0.9rem;">${clave}</span>
+        <div style="display: flex; gap: 0.5rem;">
+            <button onclick="importarBackupLocal('${clave}')" style="background: var(--success); color: white; border: none; border-radius: 4px; padding: 0.25rem 0.5rem; font-size: 0.8rem; cursor: pointer;">📥 Importar</button>
+            <button onclick="eliminarBackup('${clave}')" style="background: var(--danger); color: white; border: none; border-radius: 4px; padding: 0.25rem 0.5rem; font-size: 0.8rem; cursor: pointer;">🗑️ Eliminar</button>
+        </div>
+    </div>
+`;
+    });
+
+    lista.innerHTML = html;
 }
 
 // Cargar configuración de bloqueo al inicio
@@ -5458,68 +5659,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('touchstart', inicializarAudio);
 });
 
-// ✅ Función para mostrar información de cambios y versión
-function mostrarInfoCambios() {
-    // Crear modal si no existe
-    if (!document.getElementById('modalCambios')) {
-        const modal = document.createElement('div');
-        modal.id = 'modalCambios';
-        modal.innerHTML = `
-            <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 10000;">
-                <div style="background: var(--card-bg); border-radius: var(--radius); padding: 2rem; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
-                    <h2 style="text-align: center; margin-bottom: 1.5rem; color: var(--primary);">📋 Información del Sistema</h2>
-                    
-                    <div style="margin-bottom: 1.5rem;">
-                        <h3 style="color: var(--primary); margin-bottom: 0.5rem;">📅 Versión Actual</h3>
-                        <p><strong>Versión:</strong> ${APP_VERSION || '1.0.4'}</p>
-                        <p><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-ES')}</p>
-                    </div>
-                    
-                    <div style="margin-bottom: 1.5rem;">
-                        <h3 style="color: var(--primary); margin-bottom: 0.5rem;">🎵 Características</h3>
-                        <ul style="margin: 0; padding-left: 1.5rem;">
-                            <li>✅ Tarjetas elegantes con diseño moderno</li>
-                            <li>✅ Sonidos al cambiar de pestañas</li>
-                            <li>✅ Scroll automático en paginación</li>
-                            <li>✅ Fechas relativas inteligentes</li>
-                            <li>✅ Tema oscuro/claro automático</li>
-                            <li>✅ Compatibilidad con todos los navegadores</li>
-                        </ul>
-                    </div>
-                    
-                    <div style="margin-bottom: 1.5rem;">
-                        <h3 style="color: var(--primary); margin-bottom: 0.5rem;">🔧 Mejoras Recientes</h3>
-                        <ul style="margin: 0; padding-left: 1.5rem;">
-                            <li>✅ Corrección de fechas relativas</li>
-                            <li>✅ Web Audio API para sonidos</li>
-                            <li>✅ Diseño responsivo mejorado</li>
-                            <li>✅ Funciones de scroll automático</li>
-                        </ul>
-                    </div>
-                    
-                    <div style="text-align: center; margin-top: 2rem;">
-                        <button onclick="cerrarModalCambios()" style="background: var(--primary); color: white; border: none; border-radius: 8px; padding: 0.75rem 2rem; font-size: 1rem; cursor: pointer;">
-                            ✅ Cerrar
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-    }
-    
-    // Mostrar modal
-    document.getElementById('modalCambios').style.display = 'flex';
-}
-
-// ✅ Función para cerrar modal de cambios
-function cerrarModalCambios() {
-    const modal = document.getElementById('modalCambios');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-}
-
 // ✅ Variable global para controlar sonidos
 let sonidosActivados = true;
 
@@ -7439,11 +7578,81 @@ if(selSonido) {
   await renderizarRecordatorios()
 }
 
-// FUNCION PARA EL PIN
+// ✅ Función para mostrar el formulario de recuperación con preguntas de seguridad
 function mostrarAyudaPinOlvidado() {
-  const aviso = document.getElementById('avisoPinOlvidado');
-  aviso.style.display = aviso.style.display === 'block' ? 'none' : 'block';
-}
+    const modal = document.getElementById('modalBloqueo');
+    if (!modal) {
+      console.error('❌ Modal de bloqueo no encontrado.');
+      return;
+    }
+  
+    const pregunta1 = localStorage.getItem('preguntaSeguridad1');
+    const pregunta2 = localStorage.getItem('preguntaSeguridad2');
+  
+    if (!pregunta1 || !pregunta2) {
+      alert('No se han configurado preguntas de seguridad.');
+      return;
+    }
+  
+    // Mapear los valores internos a textos legibles
+    const preguntasLegibles = {
+      'nombreMadre': 'Nombre de tu madre',
+      'nombrePadre': 'Nombre de tu padre',
+      'nombreMascota': 'Nombre de tu primera mascota',
+      'ciudadNatal': 'Ciudad donde naciste',
+      'mejorAmigo': 'Nombre de tu mejor amigo/a de la infancia',
+      'primeraEscuela': 'Nombre de tu primera escuela',
+      'comidaFavorita': 'Tu comida favorita'
+    };
+  
+    const textoPregunta1 = preguntasLegibles[pregunta1] || pregunta1;
+    const textoPregunta2 = preguntasLegibles[pregunta2] || pregunta2;
+  
+    const html = `
+      <div style="background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 2rem; width: 90%; max-width: 500px; text-align: center;">
+        <h2 style="color: var(--primary); margin-bottom: 1rem;">🔐 Recuperación de Acceso</h2>
+        <p style="color: var(--text-light); line-height: 1.6; margin-bottom: 1.5rem;">
+          Responde las siguientes preguntas de seguridad para recuperar el acceso.
+        </p>
+  
+        <div style="margin-bottom: 1rem; text-align: left;">
+          <label for="respuestaRecuperacion1" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text);">${textoPregunta1}</label>
+          <input type="text" id="respuestaRecuperacion1" placeholder="Respuesta" style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; margin-bottom: 1rem;" />
+        </div>
+  
+        <div style="margin-bottom: 1rem; text-align: left;">
+          <label for="respuestaRecuperacion2" style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text);">${textoPregunta2}</label>
+          <input type="text" id="respuestaRecuperacion2" placeholder="Respuesta" style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; margin-bottom: 1rem;" />
+        </div>
+  
+        <button onclick="verificarRespuestasRecuperacion()" style="width: 100%; padding: 0.75rem; font-size: 1rem; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer;">✅ Verificar Respuestas</button>
+        <button onclick="volverAModalBloqueo()" style="width: 100%; padding: 0.75rem; font-size: 1rem; background: var(--danger); color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 1rem;">Cancelar</button>
+      </div>
+    `;
+  
+    modal.innerHTML = html;
+  }
+
+// ✅ Función para volver al modal de bloqueo (donde pide el PIN)
+function volverAModalBloqueo() {
+    const modal = document.getElementById('modalBloqueo');
+    if (!modal) {
+      console.error('❌ Modal de bloqueo no encontrado.');
+      return;
+    }
+  
+    const html = `
+      <div style="background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 2rem; width: 90%; max-width: 350px; text-align: center;">
+        <h2>🔒 SISTEMA DE FINANZAS</h2>
+        <p style="color: var(--text-light); margin-bottom: 1.5rem;">Ingresa tu PIN de 4 dígitos para acceder.</p>
+        <input type="password" id="pinInput" maxlength="4" minlength="4" placeholder="PIN de 4 dígitos" style="width: 100%; padding: 1rem; font-size: 1.5rem; text-align: center; margin-bottom: 1.5rem; border: 1px solid var(--text-light); border-radius: 8px;" title="Escribe 'reset' si olvidaste tu PIN (solo para recuperación)" />
+        <button onclick="desbloquearApp()" style="width: 100%; padding: 1rem; font-size: 1rem; background: #0b57d0; color: white; border: none; border-radius: 8px;">Desbloquear</button>
+        <button onclick="mostrarAyudaPinOlvidado()" style="width: 100%; padding: 0.75rem; margin-top: 1rem; background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 8px; font-size: 0.9rem;">¿Olvidaste tu PIN?</button>
+      </div>
+    `;
+  
+    modal.innerHTML = html;
+  }
 
 // FUNCIÓN PARA REPRODUCIR EL SONIDO ELEGIDO EN LA PESTAÑA RECORDATORIOS
 function reproducirSonidoAviso() {
@@ -7730,6 +7939,1254 @@ function mostrarAyudaNotas() {
     mostrarModalAyuda(contenido, 'modalAyudaNotas');
 }
 
+// =========================================================
+// ✅ SISTEMA DE PROVEEDORES Y PAGOS (CRUD - Create, Read, Update, Delete)
+// =========================================================
+
+/* - CRUD - */
+async function addPago(pago) {
+    return addEntry(STORES.PROVEEDORES, pago);
+}
+
+async function getAllPagos() {
+    return getAllEntries(STORES.PROVEEDORES);
+}
+
+async function updatePago(pago) {
+    return updateEntry(STORES.PROVEEDORES, pago);
+}
+
+async function deletePago(id) {
+    return deleteEntry(STORES.PROVEEDORES, id);
+}
+
+/* - Función para renderizar la lista de pagos - */
+async function renderizarPagos() {
+    const pagos = await getAllPagos();
+    const contenedor = document.getElementById('contenedorPagos');
+    const filtroEstado = document.getElementById('filtroEstadoPago').value;
+    const filtroProveedor = document.getElementById('filtroProveedor').value;
+
+    // Filtrar pagos
+    let pagosFiltrados = pagos;
+    if (filtroEstado) {
+        pagosFiltrados = pagosFiltrados.filter(p => p.estado === filtroEstado);
+    }
+    if (filtroProveedor) {
+        pagosFiltrados = pagosFiltrados.filter(p => p.nombreProveedor === filtroProveedor);
+    }
+
+    // Actualizar el select de proveedores
+    actualizarSelectProveedores(pagos);
+
+    if (pagosFiltrados.length === 0) {
+    let mensajeHTML = `
+        <div style="text-align: center; padding: 2rem; color: var(--text-light); background: rgba(var(--primary-rgb), 0.05); border-radius: var(--radius); border-left: 4px solid var(--primary);">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">📁</div>
+            <h3 style="margin: 0 0 0.5rem 0; color: var(--text);">No hay pagos registrados</h3>
+            <p style="margin: 0 0 1rem 0; font-size: 0.9rem;">Registra tu primer pago para empezar a gestionar tus obligaciones con proveedores.</p>
+            <button onclick="document.getElementById('nombreProveedor').focus()" style="background: var(--primary); color: white; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; font-size: 0.9rem; cursor: pointer;">
+                ➕ Registrar Pago
+            </button>
+        </div>
+    `;
+    contenedor.innerHTML = mensajeHTML;
+    return;
+}
+
+    let html = '';
+    pagosFiltrados.forEach(pago => {
+        html += `
+            <div class="tarjeta-pago" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; box-shadow: var(--shadow-sm); transition: transform 0.2s; cursor: pointer;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                    <h4 style="margin: 0; color: var(--text);">${pago.nombreProveedor}</h4>
+                    <div style="display: flex; gap: 0.25rem;">
+                        <button onclick="editarPago(${pago.id})" title="Editar" style="background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0.25rem; border-radius: 4px; transition: background .2s;">✏️</button>
+                        <button onclick="eliminarPago(${pago.id})" title="Eliminar" style="background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0.25rem; border-radius: 4px; transition: background .2s;">🗑️</button>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span style="color: var(--text-light); font-size: 0.9rem;">📅 ${new Date(pago.fechaPago).toLocaleDateString('es-VE')}</span>
+                    <span style="color: var(--text-light); font-size: 0.9rem;">💰 Bs. ${formatNumberVE(pago.monto)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span style="color: var(--text-light); font-size: 0.9rem;">💳 ${pago.metodoPago}</span>
+                    <span style="font-size: 0.9rem; ${pago.estado === 'pagado' ? 'color: var(--success)' : 'color: var(--warning)'};">${pago.estado === 'pagado' ? '✅ Pagado' : '⏳ Pendiente'}</span>
+                </div>
+                ${pago.descripcion ? `<p style="margin: 0.5rem 0 0 0; color: var(--text-light); font-size: 0.9rem; line-height: 1.4;">${pago.descripcion}</p>` : ''}
+            </div>
+        `;
+    });
+
+    contenedor.innerHTML = html;
+}
+
+/* - Función para actualizar el select de proveedores - */
+function actualizarSelectProveedores(pagos) {
+    const select = document.getElementById('filtroProveedor');
+    const proveedoresUnicos = [...new Set(pagos.map(p => p.nombreProveedor))].sort();
+
+    select.innerHTML = '<option value="">Todos los proveedores</option>';
+    proveedoresUnicos.forEach(proveedor => {
+        const opt = document.createElement('option');
+        opt.value = proveedor;
+        opt.textContent = proveedor;
+        select.appendChild(opt);
+    });
+}
+
+/* - Función para guardar un pago - */
+async function guardarPago() {
+    const idEditando = document.getElementById('idPagoEditando').value;
+    const nombreProveedor = document.getElementById('nombreProveedor').value.trim();
+    const monto = document.getElementById('montoPago').value.trim();
+    const fechaPago = document.getElementById('fechaPago').value;
+    const metodoPago = document.getElementById('metodoPago').value;
+    const estado = document.getElementById('estadoPago').value;
+    const descripcion = document.getElementById('descripcionPago').value.trim();
+
+    if (!nombreProveedor || !monto || !fechaPago || !metodoPago) {
+        mostrarToast('❌ Todos los campos son obligatorios', 'danger');
+        return;
+    }
+
+    const pago = {
+        nombreProveedor,
+        monto: parseFloat(monto.replace(/[.,]/g, '')),
+        fechaPago,
+        metodoPago,
+        estado,
+        descripcion,
+        fechaCreacion: new Date().toISOString()
+    };
+
+    try {
+        if (idEditando) {
+            // Actualizar pago existente
+            pago.id = parseInt(idEditando);
+            await updatePago(pago);
+            mostrarToast('✅ Pago actualizado', 'success');
+        } else {
+            // Crear nuevo pago
+            await addPago(pago);
+            mostrarToast('✅ Pago registrado', 'success');
+        }
+
+        limpiarFormularioPago();
+        await renderizarPagos(); // Recargar la lista
+        await renderizarGraficoProveedores(); // Actualizar el gráfico
+    } catch (error) {
+        console.error("Error al guardar el pago:", error);
+        mostrarToast('❌ Error al guardar el pago', 'danger');
+    }
+}
+
+/* - Función para editar un pago - */
+async function editarPago(id) {
+    const pagos = await getAllPagos();
+    const pago = pagos.find(p => p.id === id);
+
+    if (!pago) return;
+
+    document.getElementById('idPagoEditando').value = pago.id;
+    document.getElementById('nombreProveedor').value = pago.nombreProveedor;
+    document.getElementById('montoPago').value = formatNumberVE(pago.monto);
+    document.getElementById('fechaPago').value = pago.fechaPago;
+    document.getElementById('metodoPago').value = pago.metodoPago;
+    document.getElementById('estadoPago').value = pago.estado;
+    document.getElementById('descripcionPago').value = pago.descripcion;
+
+    // Cambiar el texto del botón (opcional)
+    const btnGuardar = document.querySelector('#side-proveedores-pagos button[onclick="guardarPago()"]');
+    if (btnGuardar) btnGuardar.textContent = 'Actualizar Pago';
+
+    // Desplazar hacia el formulario
+    document.getElementById('registroProveedor').scrollIntoView({ behavior: 'smooth' });
+}
+
+/* - Función para eliminar un pago - */
+async function eliminarPago(id) {
+    if (!confirm('¿Estás seguro de que quieres eliminar este pago?')) return;
+
+    try {
+        await deletePago(id);
+        mostrarToast('✅ Pago eliminado', 'success');
+        await renderizarPagos(); // Recargar la lista
+        await renderizarGraficoProveedores(); // Actualizar el gráfico
+    } catch (error) {
+        console.error("Error al eliminar el pago:", error);
+        mostrarToast('❌ Error al eliminar el pago', 'danger');
+    }
+}
+
+/* - Función para limpiar el formulario - */
+function limpiarFormularioPago() {
+    document.getElementById('idPagoEditando').value = '';
+    document.getElementById('nombreProveedor').value = '';
+    document.getElementById('montoPago').value = '';
+    document.getElementById('fechaPago').value = '';
+    document.getElementById('metodoPago').value = '';
+    document.getElementById('estadoPago').value = 'pendiente';
+    document.getElementById('descripcionPago').value = '';
+    // Restaurar texto del botón (opcional)
+    const btnGuardar = document.querySelector('#side-proveedores-pagos button[onclick="guardarPago()"]');
+    if (btnGuardar) btnGuardar.textContent = '💾 Guardar Pago';
+}
+
+/* - Función para mostrar ayuda de Proveedores - */
+function mostrarAyudaProveedores() {
+    const contenido = `
+        <h2 style="color:var(--primary); margin-bottom:1.5rem; text-align:center;">💼 Guía de Proveedores y Pagos</h2>
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="color:var(--text); margin-bottom:0.75rem;">✅ Funcionalidades:</h3>
+            <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+                <li><strong>Registrar pagos:</strong> Anota a quién le pagas, cuánto y cuándo.</li>
+                <li><strong>Editar pagos:</strong> Modifica los detalles de un pago ya registrado.</li>
+                <li><strong>Eliminar pagos:</strong> Borra pagos que ya no necesitas.</li>
+                <li><strong>Filtrar pagos:</strong> Busca por estado o proveedor específico.</li>
+                <li><strong>Gráficos de gasto:</strong> Visualiza cuánto gastas con cada proveedor.</li>
+            </ul>
+        </div>
+        <div style="background:var(--info-bg); padding:1rem; border-radius:8px; border-left:4px solid var(--info); margin-top:1.5rem;">
+            <p style="margin:0; color:var(--info-text); font-size:0.875rem;"><strong>💡 Consejo:</strong> Usa esta herramienta para tener un control preciso de tus obligaciones con terceros y planificar mejor tus flujos de efectivo.</p>
+        </div>
+    `;
+    mostrarModalAyuda(contenido, 'modalAyudaProveedores');
+}
+
+/* - Función para renderizar el gráfico de gasto por proveedor - */
+async function renderizarGraficoProveedores() {
+    const pagos = await getAllPagos();
+    const canvas = document.getElementById('graficoProveedores');
+
+    if (!canvas) return;
+
+    // Agrupar por proveedor y sumar montos
+    const gastosPorProveedor = {};
+    pagos.forEach(pago => {
+        const proveedor = pago.nombreProveedor;
+        gastosPorProveedor[proveedor] = (gastosPorProveedor[proveedor] || 0) + pago.monto;
+    });
+
+    // Si no hay datos, mostrar un mensaje estilizado
+    if (Object.keys(gastosPorProveedor).length === 0) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Dibujar un mensaje estilizado
+        const mensaje = "No hay pagos registrados";
+        const subMensaje = "Registra tu primer pago para ver el gráfico.";
+        const icono = "📁"; // Ícono de carpeta vacía
+
+        ctx.font = 'bold 18px Arial';
+        ctx.fillStyle = 'var(--text-light)';
+        ctx.textAlign = 'center';
+
+        // Dibujar el ícono
+        ctx.font = 'bold 40px Arial';
+        ctx.fillText(icono, canvas.width / 2, canvas.height / 2 - 40);
+
+        // Dibujar el mensaje principal
+        ctx.font = 'bold 18px Arial';
+        ctx.fillText(mensaje, canvas.width / 2, canvas.height / 2 + 20);
+
+        // Dibujar el submensaje
+        ctx.font = '14px Arial';
+        ctx.fillStyle = 'var(--text-light)';
+        ctx.fillText(subMensaje, canvas.width / 2, canvas.height / 2 + 50);
+
+        return;
+    }
+
+    // Preparar datos para el gráfico
+    const labels = Object.keys(gastosPorProveedor);
+    const data = Object.values(gastosPorProveedor);
+
+    // Colores aleatorios para cada proveedor
+    const colors = labels.map(() => {
+        const hue = Math.floor(Math.random() * 360);
+        return `hsl(${hue}, 70%, 60%)`;
+    });
+
+    // Destruir el gráfico anterior si existe y es válido
+    if (window.graficoProveedores && typeof window.graficoProveedores.destroy === 'function') {
+        window.graficoProveedores.destroy();
+    }
+
+    // Crear el nuevo gráfico
+    window.graficoProveedores = new Chart(canvas, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Gasto por Proveedor',
+                data: data,
+                backgroundColor: colors,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.raw || 0;
+                            const percentage = ((value / data.reduce((a, b) => a + b, 0)) * 100).toFixed(1);
+                            return `${label}: Bs. ${formatNumberVE(value)} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+}
+
+// =========================================================
+// ✅ SISTEMA DE INVENTARIO / ACTIVOS (CRUD - Create, Read, Update, Delete)
+// =========================================================
+
+/* - CRUD - */
+async function addActivo(activo) {
+    return addEntry(STORES.INVENTARIO, activo);
+}
+
+async function getAllActivos() {
+    return getAllEntries(STORES.INVENTARIO);
+}
+
+async function updateActivo(activo) {
+    return updateEntry(STORES.INVENTARIO, activo);
+}
+
+async function deleteActivo(id) {
+    return deleteEntry(STORES.INVENTARIO, id);
+}
+
+/* - Función para renderizar la lista de activos - */
+async function renderizarActivos() {
+    const activos = await getAllActivos();
+    const contenedor = document.getElementById('contenedorActivos');
+    const filtroEstado = document.getElementById('filtroEstadoActivo').value;
+    const filtroCategoria = document.getElementById('filtroCategoriaActivo').value;
+
+    // Filtrar activos
+    let activosFiltrados = activos;
+    if (filtroEstado) {
+        activosFiltrados = activosFiltrados.filter(a => a.estado === filtroEstado);
+    }
+    if (filtroCategoria) {
+        activosFiltrados = activosFiltrados.filter(a => a.categoria === filtroCategoria);
+    }
+
+    // Actualizar el select de categorías
+    actualizarSelectCategoriasActivos(activos);
+
+    if (activosFiltrados.length === 0) {
+        contenedor.innerHTML = '<p style="text-align: center; color: var(--text-light);">No hay activos que coincidan con los filtros.</p>';
+        return;
+    }
+
+    let html = '';
+    activosFiltrados.forEach(activo => {
+        html += `
+            <div class="tarjeta-activo" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; box-shadow: var(--shadow-sm); transition: transform 0.2s; cursor: pointer;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                    <h4 style="margin: 0; color: var(--text);">${activo.nombreActivo}</h4>
+                    <div style="display: flex; gap: 0.25rem;">
+                        <button onclick="editarActivo(${activo.id})" title="Editar" style="background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0.25rem; border-radius: 4px; transition: background .2s;">✏️</button>
+                        <button onclick="eliminarActivo(${activo.id})" title="Eliminar" style="background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0.25rem; border-radius: 4px; transition: background .2s;">🗑️</button>
+                    </div>
+                </div>
+                <!-- ✅ NUEVO: Mostrar la categoría -->
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span style="color: var(--text-light); font-size: 0.9rem;">🏷️ ${activo.categoria || 'Sin categoría'}</span>
+                    <span style="color: var(--text-light); font-size: 0.9rem;">📅 ${new Date(activo.fechaCompra).toLocaleDateString('es-VE')}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span style="color: var(--text-light); font-size: 0.9rem;">💰 Bs. ${formatNumberVE(activo.valorActivo)}</span>
+                    <span style="color: var(--text-light); font-size: 0.9rem;">📉 ${activo.depreciacionEstimada}% anual</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span style="font-size: 0.9rem; ${activo.estado === 'activo' ? 'color: var(--success)' : activo.estado === 'depreciado' ? 'color: var(--warning)' : 'color: var(--danger)'};">${activo.estado === 'activo' ? '✅ Activo' : activo.estado === 'depreciado' ? '⏳ Depreciado' : '🔴 Vendido'}</span>
+                </div>
+                ${activo.descripcion ? `<p style="margin: 0.5rem 0 0 0; color: var(--text-light); font-size: 0.9rem; line-height: 1.4;">${activo.descripcion}</p>` : ''}
+            </div>
+        `;
+    });
+
+    contenedor.innerHTML = html;
+}
+
+/* - Función para actualizar el select de categorías - */
+function actualizarSelectCategoriasActivos(activos) {
+    const select = document.getElementById('filtroCategoriaActivo');
+    const categoriasUnicas = [...new Set(activos.map(a => a.categoria))].sort();
+
+    select.innerHTML = '<option value="">Todas las categorías</option>';
+    categoriasUnicas.forEach(categoria => {
+        const opt = document.createElement('option');
+        opt.value = categoria;
+        opt.textContent = categoria;
+        select.appendChild(opt);
+    });
+}
+
+/* - Función para guardar un activo - */
+async function guardarActivo() {
+    const idEditando = document.getElementById('idActivoEditando').value;
+    const nombreActivo = document.getElementById('nombreActivo').value.trim();
+    const valorActivo = document.getElementById('valorActivo').value.trim();
+    const fechaCompra = document.getElementById('fechaCompra').value;
+    const depreciacionEstimada = document.getElementById('depreciacionEstimada').value;
+    const descripcion = document.getElementById('descripcionActivo').value.trim();
+    // ✅ NUEVO: Obtener la categoría
+    const categoria = document.getElementById('categoriaActivo').value.trim();
+    const estado = 'activo'; // Por defecto, el activo está activo
+
+    if (!nombreActivo || !valorActivo || !fechaCompra || !depreciacionEstimada) {
+        mostrarToast('❌ Todos los campos son obligatorios', 'danger');
+        return;
+    }
+
+    const activo = {
+        nombreActivo,
+        valorActivo: parseFloat(valorActivo.replace(/[.,]/g, '')),
+        fechaCompra,
+        depreciacionEstimada: parseFloat(depreciacionEstimada),
+        descripcion,
+        // ✅ NUEVO: Guardar la categoría
+        categoria: categoria || 'Sin categoría', // Si no se ingresa, asigna "Sin categoría"
+        estado,
+        fechaCreacion: new Date().toISOString()
+    };
+
+    try {
+        if (idEditando) {
+            // Actualizar activo existente
+            activo.id = parseInt(idEditando);
+            await updateActivo(activo);
+            mostrarToast('✅ Activo actualizado', 'success');
+        } else {
+            // Crear nuevo activo
+            await addActivo(activo);
+            mostrarToast('✅ Activo registrado', 'success');
+        }
+
+        limpiarFormularioActivo();
+        await renderizarActivos(); // Recargar la lista
+    } catch (error) {
+        console.error("Error al guardar el activo:", error);
+        mostrarToast('❌ Error al guardar el activo', 'danger');
+    }
+}
+
+/* - Función para editar un activo - */
+async function editarActivo(id) {
+    const activos = await getAllActivos();
+    const activo = activos.find(a => a.id === id);
+
+    if (!activo) return;
+
+    document.getElementById('idActivoEditando').value = activo.id;
+    document.getElementById('nombreActivo').value = activo.nombreActivo;
+    document.getElementById('valorActivo').value = formatNumberVE(activo.valorActivo);
+    document.getElementById('fechaCompra').value = activo.fechaCompra;
+    document.getElementById('depreciacionEstimada').value = activo.depreciacionEstimada;
+    document.getElementById('descripcionActivo').value = activo.descripcion;
+    // ✅ NUEVO: Cargar la categoría en el input
+    document.getElementById('categoriaActivo').value = activo.categoria || '';
+
+    // Cambiar el texto del botón (opcional)
+    const btnGuardar = document.querySelector('#side-inventario-activos button[onclick="guardarActivo()"]');
+    if (btnGuardar) btnGuardar.textContent = 'Actualizar Activo';
+
+    // Desplazar hacia el formulario
+    document.getElementById('registroActivo').scrollIntoView({ behavior: 'smooth' });
+}
+
+/* - Función para eliminar un activo - */
+async function eliminarActivo(id) {
+    if (!confirm('¿Estás seguro de que quieres eliminar este activo?')) return;
+
+    try {
+        await deleteActivo(id);
+        mostrarToast('✅ Activo eliminado', 'success');
+        await renderizarActivos(); // Recargar la lista
+    } catch (error) {
+        console.error("Error al eliminar el activo:", error);
+        mostrarToast('❌ Error al eliminar el activo', 'danger');
+    }
+}
+
+/* - Función para limpiar el formulario - */
+function limpiarFormularioActivo() {
+    document.getElementById('idActivoEditando').value = '';
+    document.getElementById('nombreActivo').value = '';
+    document.getElementById('valorActivo').value = '';
+    document.getElementById('fechaCompra').value = '';
+    document.getElementById('depreciacionEstimada').value = '';
+    document.getElementById('descripcionActivo').value = '';
+    // Restaurar texto del botón (opcional)
+    const btnGuardar = document.querySelector('#side-inventario-activos button[onclick="guardarActivo()"]');
+    if (btnGuardar) btnGuardar.textContent = '💾 Guardar Activo';
+}
+
+/* - Función para mostrar ayuda de Inventario - */
+function mostrarAyudaInventario() {
+    const contenido = `
+        <h2 style="color:var(--primary); margin-bottom:1.5rem; text-align:center;">📦 Guía de Inventario / Activos</h2>
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="color:var(--text); margin-bottom:0.75rem;">✅ Funcionalidades:</h3>
+            <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+                <li><strong>Registrar activos:</strong> Anota equipos, herramientas o cualquier bien con valor contable.</li>
+                <li><strong>Editar activos:</strong> Modifica los detalles de un activo ya registrado.</li>
+                <li><strong>Eliminar activos:</strong> Borra activos que ya no necesitas.</li>
+                <li><strong>Filtrar activos:</strong> Busca por estado o categoría específica.</li>
+                <li><strong>Exportar inventario:</strong> Genera reportes en Excel o PDF para compartir o archivar.</li>
+            </ul>
+        </div>
+        <div style="background:var(--info-bg); padding:1rem; border-radius:8px; border-left:4px solid var(--info); margin-top:1.5rem;">
+            <p style="margin:0; color:var(--info-text); font-size:0.875rem;"><strong>💡 Consejo:</strong> Usa esta herramienta para tener un control preciso de tus activos fijos y planificar mejor su depreciación y reemplazo.</p>
+        </div>
+    `;
+    mostrarModalAyuda(contenido, 'modalAyudaInventario');
+}
+
+/* - Función para exportar el inventario a Excel - */
+async function exportarInventarioExcel() {
+    const activos = await getAllActivos();
+
+    if (activos.length === 0) {
+        mostrarToast('❌ No hay activos para exportar', 'danger');
+        return;
+    }
+
+    // Crear un libro de trabajo
+    const wb = XLSX.utils.book_new();
+    const wsData = [
+        ['Nombre del Activo', 'Valor Inicial (Bs)', 'Fecha de Compra', 'Depreciación Estimada (%)', 'Estado', 'Descripción']
+    ];
+
+    // Añadir datos de los activos
+    activos.forEach(activo => {
+        wsData.push([
+            activo.nombreActivo,
+            activo.valorActivo,
+            new Date(activo.fechaCompra).toLocaleDateString('es-VE'),
+            activo.depreciacionEstimada,
+            activo.estado,
+            activo.descripcion
+        ]);
+    });
+
+    // Crear la hoja de cálculo
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+
+    // Descargar el archivo
+    XLSX.writeFile(wb, 'Inventario_Activos.xlsx');
+    mostrarToast('✅ Inventario exportado a Excel', 'success');
+}
+
+/* - Función para exportar el inventario a PDF - */
+async function exportarInventarioPDF() {
+    const activos = await getAllActivos();
+
+    if (activos.length === 0) {
+        mostrarToast('❌ No hay activos para exportar', 'danger');
+        return;
+    }
+
+    // Importar jsPDF dinámicamente si no está cargado
+    if (typeof window.jspdf === 'undefined') {
+        await import('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    // Título del documento
+    doc.setFontSize(18);
+    doc.text('Inventario de Activos', 20, 20);
+
+    // Encabezados de la tabla
+    doc.setFontSize(12);
+    doc.text('Nombre del Activo', 20, 30);
+    doc.text('Valor Inicial (Bs)', 60, 30);
+    doc.text('Fecha de Compra', 100, 30);
+    doc.text('Depreciación Estimada (%)', 140, 30);
+    doc.text('Estado', 180, 30);
+
+    // Datos de los activos
+    let y = 40;
+    activos.forEach(activo => {
+        doc.setFontSize(10);
+        doc.text(activo.nombreActivo, 20, y);
+        doc.text(formatNumberVE(activo.valorActivo), 60, y);
+        doc.text(new Date(activo.fechaCompra).toLocaleDateString('es-VE'), 100, y);
+        doc.text(`${activo.depreciacionEstimada}%`, 140, y);
+        doc.text(activo.estado, 180, y);
+        y += 10;
+    });
+
+    // Descargar el archivo
+    doc.save('Inventario_Activos.pdf');
+    mostrarToast('✅ Inventario exportado a PDF', 'success');
+}
+
+// =========================================================
+// ✅ SISTEMA DE REPORTES GERENCIALES
+// =========================================================
+
+/* - Función para generar el reporte gerencial - */
+async function generarReporteGerencial() {
+    const periodo = document.getElementById('periodoReporte').value;
+    const fechaInicio = document.getElementById('fechaInicioReporte').value;
+    const fechaFin = document.getElementById('fechaFinReporte').value;
+    const metricas = Array.from(document.getElementById('metricasReporte').selectedOptions).map(opt => opt.value);
+
+    if (!fechaInicio || !fechaFin) {
+        mostrarToast('❌ Por favor, selecciona un rango de fechas', 'danger');
+        return;
+    }
+
+    // Mostrar indicador de carga
+    mostrarToast('⏳ Generando reporte...', 'info');
+
+    try {
+        // Obtener todos los movimientos
+        const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+
+        // Filtrar movimientos por rango de fechas
+        const movimientosFiltrados = movimientos.filter(m => {
+            const fechaMovimiento = new Date(m.fecha);
+            const inicio = new Date(fechaInicio);
+            const fin = new Date(fechaFin);
+            return fechaMovimiento >= inicio && fechaMovimiento <= fin;
+        });
+
+        if (movimientosFiltrados.length === 0) {
+            mostrarToast('❌ No hay movimientos en el rango de fechas seleccionado', 'danger');
+            return;
+        }
+
+        // Calcular métricas
+        const ingresos = movimientosFiltrados.filter(m => m.tipo === 'ingreso').reduce((sum, m) => sum + m.cantidad, 0);
+        const gastos = movimientosFiltrados.filter(m => m.tipo === 'gasto').reduce((sum, m) => sum + m.cantidad, 0);
+        const rentabilidad = ingresos - gastos;
+
+        // Agrupar por categoría
+        const gastosPorCategoria = {};
+        movimientosFiltrados.filter(m => m.tipo === 'gasto').forEach(m => {
+            const cat = m.categoria || 'Sin categoría';
+            gastosPorCategoria[cat] = (gastosPorCategoria[cat] || 0) + m.cantidad;
+        });
+
+        // Obtener top 5 categorías
+        const topCategorias = Object.entries(gastosPorCategoria)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+
+        // Comparativa mensual
+        const comparativaMensual = {};
+        movimientosFiltrados.forEach(m => {
+            const fecha = new Date(m.fecha);
+            const mes = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+            if (!comparativaMensual[mes]) {
+                comparativaMensual[mes] = { ingresos: 0, gastos: 0 };
+            }
+            if (m.tipo === 'ingreso') {
+                comparativaMensual[mes].ingresos += m.cantidad;
+            } else {
+                comparativaMensual[mes].gastos += m.cantidad;
+            }
+        });
+
+        // Renderizar el reporte
+        renderizarReporteGerencial({
+            periodo,
+            fechaInicio,
+            fechaFin,
+            metricas,
+            ingresos,
+            gastos,
+            rentabilidad,
+            topCategorias,
+            comparativaMensual
+        });
+
+        // Mostrar la sección de exportación
+        document.getElementById('exportarReporte').style.display = 'block';
+
+        mostrarToast('✅ Reporte generado exitosamente', 'success');
+
+    } catch (error) {
+        console.error("Error al generar el reporte:", error);
+        mostrarToast('❌ Error al generar el reporte', 'danger');
+    }
+}
+
+/* - Función para renderizar el reporte gerencial - */
+function renderizarReporteGerencial(datos) {
+    const contenedor = document.getElementById('contenedorReporte');
+    const { periodo, fechaInicio, fechaFin, metricas, ingresos, gastos, rentabilidad, topCategorias, comparativaMensual } = datos;
+
+    let html = '';
+
+    // Título del reporte
+    html += `<div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem; border-left: 4px solid var(--primary);">
+        <h3 style="margin: 0 0 0.5rem 0; color: var(--text);">📊 Reporte Gerencial</h3>
+        <p style="color: var(--text-light); margin: 0 0 0.5rem 0;"><strong>Período:</strong> ${new Date(fechaInicio).toLocaleDateString('es-VE')} - ${new Date(fechaFin).toLocaleDateString('es-VE')}</p>
+        <p style="color: var(--text-light); margin: 0;"><strong>Métricas:</strong> ${metricas.join(', ')}</p>
+    </div>`;
+
+    // Ingresos vs Gastos
+    if (metricas.includes('ingresosGastos')) {
+        html += `<div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: var(--text);">💰 Ingresos vs Gastos</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div style="text-align: center; padding: 1rem; background: rgba(16, 185, 129, 0.1); border-radius: 8px; border-left: 4px solid var(--success);">
+                    <div style="font-size: 1.5rem; color: var(--success);">📈</div>
+                    <p style="margin: 0.5rem 0 0 0; color: var(--text-light);">Ingresos</p>
+                    <p style="font-size: 1.2rem; font-weight: bold; color: var(--success);">Bs. ${formatNumberVE(ingresos)}</p>
+                </div>
+                <div style="text-align: center; padding: 1rem; background: rgba(239, 68, 68, 0.1); border-radius: 8px; border-left: 4px solid var(--danger);">
+                    <div style="font-size: 1.5rem; color: var(--danger);">📉</div>
+                    <p style="margin: 0.5rem 0 0 0; color: var(--text-light);">Gastos</p>
+                    <p style="font-size: 1.2rem; font-weight: bold; color: var(--danger);">Bs. ${formatNumberVE(gastos)}</p>
+                </div>
+            </div>
+            <div style="text-align: center; padding: 1rem; background: rgba(59, 130, 246, 0.1); border-radius: 8px; border-left: 4px solid var(--primary);">
+                <div style="font-size: 1.5rem; color: var(--primary);">📊</div>
+                <p style="margin: 0.5rem 0 0 0; color: var(--text-light);">Rentabilidad</p>
+                <p style="font-size: 1.2rem; font-weight: bold; color: ${rentabilidad >= 0 ? 'var(--success)' : 'var(--danger)'};">Bs. ${formatNumberVE(rentabilidad)}</p>
+            </div>
+        </div>`;
+    }
+
+    // Top Categorías
+    if (metricas.includes('topCategorias')) {
+        html += `<div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: var(--text);">🏷️ Top 5 Categorías de Gasto</h4>
+            <ul style="padding: 0; margin: 0; list-style: none;">
+                ${topCategorias.map(([categoria, monto], index) => `
+                    <li style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid var(--border);">
+                        <span style="color: var(--text-light); font-size: 0.9rem;">${index + 1}. ${categoria}</span>
+                        <span style="font-size: 0.9rem; color: var(--text-light);">Bs. ${formatNumberVE(monto)}</span>
+                    </li>
+                `).join('')}
+            </ul>
+        </div>`;
+    }
+
+    // Rentabilidad
+    if (metricas.includes('rentabilidad')) {
+        html += `<div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: var(--text);">📈 Rentabilidad</h4>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: rgba(${rentabilidad >= 0 ? '16, 185, 129' : '239, 68, 68'}, 0.1); border-radius: 8px; border-left: 4px solid ${rentabilidad >= 0 ? 'var(--success)' : 'var(--danger)'};">
+                <div style="font-size: 1.5rem; color: ${rentabilidad >= 0 ? 'var(--success)' : 'var(--danger)'};">${rentabilidad >= 0 ? '📈' : '📉'}</div>
+                <div style="text-align: center;">
+                    <p style="margin: 0 0 0.5rem 0; color: var(--text-light);">Rentabilidad</p>
+                    <p style="font-size: 1.2rem; font-weight: bold; color: ${rentabilidad >= 0 ? 'var(--success)' : 'var(--danger)'};">Bs. ${formatNumberVE(rentabilidad)}</p>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // Comparativa Mensual
+    if (metricas.includes('comparativaMensual')) {
+        html += `<div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: var(--text);">📅 Comparativa Mensual</h4>
+            <div style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid var(--text-light);">
+                            <th style="text-align: left; padding: 0.5rem; font-size: 0.9rem;">Mes</th>
+                            <th style="text-align: right; padding: 0.5rem; font-size: 0.9rem;">Ingresos</th>
+                            <th style="text-align: right; padding: 0.5rem; font-size: 0.9rem;">Gastos</th>
+                            <th style="text-align: right; padding: 0.5rem; font-size: 0.9rem;">Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${Object.entries(comparativaMensual).map(([mes, datos]) => {
+                            const balance = datos.ingresos - datos.gastos;
+                            return `
+                                <tr style="border-bottom: 1px solid var(--border);">
+                                    <td style="padding: 0.5rem; font-size: 0.9rem;">${mes}</td>
+                                    <td style="padding: 0.5rem; text-align: right; font-size: 0.9rem; color: var(--success);">Bs. ${formatNumberVE(datos.ingresos)}</td>
+                                    <td style="padding: 0.5rem; text-align: right; font-size: 0.9rem; color: var(--danger);">Bs. ${formatNumberVE(datos.gastos)}</td>
+                                    <td style="padding: 0.5rem; text-align: right; font-size: 0.9rem; color: ${balance >= 0 ? 'var(--success)' : 'var(--danger)'};">Bs. ${formatNumberVE(balance)}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+    }
+
+    contenedor.innerHTML = html;
+    document.getElementById('contenidoReporte').style.display = 'block';
+}
+
+/* - Función para limpiar la configuración del reporte - */
+function limpiarConfiguracionReporte() {
+    document.getElementById('periodoReporte').value = 'mensual';
+    document.getElementById('fechaInicioReporte').value = '';
+    document.getElementById('fechaFinReporte').value = '';
+    document.getElementById('metricasReporte').value = '';
+    document.getElementById('contenidoReporte').style.display = 'none';
+    document.getElementById('exportarReporte').style.display = 'none';
+}
+
+/* - Función para exportar el reporte a Excel - */
+async function exportarReporteExcel() {
+    const contenedor = document.getElementById('contenedorReporte');
+    if (!contenedor || contenedor.innerHTML.trim() === '') {
+        mostrarToast('❌ No hay reporte para exportar', 'danger');
+        return;
+    }
+
+    // Crear un libro de trabajo
+    const wb = XLSX.utils.book_new();
+    const wsData = [
+        ['Reporte Gerencial'],
+        ['Período:', `${new Date(document.getElementById('fechaInicioReporte').value).toLocaleDateString('es-VE')} - ${new Date(document.getElementById('fechaFinReporte').value).toLocaleDateString('es-VE')}`],
+        [],
+        ['Métricas:', document.getElementById('metricasReporte').selectedOptions.length > 0 ? Array.from(document.getElementById('metricasReporte').selectedOptions).map(opt => opt.value).join(', ') : 'Todas'],
+        [],
+        ['Ingresos vs Gastos'],
+        ['Ingresos', 'Gastos', 'Rentabilidad'],
+        [document.querySelector('[data-metrica="ingresos"]')?.textContent || '0', document.querySelector('[data-metrica="gastos"]')?.textContent || '0', document.querySelector('[data-metrica="rentabilidad"]')?.textContent || '0'],
+        [],
+        ['Top 5 Categorías de Gasto'],
+        ['Posición', 'Categoría', 'Monto']
+    ];
+
+    // Añadir top categorías
+    const topCategorias = Array.from(document.querySelectorAll('#contenedorReporte ul li')).map(li => {
+        const partes = li.textContent.split(': ');
+        return [partes[0].replace('.', ''), partes[0].split('. ')[1], partes[1]];
+    });
+    topCategorias.forEach(categoria => {
+        wsData.push(categoria);
+    });
+
+    // Añadir comparativa mensual
+    wsData.push([], ['Comparativa Mensual'], ['Mes', 'Ingresos', 'Gastos', 'Balance']);
+    const filasComparativa = Array.from(document.querySelectorAll('#contenedorReporte table tbody tr')).map(tr => {
+        const celdas = Array.from(tr.querySelectorAll('td'));
+        return celdas.map(td => td.textContent);
+    });
+    filasComparativa.forEach(fila => {
+        wsData.push(fila);
+    });
+
+    // Crear la hoja de cálculo
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    XLSX.utils.book_append_sheet(wb, ws, 'Reporte Gerencial');
+
+    // Descargar el archivo
+    XLSX.writeFile(wb, 'Reporte_Gerencial.xlsx');
+    mostrarToast('✅ Reporte exportado a Excel', 'success');
+}
+
+/* - Función para exportar el reporte a PDF - */
+async function exportarReportePDF() {
+    const contenedor = document.getElementById('contenedorReporte');
+    if (!contenedor || contenedor.innerHTML.trim() === '') {
+        mostrarToast('❌ No hay reporte para exportar', 'danger');
+        return;
+    }
+
+    // Importar jsPDF dinámicamente si no está cargado
+    if (typeof window.jspdf === 'undefined') {
+        await import('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    // Título del documento
+    doc.setFontSize(18);
+    doc.text('Reporte Gerencial', 20, 20);
+
+    // Encabezados
+    doc.setFontSize(12);
+    doc.text(`Período: ${new Date(document.getElementById('fechaInicioReporte').value).toLocaleDateString('es-VE')} - ${new Date(document.getElementById('fechaFinReporte').value).toLocaleDateString('es-VE')}`, 20, 30);
+    doc.text(`Métricas: ${Array.from(document.getElementById('metricasReporte').selectedOptions).map(opt => opt.value).join(', ')}`, 20, 40);
+
+    // Ingresos vs Gastos
+    doc.setFontSize(14);
+    doc.text('Ingresos vs Gastos', 20, 60);
+    doc.setFontSize(12);
+    doc.text(`Ingresos: Bs. ${formatNumberVE(document.querySelector('[data-metrica="ingresos"]')?.textContent || '0')}`, 20, 70);
+    doc.text(`Gastos: Bs. ${formatNumberVE(document.querySelector('[data-metrica="gastos"]')?.textContent || '0')}`, 20, 80);
+    doc.text(`Rentabilidad: Bs. ${formatNumberVE(document.querySelector('[data-metrica="rentabilidad"]')?.textContent || '0')}`, 20, 90);
+
+    // Top Categorías
+    doc.setFontSize(14);
+    doc.text('Top 5 Categorías de Gasto', 20, 110);
+    doc.setFontSize(12);
+    let y = 120;
+    Array.from(document.querySelectorAll('#contenedorReporte ul li')).forEach(li => {
+        doc.text(li.textContent, 20, y);
+        y += 10;
+    });
+
+    // Comparativa Mensual
+    doc.setFontSize(14);
+    doc.text('Comparativa Mensual', 20, y + 20);
+    doc.setFontSize(12);
+    y += 30;
+    Array.from(document.querySelectorAll('#contenedorReporte table tbody tr')).forEach(tr => {
+        const celdas = Array.from(tr.querySelectorAll('td'));
+        doc.text(`${celdas[0].textContent} | ${celdas[1].textContent} | ${celdas[2].textContent} | ${celdas[3].textContent}`, 20, y);
+        y += 10;
+    });
+
+    // Descargar el archivo
+    doc.save('Reporte_Gerencial.pdf');
+    mostrarToast('✅ Reporte exportado a PDF', 'success');
+}
+
+/* - Función para mostrar ayuda de Reportes Gerenciales - */
+function mostrarAyudaReportes() {
+    const contenido = `
+        <h2 style="color:var(--primary); margin-bottom:1.5rem; text-align:center;">📊 Guía de Reportes Gerenciales</h2>
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="color:var(--text); margin-bottom:0.75rem;">✅ Funcionalidades:</h3>
+            <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+                <li><strong>Configurar reportes:</strong> Selecciona el período y las métricas que deseas incluir.</li>
+                <li><strong>Generar reportes:</strong> Obten un resumen visual de tus finanzas por mes o trimestre.</li>
+                <li><strong>Exportar reportes:</strong> Genera archivos en Excel o PDF para compartir o archivar.</li>
+            </ul>
+        </div>
+        <div style="background:var(--info-bg); padding:1rem; border-radius:8px; border-left:4px solid var(--info); margin-top:1.5rem;">
+            <p style="margin:0; color:var(--info-text); font-size:0.875rem;"><strong>💡 Consejo:</strong> Usa esta herramienta para presentar información financiera a directivos o para tomar decisiones estratégicas basadas en datos.</p>
+        </div>
+    `;
+    mostrarModalAyuda(contenido, 'modalAyudaReportes');
+}
+
+// =========================================================
+// ✅ SISTEMA DE ASISTENTE FINANCIERO (CRUD - Create, Read, Update, Delete)
+// =========================================================
+
+/* - CRUD - */
+async function addReglaAsistente(regla) {
+    return addEntry(STORES.ASISTENTE, regla);
+}
+
+async function getAllReglasAsistente() {
+    return getAllEntries(STORES.ASISTENTE);
+}
+
+async function updateReglaAsistente(regla) {
+    return updateEntry(STORES.ASISTENTE, regla);
+}
+
+async function deleteReglaAsistente(id) {
+    return deleteEntry(STORES.ASISTENTE, id);
+}
+
+/* - Función para renderizar las reglas del asistente - */
+async function renderizarReglasAsistente() {
+    const reglas = await getAllReglasAsistente();
+    const select = document.getElementById('reglaCategoria');
+
+    // Actualizar el select de categorías del asistente
+    await actualizarSelectCategoriasAsistente();
+
+    if (reglas.length === 0) {
+        document.getElementById('contenedorSugerencias').innerHTML = '<p style="text-align: center; color: var(--text-light);">No hay reglas definidas para el asistente.</p>';
+        return;
+    }
+
+    let html = '';
+    reglas.forEach(regla => {
+        html += `
+            <div class="tarjeta-regla" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; box-shadow: var(--shadow-sm); transition: transform 0.2s; cursor: pointer;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                    <h4 style="margin: 0; color: var(--text);">${regla.palabraClave}</h4>
+                    <div style="display: flex; gap: 0.25rem;">
+                        <button onclick="editarReglaAsistente(${regla.id})" title="Editar" style="background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0.25rem; border-radius: 4px; transition: background .2s;">✏️</button>
+                        <button onclick="eliminarReglaAsistente(${regla.id})" title="Eliminar" style="background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0.25rem; border-radius: 4px; transition: background .2s;">🗑️</button>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span style="color: var(--text-light); font-size: 0.9rem;">🏷️ ${regla.categoria}</span>
+                    <span style="color: var(--text-light); font-size: 0.9rem;">🔔 ${regla.accion}</span>
+                </div>
+            </div>
+        `;
+    });
+
+    document.getElementById('contenedorSugerencias').innerHTML = html;
+}
+
+/* - Función para agregar una regla del asistente - */
+async function agregarReglaAsistente() {
+    const palabraClave = document.getElementById('reglaPalabraClave').value.trim();
+    const categoria = document.getElementById('reglaCategoria').value;
+    const accion = document.getElementById('reglaAccion').value;
+
+    if (!palabraClave || !categoria || !accion) {
+        mostrarToast('❌ Todos los campos son obligatorios', 'danger');
+        return;
+    }
+
+    // Si la categoría no existe, créala
+    const categorias = await getAllCategoriasAsistente();
+    const categoriaExistente = categorias.find(c => c.nombre === categoria);
+
+    if (!categoriaExistente) {
+        await addCategoriaAsistente({ nombre: categoria });
+        // Actualizar el select después de crear la categoría
+        await actualizarSelectCategoriasAsistente();
+    }
+
+    const regla = {
+        palabraClave,
+        categoria,
+        accion,
+        fechaCreacion: new Date().toISOString()
+    };
+
+    try {
+        await addReglaAsistente(regla);
+        mostrarToast('✅ Regla agregada', 'success');
+        limpiarFormularioRegla();
+        await renderizarReglasAsistente(); // Recargar la lista
+    } catch (error) {
+        console.error("Error al agregar la regla:", error);
+        mostrarToast('❌ Error al agregar la regla', 'danger');
+    }
+}
+
+/* - Función para editar una regla del asistente - */
+async function editarReglaAsistente(id) {
+    const reglas = await getAllReglasAsistente();
+    const regla = reglas.find(r => r.id === id);
+
+    if (!regla) return;
+
+    document.getElementById('reglaPalabraClave').value = regla.palabraClave;
+    document.getElementById('reglaCategoria').value = regla.categoria;
+    document.getElementById('reglaAccion').value = regla.accion;
+
+    // Cambiar el texto del botón (opcional)
+    const btnGuardar = document.querySelector('#side-asistente-financiero button[onclick="agregarReglaAsistente()"]');
+    if (btnGuardar) btnGuardar.textContent = 'Actualizar Regla';
+
+    // Desplazar hacia el formulario
+    document.getElementById('configuracionAsistente').scrollIntoView({ behavior: 'smooth' });
+}
+
+/* - Función para eliminar una regla del asistente - */
+async function eliminarReglaAsistente(id) {
+    if (!confirm('¿Estás seguro de que quieres eliminar esta regla?')) return;
+
+    try {
+        await deleteReglaAsistente(id);
+        mostrarToast('✅ Regla eliminada', 'success');
+        await renderizarReglasAsistente(); // Recargar la lista
+    } catch (error) {
+        console.error("Error al eliminar la regla:", error);
+        mostrarToast('❌ Error al eliminar la regla', 'danger');
+    }
+}
+
+/* - Función para limpiar el formulario - */
+function limpiarFormularioRegla() {
+    document.getElementById('reglaPalabraClave').value = '';
+    document.getElementById('reglaCategoria').value = '';
+    document.getElementById('reglaAccion').value = 'sugerirAhorro';
+    // Restaurar texto del botón (opcional)
+    const btnGuardar = document.querySelector('#side-asistente-financiero button[onclick="agregarReglaAsistente()"]');
+    if (btnGuardar) btnGuardar.textContent = '➕ Agregar Regla';
+}
+
+/* - Función para mostrar ayuda de Asistente Financiero - */
+function mostrarAyudaAsistenteFinanciero() {
+    const contenido = `
+        <h2 style="color:var(--primary); margin-bottom:1.5rem; text-align:center;">💡 Guía de Asistente Financiero</h2>
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="color:var(--text); margin-bottom:0.75rem;">✅ Funcionalidades:</h3>
+            <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+                <li><strong>Definir reglas:</strong> Crea reglas basadas en palabras clave y categorías.</li>
+                <li><strong>Sugerir acciones:</strong> El asistente sugerirá acciones automáticas como ahorrar, alertar o recomendar cambios.</li>
+                <li><strong>Historial de acciones:</strong> Revisa las acciones que el asistente ha sugerido.</li>
+            </ul>
+        </div>
+        <div style="background:var(--info-bg); padding:1rem; border-radius:8px; border-left:4px solid var(--info); margin-top:1.5rem;">
+            <p style="margin:0; color:var(--info-text); font-size:0.875rem;"><strong>💡 Consejo:</strong> Usa esta herramienta para automatizar decisiones financieras y mejorar la eficiencia de tu negocio.</p>
+        </div>
+    `;
+    mostrarModalAyuda(contenido, 'modalAyudaAsistenteFinanciero');
+}
+
+/* - Función para mostrar un ejemplo de uso del Asistente Financiero - */
+function mostrarEjemploAsistente() {
+    const contenido = `
+        <h2 style="color:var(--primary); margin-bottom:1.5rem; text-align:center;">🎯 Ejemplo de Uso: Gasto Alto en Servicios</h2>
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="color:var(--text); margin-bottom:0.75rem;">✅ Paso 1: Configurar la Regla</h3>
+            <p style="color:var(--text-light); line-height:1.6; margin:0 0 1rem 0;">En la sección de configuración, agrega una regla con:</p>
+            <ul style="color:var(--text-light); line-height:1.6; margin:0; padding-left:1.5rem;">
+                <li><strong>Palabra clave:</strong> <code>servicios</code></li>
+                <li><strong>Categoría objetivo:</strong> <code>Servicios</code></li>
+                <li><strong>Acción sugerida:</strong> <code>Alertar por gasto alto</code></li>
+            </ul>
+        </div>
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="color:var(--text); margin-bottom:0.75rem;">✅ Paso 2: El Asistente Detecta el Problema</h3>
+            <p style="color:var(--text-light); line-height:1.6; margin:0 0 1rem 0;">Cuando registres un movimiento con concepto <code>Pago de electricidad</code> y categoría <code>Servicios</code>, el asistente lo detectará y te alertará si el gasto es mayor a lo habitual.</p>
+        </div>
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="color:var(--text); margin-bottom:0.75rem;">✅ Paso 3: Recibir la Sugerencia</h3>
+            <p style="color:var(--text-light); line-height:1.6; margin:0 0 1rem 0;">En la sección <strong>"Sugerencias del Asistente"</strong>, verás una tarjeta con la alerta y una sugerencia de acción: <em>"Revisar contratos de servicios para negociar precios más bajos"</em>.</p>
+        </div>
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="color:var(--text); margin-bottom:0.75rem;">✅ Paso 4: Tomar Acción</h3>
+            <p style="color:var(--text-light); line-height:1.6; margin:0 0 1rem 0;">Haz clic en la tarjeta de la sugerencia para ir a la pestaña "Movimientos" y filtrar los gastos de la categoría "Servicios". Revisa tus facturas y toma decisiones informadas.</p>
+        </div>
+        <div style="margin-bottom:1.5rem;">
+            <h3 style="color:var(--text); margin-bottom:0.75rem;">✅ Paso 5: Historial de Acciones</h3>
+            <p style="color:var(--text-light); line-height:1.6; margin:0 0 1rem 0;">En la sección <strong>"Historial de Acciones"</strong>, verás registrado el evento y el resultado: <em>"Gasto reducido en 20% el siguiente mes"</em>.</p>
+        </div>
+        <div style="background:var(--info-bg); padding:1rem; border-radius:8px; border-left:4px solid var(--info); margin-top:1.5rem;">
+            <p style="margin:0; color:var(--info-text); font-size:0.875rem;"><strong>💡 Consejo:</strong> Usa esta herramienta para automatizar la detección de problemas financieros y mejorar la eficiencia de tu negocio.</p>
+        </div>
+    `;
+    mostrarModalAyuda(contenido, 'modalEjemploAsistente');
+}
+
+// =========================================================
+// ✅ SISTEMA DE CATEGORÍAS DEL ASISTENTE FINANCIERO (CRUD)
+// =========================================================
+
+/* - CRUD - */
+async function addCategoriaAsistente(categoria) {
+    return addEntry(STORES.CATEGORIAS_ASISTENTE, categoria);
+}
+
+async function getAllCategoriasAsistente() {
+    return getAllEntries(STORES.CATEGORIAS_ASISTENTE);
+}
+
+async function updateCategoriaAsistente(categoria) {
+    return updateEntry(STORES.CATEGORIAS_ASISTENTE, categoria);
+}
+
+async function deleteCategoriaAsistente(id) {
+    return deleteEntry(STORES.CATEGORIAS_ASISTENTE, id);
+}
+
+/* - Función para actualizar el select de categorías del asistente - */
+async function actualizarSelectCategoriasAsistente() {
+    const select = document.getElementById('reglaCategoria');
+    const mostrarTodas = document.getElementById('mostrarTodasCategorias').checked;
+
+    // Limpiar el select
+    select.innerHTML = '<option value="">Selecciona una categoría</option>';
+
+    if (mostrarTodas) {
+        // Mostrar todas las categorías del sistema
+        const categorias = await getAllEntries(STORES.CATEGORIAS);
+        categorias.forEach(cat => {
+            const opt = document.createElement('option');
+            opt.value = cat.nombre;
+            opt.textContent = cat.nombre;
+            select.appendChild(opt);
+        });
+    } else {
+        // Mostrar solo las categorías del asistente
+        const categorias = await getAllCategoriasAsistente();
+        categorias.forEach(cat => {
+            const opt = document.createElement('option');
+            opt.value = cat.nombre;
+            opt.textContent = cat.nombre;
+            select.appendChild(opt);
+        });
+    }
+
+    // Si hay una categoría seleccionada, intentar mantenerla
+    const categoriaActual = select.value;
+    if (categoriaActual && !select.querySelector(`option[value="${categoriaActual}"]`)) {
+        select.value = '';
+    }
+}
+
+/* - Función para alternar la visibilidad de la sección de ajustes - */
+function toggleAjustesAsistente() {
+    const seccion = document.getElementById('seccionAjustes');
+    const flecha = document.getElementById('flechaAjustes');
+
+    if (seccion.style.display === 'none') {
+        seccion.style.display = 'block';
+        flecha.style.transform = 'rotate(180deg)';
+    } else {
+        seccion.style.display = 'none';
+        flecha.style.transform = 'rotate(0deg)';
+    }
+
+    // ✅ Guardar el estado del checkbox en localStorage
+    const mostrarTodas = document.getElementById('mostrarTodasCategorias').checked;
+    localStorage.setItem('mostrarTodasCategorias', mostrarTodas);
+}
+
+// ✅ Event listener para guardar el estado del checkbox inmediatamente
+document.addEventListener('DOMContentLoaded', function() {
+    const checkbox = document.getElementById('mostrarTodasCategorias');
+    if (checkbox) {
+        checkbox.addEventListener('change', function() {
+            // Guardar el estado en localStorage
+            localStorage.setItem('mostrarTodasCategorias', this.checked);
+            // Actualizar el select
+            actualizarSelectCategoriasAsistente();
+        });
+    }
+});
+
+// ✅ Función para alternar la visibilidad de la sección de widgets
+function toggleWidgets() {
+  const contenido = document.getElementById('contenidoWidgets');
+  const flecha = document.getElementById('flechaWidgets');
+
+  if (contenido.style.maxHeight === '0px' || contenido.style.maxHeight === '') {
+    // Mostrar el contenido
+    contenido.style.maxHeight = '500px'; // Altura máxima para la animación
+    contenido.style.opacity = '1';
+    flecha.style.transform = 'rotate(180deg)';
+  } else {
+    // Ocultar el contenido
+    contenido.style.maxHeight = '0px';
+    contenido.style.opacity = '0';
+    flecha.style.transform = 'rotate(0deg)';
+  }
+
+  // Guardar el estado en localStorage
+  localStorage.setItem('widgetsVisible', contenido.style.maxHeight !== '0px');
+}
+
+// ✅ Función para cargar el estado de los widgets al iniciar la app
+function cargarEstadoWidgets() {
+  const estado = localStorage.getItem('widgetsVisible');
+  if (estado === 'true') {
+    const contenido = document.getElementById('contenidoWidgets');
+    const flecha = document.getElementById('flechaWidgets');
+    contenido.style.maxHeight = '500px';
+    contenido.style.opacity = '1';
+    flecha.style.transform = 'rotate(180deg)';
+  }
+}
 // ------------------------------------------------------------------------------------------------------------------------------------
 //                                 Inicialización y Event Listeners
 // ------------------------------------------------------------------------------------------------------------------------------------
@@ -7764,6 +9221,9 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         // Aplicar el tema guardado
         aplicarTemaInicial();
+
+        // Cargar estado de los widgets
+        cargarEstadoWidgets();
 
         // Asignar Event Listeners
         document.getElementById('tasaCambio').addEventListener('input', actualizarEquivalente);
