@@ -1,6 +1,12 @@
 /* ---------- FUENTES ---------- */
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Space+Mono&display=swap');
 
+.great-vibes-regular {
+  font-family: "Great Vibes", cursive;
+  font-weight: 400;
+  font-style: normal;
+}
+
 /* ---------- VARIABLES BASE ---------- */
 :root {
   --bg: #f5f7fa;
@@ -65,8 +71,8 @@ body {
   transition: background var(--transition), color var(--transition);
 }
 h1 {
+  font-family: "Great Vibes", cursive;
   font-weight: 300;
-  font-size: 2.25rem;
   margin-bottom: 1.5rem;
   letter-spacing: -0.5px;
   color: var(--primary);
@@ -1236,4 +1242,233 @@ body:not(.modo-claro):not(.modo-oscuro) .btn-cancelar:hover {
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
+}
+
+/* ✅ ESTILOS PARA LAS TARJETAS DE PAGOS */
+.tarjeta-pago {
+    background: rgba(var(--primary-rgb), 0.05);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    backdrop-filter: blur(10px);
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.tarjeta-pago:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+}
+
+.tarjeta-pago h4 {
+    margin: 0;
+    color: var(--text);
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.tarjeta-pago p {
+    margin: 0.5rem 0 0 0;
+    color: var(--text-light);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    /* ✅ Propiedad estándar (para el futuro) */
+    line-clamp: 3;
+    /* ✅ Propiedad con prefijo (para compatibilidad actual) */
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+.tarjeta-pago small {
+    display: block;
+    margin-top: 0.5rem;
+    color: var(--text-light);
+    font-size: 0.8rem;
+}
+
+/* Estilos para la pestaña "Inventario y Activos" */
+/* ✅ ESTILOS PARA LAS TARJETAS DE ACTIVOS */
+.tarjeta-activo {
+    background: rgba(var(--primary-rgb), 0.05);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    backdrop-filter: blur(10px);
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.tarjeta-activo:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+}
+
+.tarjeta-activo h4 {
+    margin: 0;
+    color: var(--text);
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.tarjeta-activo p {
+    margin: 0.5rem 0 0 0;
+    color: var(--text-light);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    /* ✅ Propiedad estándar (para el futuro) */
+    line-clamp: 3;
+    /* ✅ Propiedad con prefijo (para compatibilidad actual) */
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+.tarjeta-activo small {
+    display: block;
+    margin-top: 0.5rem;
+    color: var(--text-light);
+    font-size: 0.8rem;
+}
+
+/* ESTILOS PARA LOS REPORTES GERENCIALES */
+/* ✅ ESTILOS PARA LAS TARJETAS DE REPORTES GERENCIALES */
+.tarjeta-reporte {
+    background: rgba(var(--primary-rgb), 0.05);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    backdrop-filter: blur(10px);
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.tarjeta-reporte:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+}
+
+.tarjeta-reporte h4 {
+    margin: 0;
+    color: var(--text);
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.tarjeta-reporte p {
+    margin: 0.5rem 0 0 0;
+    color: var(--text-light);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    /* ✅ Propiedad estándar (para el futuro) */
+    line-clamp: 3;
+    /* ✅ Propiedad con prefijo (para compatibilidad actual) */
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+.tarjeta-reporte small {
+    display: block;
+    margin-top: 0.5rem;
+    color: var(--text-light);
+    font-size: 0.8rem;
+}
+
+/* ✅ ESTILOS PARA LAS TARJETAS DE REGLAS DEL ASISTENTE FINANCIERO */
+.tarjeta-regla {
+    background: rgba(var(--primary-rgb), 0.05);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    backdrop-filter: blur(10px);
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.tarjeta-regla:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+}
+
+.tarjeta-regla h4 {
+    margin: 0;
+    color: var(--text);
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.tarjeta-regla p {
+    margin: 0.5rem 0 0 0;
+    color: var(--text-light);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    /* ✅ Propiedad estándar (para el futuro) */
+    line-clamp: 3;
+    /* ✅ Propiedad con prefijo (para compatibilidad actual) */
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+.tarjeta-regla small {
+    display: block;
+    margin-top: 0.5rem;
+    color: var(--text-light);
+    font-size: 0.8rem;
+}
+
+/* ✅ ESTILO PARA EL MODAL DE EJEMPLO DEL ASISTENTE FINANCIERO */
+#modalEjemploAsistente .custom-modal-content {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    padding: 2rem;
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+    position: relative;
+}
+
+#modalEjemploAsistente .custom-modal-content h2 {
+    color: var(--primary);
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+#modalEjemploAsistente .custom-modal-content p {
+    color: var(--text-light);
+    line-height: 1.6;
+    margin: 0 0 1rem 0;
+}
+
+#modalEjemploAsistente .custom-modal-content ul {
+    color: var(--text-light);
+    line-height: 1.6;
+    margin: 0;
+    padding-left: 1.5rem;
+}
+
+#modalEjemploAsistente .custom-modal-content .btn-aceptar {
+    background: var(--primary);
+    color: white;
+}
+
+#modalEjemploAsistente .custom-modal-content .btn-cancelar {
+    background: transparent;
+    color: var(--text-light);
+}
+
+#modalBloqueo {
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px); /* Para compatibilidad con navegadores WebKit */
 }
