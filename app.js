@@ -1,7 +1,7 @@
 // Variable global para la base de datos
 let db;
 const DB_NAME = 'sfpDB';
-const DB_VERSION = 9; // ✅ Versión actual de la base de datos
+const DB_VERSION = 13; // ✅ Versión actual de la base de datos
 
 // (variable global)
 let idRecordatorioEditando = null;
@@ -263,6 +263,25 @@ function parseNumberVE(str) {
 
 //Versión del sistema:
 const APP_VERSION = '1.1.2';
+
+// ✅ Función global para limpiar todos los almacenes antes de importar un backup
+async function clearAllStores() {
+    if (!db) {
+        await openDB();
+    }
+
+    const storeNames = Object.values(STORES);
+    for (const storeName of storeNames) {
+        if (db.objectStoreNames.contains(storeName)) {
+            const transaction = db.transaction([storeName], 'readwrite');
+            const store = transaction.objectStore(storeName);
+            store.clear();
+        }
+    }
+
+    console.log("✅ Todos los almacenes han sido limpiados correctamente.");
+}
+
 
 // ✅ Función para crear datos de backup (necesaria para el almacén)
 async function crearBackupData() {
