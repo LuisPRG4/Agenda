@@ -5841,7 +5841,7 @@ async function consultarTasasBCV() {
             const tasaUSD = data.rates.VES || 179.43; // Tasa USD a VES
 
             // Para EUR, usar conversión aproximada
-            const tasaEUR = tasaUSD * 1.08; // EUR típicamente ~8% más alto que USD
+            const tasaEUR = tasaUSD / 0.866; // EUR típicamente ~8% más alto que USD
 
             console.log(`💱 Tasas desde API pública: USD ${tasaUSD}, EUR ${tasaEUR}`);
 
@@ -5932,7 +5932,7 @@ function usarTasaBCV() {
     // Usar la tasa en el campo principal
     const inputTasa = document.getElementById('tasaCambio');
     if (inputTasa) {
-        const tasaLimpia = tasaBCV.replace(/\./g, '').replace(',', '.');
+        const tasaLimpia = tasaBCV.replace(/\./g, '').replace('.', ',');
         inputTasa.value = tasaLimpia;
         actualizarEquivalente();
         mostrarToast('✅ Tasa del BCV aplicada al sistema', 'success');
