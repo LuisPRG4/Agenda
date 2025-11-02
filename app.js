@@ -1,11 +1,12 @@
 // Variable global para la base de datos
 let db;
 const DB_NAME = 'sfpDB';
-const DB_VERSION = 13; // ✅ Versión actual de la base de datos
+const DB_VERSION = 17; // ✅ Versión actual de la base de datos
 
 // (variable global)
 let idRecordatorioEditando = null;
 let sonidoPersonalizado = null; // almacenamos temporalmente el audio subido
+let ultimoGuardado = null; // variables globales para control
 
 // SONIDO DE LOS RECORDATORIOS
 document.getElementById('uploadSonido').addEventListener('change', async (e) => {
@@ -6828,7 +6829,10 @@ let paginaHistorial = 1;
 
 
 // ============================================
-// 💰 PRESUPUESTO SUGERIDO — Corrección: rango hasta HOY e inclusivo
+// 💰 PRESUPUESTO SUGERIDO — versión corregida (rango opcional + déficit)
+// ============================================
+// ============================================
+// 💰 PRESUPUESTO SUGERIDO — versión final corregida
 // ============================================
 async function calcularPresupuestoSugerido() {
     const presupuestoInput = document.getElementById('presupuestoInicial');
@@ -6848,6 +6852,7 @@ async function calcularPresupuestoSugerido() {
         return;
     }
 
+    // --- Obtener movimientos ---
     const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
     const gastosSeleccionados = movimientos.filter(m =>
         m.tipo === 'gasto' && seleccionadas.includes(m.categoria)
@@ -6858,95 +6863,163 @@ async function calcularPresupuestoSugerido() {
         return;
     }
 
-    // Fechas: inicio = primera fecha de gasto; fin = HOY (según tu requerimiento)
-    const fechas = gastosSeleccionados.map(m => new Date(m.fecha));
-    const fechaInicio = new Date(Math.min(...fechas));
-    const fechaFin = new Date(); // ← usar la fecha actual (hoy)
-    
-    // Normalizar horas para evitar fracciones por huso hora
-    fechaInicio.setHours(0,0,0,0);
-    fechaFin.setHours(0,0,0,0);
+    // --- Limpieza forzada de valores vacíos/autocompletados ---
+    const fDesdeEl = document.getElementById("fechaDesdePresupuesto");
+    const fHastaEl = document.getElementById("fechaHastaPresupuesto");
+    if (fDesdeEl && (!fDesdeEl.value || fDesdeEl.value.trim() === "")) fDesdeEl.value = "";
+    if (fHastaEl && (!fHastaEl.value || fHastaEl.value.trim() === "")) fHastaEl.value = "";
 
+    // --- Lectura segura de inputs de fecha ---
+    let fechaDesde = null;
+    let fechaHasta = null;
+
+    if (fDesdeEl && fDesdeEl.value && fDesdeEl.value.trim() !== "") {
+        const d = new Date(fDesdeEl.value);
+        if (!isNaN(d)) fechaDesde = d;
+    }
+
+    if (fHastaEl && fHastaEl.value && fHastaEl.value.trim() !== "") {
+        const h = new Date(fHastaEl.value);
+        if (!isNaN(h)) fechaHasta = h;
+    }
+
+    // Validar coherencia del rango
+    if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) {
+        mostrarToast("⚠️ La fecha 'Desde' no puede ser mayor que la fecha 'Hasta'", "danger");
+        return;
+    }
+
+    // --- Aplicar filtro de fechas solo si hay selección válida ---
+    const gastosFiltrados = gastosSeleccionados.filter(m => {
+        const fechaMov = new Date(m.fecha);
+        fechaMov.setHours(0, 0, 0, 0);
+
+        if (fechaDesde) {
+            const desde = new Date(fechaDesde);
+            desde.setHours(0, 0, 0, 0);
+            if (fechaMov < desde) return false;
+        }
+        if (fechaHasta) {
+            const hasta = new Date(fechaHasta);
+            hasta.setHours(23, 59, 59, 999);
+            if (fechaMov > hasta) return false;
+        }
+        return true;
+    });
+
+    // Si el usuario seleccionó fechas y no hay resultados → mensaje
+    if ((fechaDesde || fechaHasta) && gastosFiltrados.length === 0) {
+        mostrarToast("No hay gastos dentro del rango de fechas seleccionado.", "info");
+        return;
+    }
+
+    // --- Calcular fechas reales del período analizado ---
+    const fechas = gastosFiltrados.map(m => new Date(m.fecha));
+    let fechaInicio, fechaFin;
+
+    if (fechas.length > 0) {
+        fechaInicio = fechaDesde || new Date(Math.min(...fechas));
+        fechaFin = fechaHasta || new Date(Math.max(...fechas));
+    } else {
+        const hoy = new Date();
+        fechaInicio = hoy;
+        fechaFin = hoy;
+    }
+
+    fechaInicio.setHours(0, 0, 0, 0);
+    fechaFin.setHours(0, 0, 0, 0);
+
+    // --- Calcular total de días (inclusivo) ---
     const msPorDia = 1000 * 60 * 60 * 24;
-    // +1 para contar inclusivamente desde fechaInicio hasta fechaFin
     let totalDias = Math.ceil((fechaFin - fechaInicio) / msPorDia) + 1;
     if (isNaN(totalDias) || totalDias < 1) totalDias = 1;
 
-    // Total de gastos
-    const totalGastos = gastosSeleccionados.reduce((s, m) => s + m.cantidad, 0);
-
-    // Promedio diario y mensual proyectado a 30 días
+    // --- Totales y promedios ---
+    const totalGastos = gastosFiltrados.reduce((s, m) => s + m.cantidad, 0);
     const promedioDiario = totalGastos / totalDias;
-    const promedioMensual = promedioDiario * 30;
+    const promedioMensual = promedioDiario * totalDias;     // real del período
+    const promedioMensualProyectado = promedioDiario * 30;  // normalizado a 30d
 
-    // Porcentaje adicional aplicado
-    const montoExtra = (promedioMensual * porcentajeExtra) / 100;
-    const presupuestoSugerido = promedioMensual + montoExtra;
+    // --- Porcentaje adicional ---
+    const montoExtra = (promedioMensualProyectado * porcentajeExtra) / 100;
+    const presupuestoSugerido = promedioMensualProyectado + montoExtra;
 
-    // Restante respecto al presupuesto inicial
+    // --- Restante / Déficit ---
     const restante = valorPresupuesto - presupuestoSugerido;
 
-    // Mostrar resultados (formateados)
+    // --- Texto de fechas para mostrar ---
+    const periodoDesdeStr = (fechaDesde ? fechaDesde.toISOString().split('T')[0] : fechaInicio.toISOString().split('T')[0]);
+    const periodoHastaStr = (fechaHasta ? fechaHasta.toISOString().split('T')[0] : fechaFin.toISOString().split('T')[0]);
+
+    // --- Limpiar los campos de fecha después de calcular ---
+    const fDesde = document.getElementById('fechaDesdePresupuesto');
+    const fHasta = document.getElementById('fechaHastaPresupuesto');
+    if (fDesde) fDesde.value = '';
+    if (fHasta) fHasta.value = '';
+
+    // --- Mostrar resultados ---
     const resultado = document.getElementById('resultadoPresupuesto');
     if (resultado) {
         resultado.innerHTML = `
-            <p><strong>Período analizado:</strong> ${fechaInicio.toLocaleDateString('es-VE')} → ${fechaFin.toLocaleDateString('es-VE')}</p>
+            <p><strong>Período analizado:</strong> ${periodoDesdeStr} → ${periodoHastaStr}</p>
             <p><strong>Total de días (inclusivo):</strong> ${totalDias} días</p>
             <p><strong>Total de gastos:</strong> Bs. ${formatNumberVE(totalGastos)}</p>
             <p><strong>Promedio diario:</strong> Bs. ${formatNumberVE(promedioDiario)}</p>
-            <p><strong>Promedio mensual proyectado (30d):</strong> Bs. ${formatNumberVE(promedioMensual)}</p>
+            <p><strong>Promedio mensual (según rango):</strong> Bs. ${formatNumberVE(promedioMensual)}</p>
+            <p><strong>Promedio mensual proyectado (30d):</strong> Bs. ${formatNumberVE(promedioMensualProyectado)}</p>
             <p><strong>Porcentaje adicional:</strong> ${porcentajeExtra}% (Bs. ${formatNumberVE(montoExtra)})</p>
             <p><strong>Presupuesto sugerido final:</strong> Bs. ${formatNumberVE(presupuestoSugerido)}</p>
             <p><strong>Presupuesto inicial:</strong> Bs. ${formatNumberVE(valorPresupuesto)}</p>
-            <p><strong>Restante disponible:</strong> Bs. ${formatNumberVE(restante)}</p>
-            <p style="margin-top:1rem; color:${restante > 0 ? 'var(--success)' : 'var(--danger)'};">
-              ${restante > 0 ? '✅ Tienes margen para otros gastos o ahorro.' : '⚠️ El presupuesto no cubre tus gastos promedio.'}
+            ${restante >= 0 
+              ? `<p><strong>Restante disponible:</strong> Bs. ${formatNumberVE(restante)}</p>`
+              : `<p><strong>Déficit presupuestario:</strong> Bs. ${formatNumberVE(Math.abs(restante))}</p>`}
+            <p style="margin-top:1rem; color:${restante >= 0 ? 'var(--success)' : 'var(--danger)'};">
+              ${restante >= 0 
+                ? '✅ Tienes margen para otros gastos o ahorro.' 
+                : '⚠️ Tu presupuesto no cubre los gastos promedio. Considera ajustar tus metas o reducir gastos.'}
             </p>
         `;
     }
 
-    // === 💡 BARRA DE PROGRESO DEL PRESUPUESTO ===
-const contenedorBarra = document.getElementById('barraPresupuestoContainer');
-if (contenedorBarra) {
-    const porcentajeUsado = (presupuestoSugerido / valorPresupuesto) * 100;
-    const porcentajeTexto = porcentajeUsado.toFixed(1);
-    
-    // Determinar color según el nivel de gasto
-    let color = '#4caf50'; // verde
-    if (porcentajeUsado >= 80 && porcentajeUsado < 100) color = '#ffc107'; // amarillo
-    if (porcentajeUsado >= 100) color = '#f44336'; // rojo
+    // --- Barra de progreso ---
+    const contenedorBarra = document.getElementById('barraPresupuestoContainer');
+    if (contenedorBarra) {
+        const porcentajeUsado = (presupuestoSugerido / valorPresupuesto) * 100;
+        const porcentajeTexto = porcentajeUsado.toFixed(1);
 
-    contenedorBarra.innerHTML = `
-        <div class="barra-presupuesto">
-            <div class="barra-uso" style="width:${Math.min(porcentajeUsado, 100)}%; background-color:${color};"></div>
-        </div>
-        <div class="barra-label">Presupuesto usado: ${porcentajeTexto}%</div>
-    `;
-}
+        let color = '#4caf50'; // verde
+        if (porcentajeUsado >= 80 && porcentajeUsado < 100) color = '#ffc107'; // amarillo
+        if (porcentajeUsado >= 100) color = '#f44336'; // rojo
 
+        contenedorBarra.innerHTML = `
+            <div class="barra-presupuesto">
+                <div class="barra-uso" style="width:${Math.min(porcentajeUsado, 100)}%; background-color:${color};"></div>
+            </div>
+            <div class="barra-label">Presupuesto usado: ${porcentajeTexto}%</div>
+        `;
+    }
 
-    // ✅ Guardar datos con estructura normalizada
-const datosNormalizados = {
-    version: '2.0', // opcional, para referencia futura
-    fecha: new Date().toISOString(),
-    categorias: Array.isArray(seleccionadas) ? seleccionadas : [],
-    fechaInicio: fechaInicio.toISOString(),
-    fechaFin: fechaFin.toISOString(),
-    totalDias: Number(totalDias) || 0,
-    totalGastos: Number(totalGastos) || 0,
-    promedioDiario: Number(promedioDiario) || 0,
-    promedioMensual: Number(promedioMensual) || 0,
-    porcentajeExtra: Number(porcentajeExtra) || 0,
-    montoExtra: Number(montoExtra) || 0,
-    presupuestoSugerido: Number(presupuestoSugerido) || 0,
-    presupuestoInicial: Number(valorPresupuesto) || 0,
-    restante: Number(restante) || 0
-};
+    // --- Guardar datos ---
+    const datosNormalizados = {
+        version: '2.2',
+        fecha: new Date().toISOString(),
+        categorias: Array.isArray(seleccionadas) ? seleccionadas : [],
+        fechaInicio: fechaInicio.toISOString(),
+        fechaFin: fechaFin.toISOString(),
+        totalDias: Number(totalDias) || 0,
+        totalGastos: Number(totalGastos) || 0,
+        promedioDiario: Number(promedioDiario) || 0,
+        promedioMensual: Number(promedioMensual) || 0,
+        porcentajeExtra: Number(porcentajeExtra) || 0,
+        montoExtra: Number(montoExtra) || 0,
+        presupuestoSugerido: Number(presupuestoSugerido) || 0,
+        presupuestoInicial: Number(valorPresupuesto) || 0,
+        restante: Number(restante) || 0
+    };
 
-localStorage.setItem('presupuestoSugeridoActual', JSON.stringify(datosNormalizados));
-mostrarToast('💾 Presupuesto sugerido calculado correctamente.', 'success');
-mostrarHistorialPresupuestos();
-
+    localStorage.setItem('presupuestoSugeridoActual', JSON.stringify(datosNormalizados));
+    mostrarToast('💾 Presupuesto sugerido calculado correctamente.', 'success');
+    mostrarHistorialPresupuestos();
 }
 
 
@@ -7077,19 +7150,72 @@ function renderizarBarraPresupuesto(presupuestoSugerido, presupuestoInicial) {
 
 
 // ✅ Guardar actual en historial
-function guardarPresupuestoEnHistorial() {
-    const guardado = localStorage.getItem('presupuestoSugeridoActual');
-    if (!guardado) {
-        mostrarToast('Primero realiza un cálculo antes de guardar en historial.', 'danger');
-        return;
+// Reemplazo seguro: guardarPresupuestoEnHistorial que usa IndexedDB
+async function guardarPresupuestoEnHistorial() {
+  try {
+    const contResultado = document.getElementById('resultadoPresupuesto');
+    if (!contResultado) {
+      mostrarToast('No hay resultados de presupuesto para guardar.', 'warning');
+      return;
     }
-    const datos = JSON.parse(guardado);
+
+    const texto = contResultado.innerText || '';
+    if (!texto.includes('Período analizado')) {
+      mostrarToast('No se detectó un cálculo reciente para guardar.', 'warning');
+      return;
+    }
+
+    const ahora = Date.now();
+    const presupuestoInicialInput = document.getElementById('presupuestoInicial');
+    const valorInicial = presupuestoInicialInput?.value || '0';
+    const nuevoRegistro = {
+      textoResumen: texto.trim(),
+      presupuestoInicial: valorInicial.trim()
+    };
+
+    // Comprobación: duplicado o demasiado pronto
+    if (ultimoGuardado) {
+      const { timestamp, datos } = ultimoGuardado;
+      const tiempoTranscurrido = (ahora - timestamp) / 1000;
+
+      // Comparar texto y presupuesto inicial (mismo cálculo)
+      if (
+        datos.textoResumen === nuevoRegistro.textoResumen &&
+        datos.presupuestoInicial === nuevoRegistro.presupuestoInicial
+      ) {
+        mostrarToast('⚠️ Este mismo cálculo ya fue guardado.', 'warning');
+        return;
+      }
+
+      // Evitar guardar antes de 30 s
+      if (tiempoTranscurrido < 30) {
+        const faltan = Math.ceil(30 - tiempoTranscurrido);
+        mostrarToast(`⏳ Espera ${faltan}s antes de guardar otro presupuesto.`, 'info');
+        return;
+      }
+    }
+
+    // Actualizar marca de tiempo y datos
+    ultimoGuardado = { timestamp: ahora, datos: nuevoRegistro };
+
+    // Guardar registro
+    const registro = {
+      fecha: new Date().toISOString(),
+      ...nuevoRegistro
+    };
     const historial = JSON.parse(localStorage.getItem('historialPresupuestos') || '[]');
-    historial.push(datos);
+    historial.push(registro);
     localStorage.setItem('historialPresupuestos', JSON.stringify(historial));
-    mostrarToast('📦 Presupuesto archivado en historial.', 'success');
+
+    mostrarToast('📘 Presupuesto guardado en historial.', 'success');
     mostrarHistorialPresupuestos();
+  } catch (err) {
+    console.error('Error guardando presupuesto:', err);
+    mostrarToast('❌ Error al guardar el presupuesto.', 'danger');
+  }
 }
+
+
 
 // ✅ Eliminar todo el historial
 function eliminarHistorialPresupuestos() {
@@ -7108,7 +7234,8 @@ function mostrarHistorialPresupuestos() {
 
     if (historial.length === 0) {
         contenedor.innerHTML = '<li style="color:var(--text-light);">No hay presupuestos archivados aún.</li>';
-        document.getElementById('paginaActual').textContent = '—';
+        const pagEl = document.getElementById('paginaActual');
+        if (pagEl) pagEl.textContent = '—';
         return;
     }
 
@@ -7122,22 +7249,44 @@ function mostrarHistorialPresupuestos() {
     pagina.forEach(item => {
         const fecha = new Date(item.fecha).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' });
         const li = document.createElement('li');
-        li.innerHTML = `
-            <div style="padding:0.5rem; border:1px solid #ddd; border-radius:8px; margin-bottom:0.5rem; background:#fafafa;">
-                <strong>${fecha}</strong><br>
-                Categorías: ${item.categorias.join(', ')}<br>
-                Total: Bs. ${formatNumberVE(item.totalGastos)}<br>
-                Promedio: Bs. ${formatNumberVE(item.promedioGastos)}<br>
-                Inicial: Bs. ${formatNumberVE(item.presupuestoInicial)}<br>
-                Sugerido: Bs. ${formatNumberVE(item.presupuestoParaGastos)}<br>
-                Restante: Bs. ${formatNumberVE(item.restante)}
-            </div>
-        `;
+
+        // --- NUEVO: si existe un resumen de texto (nuevo formato), lo mostramos tal cual ---
+        if (item.textoResumen) {
+            li.innerHTML = `
+                <div style="padding:0.5rem; border:1px solid #ddd; border-radius:8px; margin-bottom:0.5rem; background:#fafafa;">
+                    <strong>${fecha}</strong><br>
+                    <pre style="white-space: pre-wrap; font-family: inherit; margin: 0;">${item.textoResumen}</pre>
+                </div>
+            `;
+        } else {
+            // --- COMPATIBILIDAD: registros antiguos ---
+            const categorias = item.categorias?.join(', ') || '—';
+            const total = item.totalGastos ?? 0;
+            const promedio = item.promedioGastos ?? item.promedioDiario ?? 0;
+            const inicial = item.presupuestoInicial ?? 0;
+            const sugerido = item.presupuestoParaGastos ?? item.presupuestoSugerido ?? 0;
+            const restante = item.restante ?? (inicial - sugerido);
+
+            li.innerHTML = `
+                <div style="padding:0.5rem; border:1px solid #ddd; border-radius:8px; margin-bottom:0.5rem; background:#fafafa;">
+                    <strong>${fecha}</strong><br>
+                    Categorías: ${categorias}<br>
+                    Total: Bs. ${formatNumberVE(total)}<br>
+                    Promedio: Bs. ${formatNumberVE(promedio)}<br>
+                    Inicial: Bs. ${formatNumberVE(inicial)}<br>
+                    Sugerido: Bs. ${formatNumberVE(sugerido)}<br>
+                    Restante: Bs. ${formatNumberVE(restante)}
+                </div>
+            `;
+        }
+
         contenedor.appendChild(li);
     });
 
-    document.getElementById('paginaActual').textContent = `${paginaHistorial} / ${totalPaginas}`;
+    const pagEl = document.getElementById('paginaActual');
+    if (pagEl) pagEl.textContent = `${paginaHistorial} / ${totalPaginas}`;
 }
+
 
 // ✅ Cambiar página
 function cambiarPaginaHistorial(direccion) {
@@ -9206,6 +9355,409 @@ function cargarEstadoWidgets() {
     flecha.style.transform = 'rotate(180deg)';
   }
 }
+
+// ===============================
+// 🔔 SISTEMA DE NOTIFICACIONES (TOASTS) Y RECORDATORIOS
+// ===============================
+
+// Crear el contenedor si no existe
+if (!document.getElementById("toast-container")) {
+  const toastContainer = document.createElement("div");
+  toastContainer.id = "toast-container";
+  document.body.appendChild(toastContainer);
+}
+
+// Función para mostrar el toast
+function showToast(message, type = "info") {
+  const toastContainer = document.getElementById("toast-container");
+  const toast = document.createElement("div");
+  toast.className = `custom-toast ${type}`;
+  toast.textContent = message;
+  toastContainer.appendChild(toast);
+
+  // Animar aparición
+  setTimeout(() => toast.classList.add("show"), 100);
+
+  // Desaparecer después de 5 segundos
+  setTimeout(() => {
+    toast.classList.remove("show");
+    setTimeout(() => toast.remove(), 300);
+  }, 5000);
+}
+
+// ===============================
+// ⏰ MONITOREO DE RECORDATORIOS
+// ===============================
+function startReminderWatcher() {
+  setInterval(async () => {
+    try {
+      const tx = db.transaction(["recordatorios"], "readonly");
+      const store = tx.objectStore("recordatorios");
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        const recordatorios = request.result;
+        const now = new Date();
+
+        recordatorios.forEach(rec => {
+          if (!rec || !rec.fecha || rec.notificado) return;
+
+          const fecha = new Date(rec.fecha);
+          if (now >= fecha) {
+            // Marcar como notificado
+            const tx2 = db.transaction(["recordatorios"], "readwrite");
+            const store2 = tx2.objectStore("recordatorios");
+            rec.notificado = true;
+            store2.put(rec);
+
+            // Mostrar toast
+            showToast(`🔔 Recordatorio: ${rec.titulo || "Sin título"}`, "info");
+
+          }
+        });
+      };
+    } catch (error) {
+      console.error("Error comprobando recordatorios:", error);
+    }
+  }, 30000); // ✅ cada 30 segundos
+}
+
+// Iniciar el monitoreo
+document.addEventListener("DOMContentLoaded", startReminderWatcher);
+
+// 🧹 Reset automático de fechas al cargar la pestaña "Presupuesto sugerido"
+document.addEventListener("DOMContentLoaded", () => {
+  const fDesde = document.getElementById("fechaDesdePresupuesto");
+  const fHasta = document.getElementById("fechaHastaPresupuesto");
+
+  if (fDesde) {
+    fDesde.value = "";
+    fDesde.setAttribute("autocomplete", "off");
+  }
+  if (fHasta) {
+    fHasta.value = "";
+    fHasta.setAttribute("autocomplete", "off");
+  }
+});
+
+// ===============================
+// ✅ NAVEGACIÓN CON ENTER EN FORMULARIOS
+// ===============================
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Función auxiliar para encontrar el siguiente elemento enfocable
+    function findNextFocusableElement(currentElement) {
+        const allElements = Array.from(document.querySelectorAll('input, select, textarea, button'));
+        const currentIndex = allElements.indexOf(currentElement);
+        if (currentIndex === -1) return null;
+
+        for (let i = currentIndex + 1; i < allElements.length; i++) {
+            const el = allElements[i];
+            if (!el.disabled && !el.hidden && el.offsetParent !== null) {
+                return el;
+            }
+        }
+        return null;
+    }
+
+    // Función para manejar el evento Enter en un campo
+    function handleEnterKey(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault(); // Evita el comportamiento por defecto (enviar formulario)
+            const nextElement = findNextFocusableElement(event.target);
+            if (nextElement) {
+                nextElement.focus();
+                // Si es un input de tipo texto, selecciona todo su contenido para facilitar la edición
+                if (nextElement.tagName === 'INPUT' && nextElement.type === 'text') {
+                    nextElement.select();
+                }
+            }
+        }
+    }
+
+    // Aplicar a los campos del formulario de MOVIMIENTOS
+    const movimientoFields = [
+        document.getElementById('concepto'),
+        document.getElementById('cantidad'),
+        document.getElementById('fechaMov'),
+        document.getElementById('categoria'),
+        document.getElementById('banco'),
+        document.getElementById('nuevaCategoria'),
+        document.getElementById('nuevoBanco')
+    ];
+
+    movimientoFields.forEach(field => {
+        if (field) {
+            field.addEventListener('keypress', handleEnterKey);
+        }
+    });
+
+    // Aplicar a los campos del formulario de AHORRO (Nueva Meta)
+    const ahorroFields = [
+        document.getElementById('nombreMeta'),
+        document.getElementById('montoMeta')
+    ];
+
+    ahorroFields.forEach(field => {
+        if (field) {
+            field.addEventListener('keypress', handleEnterKey);
+        }
+    });
+
+    // Aplicar a los campos del formulario de INVERSIONES
+    const inversionesFields = [
+        document.getElementById('activoInversion'),
+        document.getElementById('cantidadInvertida'),
+        document.getElementById('fechaInversion')
+    ];
+
+    inversionesFields.forEach(field => {
+        if (field) {
+            field.addEventListener('keypress', handleEnterKey);
+        }
+    });
+
+    // Aplicar a los campos del formulario de RECORDATORIOS
+    const recordatoriosFields = [
+        document.getElementById('tituloRecordatorio'),
+        document.getElementById('descripcionRecordatorio'),
+        document.getElementById('fechaRecordatorio'),
+        document.getElementById('prioridadRecordatorio'),
+        document.getElementById('repeticionRecordatorio')
+    ];
+
+    recordatoriosFields.forEach(field => {
+        if (field) {
+            field.addEventListener('keypress', handleEnterKey);
+        }
+    });
+
+    // Aplicar a los campos del formulario de CONFIGURACIÓN (Reglas)
+    const reglasFields = [
+        document.getElementById('txtPalabra'),
+        document.getElementById('txtCat'),
+        document.getElementById('txtBancoRegla'),
+        document.getElementById('nuevoBancoRegla')
+    ];
+
+    reglasFields.forEach(field => {
+        if (field) {
+            field.addEventListener('keypress', handleEnterKey);
+        }
+    });
+
+    // Aplicar a los campos del formulario de ACTIVOS/INVENTARIO (si existe)
+    const activosFields = [
+        document.getElementById('nombreActivo'),
+        document.getElementById('valorActivo'),
+        document.getElementById('fechaCompra'),
+        document.getElementById('depreciacionEstimada'),
+        document.getElementById('descripcionActivo'),
+        document.getElementById('categoriaActivo')
+    ];
+
+    activosFields.forEach(field => {
+        if (field) {
+            field.addEventListener('keypress', handleEnterKey);
+        }
+    });
+
+    // Aplicar a los campos del formulario de PRESUPUESTO SUGERIDO (si aplica)
+    const presupuestoFields = [
+        document.getElementById('presupuestoMonto'),
+        document.getElementById('fechaInicioPresupuesto'),
+        document.getElementById('fechaFinPresupuesto')
+    ];
+
+    presupuestoFields.forEach(field => {
+        if (field) {
+            field.addEventListener('keypress', handleEnterKey);
+        }
+    });
+});
+
+// ===============================
+// ✅ FUNCIÓN PARA IMPRIMIR EL HISTORIAL DE PRESUPUESTOS SUGERIDOS
+// ===============================
+function imprimirHistorialPresupuestos() {
+    const historialRaw = localStorage.getItem('historialPresupuestos');
+    if (!historialRaw) {
+        mostrarToast('No hay historial para imprimir.', 'info');
+        return;
+    }
+
+    let historial;
+    try {
+        historial = JSON.parse(historialRaw);
+    } catch (e) {
+        console.error('Error al parsear el historial:', e);
+        mostrarToast('Error al cargar el historial para imprimir.', 'danger');
+        return;
+    }
+
+    if (!historial || historial.length === 0) {
+        mostrarToast('No hay datos en el historial para imprimir.', 'info');
+        return;
+    }
+
+    // Ordenar por fecha (más reciente primero)
+    historial.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+    // Generar el contenido HTML para imprimir
+    const contenidoHTML = `
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <title>Historial de Presupuestos Sugeridos</title>
+            <style>
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    max-width: 800px;
+                    margin: 20px auto;
+                    padding: 20px;
+                    background: white;
+                }
+                h1 {
+                    text-align: center;
+                    color: #2c3e50;
+                    border-bottom: 2px solid #3498db;
+                    padding-bottom: 10px;
+                    margin-bottom: 20px;
+                }
+                .presupuesto-item {
+                    background: #f8f9fa;
+                    border: 1px solid #dee2e6;
+                    border-radius: 8px;
+                    padding: 15px;
+                    margin-bottom: 15px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                }
+                .presupuesto-header {
+                    font-weight: bold;
+                    color: #2c3e50;
+                    margin-bottom: 5px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                .presupuesto-details {
+                    margin-top: 10px;
+                    padding-left: 10px;
+                    font-size: 0.95rem;
+                }
+                .detail-row {
+                    display: flex;
+                    justify-content: space-between;
+                    margin: 5px 0;
+                }
+                .label {
+                    font-weight: 600;
+                    color: #555;
+                }
+                .value {
+                    font-weight: 500;
+                    color: #333;
+                }
+                .resumen-texto {
+                    white-space: pre-wrap;
+                    background: #f1f3f5;
+                    padding: 10px;
+                    border-radius: 6px;
+                    font-family: inherit;
+                    font-size: 0.95rem;
+                }
+                .total-footer {
+                    margin-top: 30px;
+                    padding-top: 15px;
+                    border-top: 2px solid #eee;
+                    text-align: center;
+                    font-size: 0.9rem;
+                    color: #777;
+                }
+                @media print {
+                    body {
+                        background: white !important;
+                        color: black !important;
+                        margin: 0;
+                        padding: 20px;
+                    }
+                    .presupuesto-item {
+                        box-shadow: none;
+                        border: 1px solid #ccc;
+                    }
+                }
+            </style>
+        </head>
+        <body>
+            <h1>📋 Historial de Presupuestos Sugeridos</h1>
+            ${historial.map(item => {
+                const fecha = new Date(item.fecha).toLocaleString('es-VE', {
+                    dateStyle: 'full',
+                    timeStyle: 'short'
+                });
+
+                // --- NUEVO FORMATO ---
+                if (item.textoResumen) {
+                    return `
+                        <div class="presupuesto-item">
+                            <div class="presupuesto-header">
+                                <span>${fecha}</span>
+                                <span>Categorías: ${item.categorias?.join(', ') || '—'}</span>
+                            </div>
+                            <div class="presupuesto-details">
+                                <div class="resumen-texto">${item.textoResumen.replace(/\n/g, '<br>')}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // --- FORMATO ANTIGUO (compatibilidad) ---
+                const categorias = item.categorias ? item.categorias.join(', ') : 'Todas';
+                const totalGastos = item.totalGastos !== undefined ? formatNumberVE(item.totalGastos) : 'N/A';
+                const promedio = item.promedioDiario !== undefined ? formatNumberVE(item.promedioDiario)
+                                : (item.promedioGastos !== undefined ? formatNumberVE(item.promedioGastos) : 'N/A');
+                const inicial = item.presupuestoInicial !== undefined ? formatNumberVE(item.presupuestoInicial) : 'N/A';
+                const sugerido = item.presupuestoSugerido !== undefined ? formatNumberVE(item.presupuestoSugerido)
+                                : (item.presupuestoParaGastos !== undefined ? formatNumberVE(item.presupuestoParaGastos) : 'N/A');
+                const restante = item.restante !== undefined ? formatNumberVE(item.restante)
+                                : (inicial !== 'N/A' && sugerido !== 'N/A' ? formatNumberVE(inicial - sugerido) : 'N/A');
+
+                return `
+                    <div class="presupuesto-item">
+                        <div class="presupuesto-header">
+                            <span>${fecha}</span>
+                            <span>Categorías: ${categorias}</span>
+                        </div>
+                        <div class="presupuesto-details">
+                            <div class="detail-row"><span class="label">Total Gastos:</span><span class="value">${totalGastos} Bs</span></div>
+                            <div class="detail-row"><span class="label">Promedio Mensual:</span><span class="value">${promedio} Bs</span></div>
+                            <div class="detail-row"><span class="label">Presupuesto Inicial:</span><span class="value">${inicial} Bs</span></div>
+                            <div class="detail-row"><span class="label">Presupuesto Sugerido:</span><span class="value">${sugerido} Bs</span></div>
+                            <div class="detail-row"><span class="label">Restante:</span><span class="value">${restante} Bs</span></div>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+            <div class="total-footer">
+                Este documento fue generado automáticamente por tu sistema financiero personal.
+            </div>
+        </body>
+        </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(contenidoHTML);
+    printWindow.document.close();
+
+    printWindow.onload = function() {
+        printWindow.print();
+    };
+}
+
+
 // ------------------------------------------------------------------------------------------------------------------------------------
 //                                 Inicialización y Event Listeners
 // ------------------------------------------------------------------------------------------------------------------------------------
