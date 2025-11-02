@@ -495,6 +495,22 @@ Asistente Financiero
        style="width:100%; padding:.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem;"
        placeholder="Ej: 10">
 
+       <!-- ✅ NUEVO BLOQUE: RANGO DE FECHAS -->
+<div style="display:flex; gap:1rem; margin-top:1rem; flex-wrap:wrap;">
+  <label style="flex:1; font-size:0.9rem; color:var(--text-light);">
+    Desde:
+    <input type="date" id="fechaDesdePresupuesto" 
+           style="width:100%; padding:0.75rem; border-radius:8px; border:1px solid #ccc; font-size:1rem;">
+  </label>
+  <label style="flex:1; font-size:0.9rem; color:var(--text-light);">
+    Hasta:
+    <input type="date" id="fechaHastaPresupuesto" 
+           style="width:100%; padding:0.75rem; border-radius:8px; border:1px solid #ccc; font-size:1rem;">
+  </label>
+</div>
+<p style="font-size:0.8rem; color:var(--text-light); margin-top:0.25rem;">
+  📅 Define el rango de fechas de los movimientos que se usarán en el cálculo del presupuesto.
+</p>
 
       <h3 style="margin-top:1rem;">Selecciona las categorías a incluir:</h3>
 <select id="selectCategoriasPresupuesto" multiple 
@@ -562,6 +578,12 @@ Asistente Financiero
       <span id="paginaActual" style="align-self:center;">1</span>
       <button id="btnNextPagina" onclick="cambiarPaginaHistorial(1)"
               style="background:#374151; color:white; border:none; border-radius:6px; padding:0.4rem 0.8rem; cursor:pointer;">▶️</button>
+
+      <!-- ✅ BOTÓN DE IMPRESIÓN -->
+      <button onclick="imprimirHistorialPresupuestos()" 
+              style="background:#6b7280; color:white; border:none; border-radius:6px; padding:0.4rem 0.8rem; cursor:pointer; margin-left:0.5rem;">
+          🖨️ Imprimir Historial
+      </button>
     </div>
   </div>
 </div>
@@ -1284,7 +1306,7 @@ Asistente Financiero
           <option value="">Selecciona una pregunta</option>
           <option value="nombreMadre">Nombre de tu madre</option>
           <option value="nombrePadre">Nombre de tu padre</option>
-          <option value="nombreMascota">Nombre de tu primera mascota</option>
+          <option value="nombreMascota">Nombre de tu segunda mascota</option>
           <option value="ciudadNatal">Ciudad donde naciste</option>
           <option value="mejorAmigo">Nombre de tu mejor amigo/a de la infancia</option>
           <option value="primeraEscuela">Nombre de tu primera escuela</option>
