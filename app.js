@@ -28,7 +28,7 @@ document.getElementById('selectSonido').addEventListener('change', (e) => {
 });
 
 document.getElementById('btnProbarSonido').addEventListener('click', () => {
-  reproducirSonidoAviso();
+ // reproducirSonidoAviso();
 });
 
 // Nombres de los almacenes de objetos
@@ -6837,7 +6837,8 @@ let paginaHistorial = 1;
 async function calcularPresupuestoSugerido() {
     const presupuestoInput = document.getElementById('presupuestoInicial');
     const porcentajeInput = document.getElementById('porcentajeExtra');
-    const valorPresupuesto = parseNumberVE(presupuestoInput.value);
+    const valorPresupuestoTexto = presupuestoInput.value.trim(); // Guardar el valor original del texto
+    const valorPresupuesto = parseNumberVE(valorPresupuestoTexto);
     const porcentajeExtra = parseFloat(porcentajeInput.value) || 0;
 
     if (isNaN(valorPresupuesto) || valorPresupuesto <= 0) {
@@ -6873,14 +6874,32 @@ async function calcularPresupuestoSugerido() {
     let fechaDesde = null;
     let fechaHasta = null;
 
+    // Función auxiliar para crear fecha local desde string YYYY-MM-DD
+    function crearFechaLocal(fechaStr) {
+        const partes = fechaStr.split('-');
+        if (partes.length === 3) {
+            const año = parseInt(partes[0], 10);
+            const mes = parseInt(partes[1], 10) - 1; // Los meses en JS son 0-indexed
+            const dia = parseInt(partes[2], 10);
+            return new Date(año, mes, dia);
+        }
+        return null;
+    }
+
     if (fDesdeEl && fDesdeEl.value && fDesdeEl.value.trim() !== "") {
-        const d = new Date(fDesdeEl.value);
-        if (!isNaN(d)) fechaDesde = d;
+        const d = crearFechaLocal(fDesdeEl.value);
+        if (d && !isNaN(d.getTime())) {
+            fechaDesde = d;
+            fechaDesde.setHours(0, 0, 0, 0);
+        }
     }
 
     if (fHastaEl && fHastaEl.value && fHastaEl.value.trim() !== "") {
-        const h = new Date(fHastaEl.value);
-        if (!isNaN(h)) fechaHasta = h;
+        const h = crearFechaLocal(fHastaEl.value);
+        if (h && !isNaN(h.getTime())) {
+            fechaHasta = h;
+            fechaHasta.setHours(0, 0, 0, 0);
+        }
     }
 
     // Validar coherencia del rango
@@ -6947,9 +6966,17 @@ async function calcularPresupuestoSugerido() {
     // --- Restante / Déficit ---
     const restante = valorPresupuesto - presupuestoSugerido;
 
-    // --- Texto de fechas para mostrar ---
-    const periodoDesdeStr = (fechaDesde ? fechaDesde.toISOString().split('T')[0] : fechaInicio.toISOString().split('T')[0]);
-    const periodoHastaStr = (fechaHasta ? fechaHasta.toISOString().split('T')[0] : fechaFin.toISOString().split('T')[0]);
+    // --- Función auxiliar para formatear fecha local (sin conversión UTC) ---
+    function formatearFechaLocal(fecha) {
+        const año = fecha.getFullYear();
+        const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+        const dia = String(fecha.getDate()).padStart(2, '0');
+        return `${dia}/${mes}/${año}`;
+    }
+
+    // --- Texto de fechas para mostrar (usando formato local) ---
+    const periodoDesdeStr = formatearFechaLocal(fechaDesde || fechaInicio);
+    const periodoHastaStr = formatearFechaLocal(fechaHasta || fechaFin);
 
     // --- Limpiar los campos de fecha después de calcular ---
     const fDesde = document.getElementById('fechaDesdePresupuesto');
@@ -7001,7 +7028,7 @@ async function calcularPresupuestoSugerido() {
 
     // --- Guardar datos ---
     const datosNormalizados = {
-        version: '2.2',
+        version: '2.3',
         fecha: new Date().toISOString(),
         categorias: Array.isArray(seleccionadas) ? seleccionadas : [],
         fechaInicio: fechaInicio.toISOString(),
@@ -7014,6 +7041,7 @@ async function calcularPresupuestoSugerido() {
         montoExtra: Number(montoExtra) || 0,
         presupuestoSugerido: Number(presupuestoSugerido) || 0,
         presupuestoInicial: Number(valorPresupuesto) || 0,
+        presupuestoInicialTexto: valorPresupuestoTexto || '', // Guardar el valor original del texto
         restante: Number(restante) || 0
     };
 
@@ -7058,7 +7086,14 @@ function cargarPresupuestoSugeridoGuardado() {
     // Restaurar inputs (si existen)
     const inputPresupuesto = document.getElementById('presupuestoInicial');
     if (inputPresupuesto) {
-        inputPresupuesto.value = formatNumberVE(Number(presupuestoInicial) || 0);
+        // Restaurar el valor original del texto si existe, sino usar el numérico sin formatear
+        const valorOriginal = datos.presupuestoInicialTexto;
+        if (valorOriginal && valorOriginal !== '') {
+            inputPresupuesto.value = valorOriginal;
+        } else {
+            // Si no hay valor original guardado, usar el numérico sin formatear (compatibilidad hacia atrás)
+            inputPresupuesto.value = presupuestoInicial > 0 ? presupuestoInicial.toString() : '';
+        }
     }
     const inputPorcentaje = document.getElementById('porcentajeExtra');
     if (inputPorcentaje) {
@@ -7168,9 +7203,34 @@ async function guardarPresupuestoEnHistorial() {
     const ahora = Date.now();
     const presupuestoInicialInput = document.getElementById('presupuestoInicial');
     const valorInicial = presupuestoInicialInput?.value || '0';
+    
+    // Obtener las categorías del cálculo guardado (prioridad) o del select
+    let categorias = [];
+    try {
+      // Primero intentar obtener del cálculo guardado (más confiable)
+      const calculoActual = localStorage.getItem('presupuestoSugeridoActual');
+      if (calculoActual) {
+        const datos = JSON.parse(calculoActual);
+        if (datos.categorias && Array.isArray(datos.categorias) && datos.categorias.length > 0) {
+          categorias = datos.categorias;
+        }
+      }
+      
+      // Si no hay categorías en el cálculo guardado, intentar del select
+      if (categorias.length === 0) {
+        const select = document.getElementById('selectCategoriasPresupuesto');
+        if (select) {
+          categorias = Array.from(select.selectedOptions).map(opt => opt.value);
+        }
+      }
+    } catch (e) {
+      console.warn('No se pudieron obtener las categorías:', e);
+    }
+    
     const nuevoRegistro = {
       textoResumen: texto.trim(),
-      presupuestoInicial: valorInicial.trim()
+      presupuestoInicial: valorInicial.trim(),
+      categorias: categorias // Guardar las categorías
     };
 
     // Comprobación: duplicado o demasiado pronto
@@ -7217,6 +7277,51 @@ async function guardarPresupuestoEnHistorial() {
 
 
 
+// ✅ Eliminar un presupuesto individual del historial
+function eliminarPresupuestoIndividual(indice) {
+    const historialRaw = localStorage.getItem('historialPresupuestos');
+    if (!historialRaw) {
+        mostrarToast('No hay historial disponible.', 'info');
+        return;
+    }
+
+    let historial;
+    try {
+        historial = JSON.parse(historialRaw);
+    } catch (e) {
+        console.error('Error al parsear el historial:', e);
+        mostrarToast('Error al cargar el historial.', 'danger');
+        return;
+    }
+
+    if (!historial || historial.length === 0 || indice < 0 || indice >= historial.length) {
+        mostrarToast('El cálculo seleccionado no existe.', 'warning');
+        return;
+    }
+
+    // Confirmar eliminación
+    if (!confirm('¿Seguro que deseas eliminar este cálculo del historial?')) {
+        return;
+    }
+
+    // Eliminar el elemento del array
+    historial.splice(indice, 1);
+
+    // Guardar el historial actualizado
+    localStorage.setItem('historialPresupuestos', JSON.stringify(historial));
+    
+    mostrarToast('🗑️ Cálculo eliminado del historial.', 'success');
+    
+    // Ajustar la página actual si es necesario
+    const totalPaginas = Math.ceil(historial.length / REGISTROS_POR_PAGINA);
+    if (paginaHistorial > totalPaginas && totalPaginas > 0) {
+        paginaHistorial = totalPaginas;
+    }
+    
+    // Actualizar la visualización
+    mostrarHistorialPresupuestos();
+}
+
 // ✅ Eliminar todo el historial
 function eliminarHistorialPresupuestos() {
     if (!confirm('¿Seguro que deseas eliminar todo el historial de presupuestos?')) return;
@@ -7242,19 +7347,44 @@ function mostrarHistorialPresupuestos() {
     const totalPaginas = Math.ceil(historial.length / REGISTROS_POR_PAGINA);
     if (paginaHistorial > totalPaginas) paginaHistorial = totalPaginas;
 
+    // Mostrar en orden cronológico (más antiguos primero, más recientes al final)
     const inicio = (paginaHistorial - 1) * REGISTROS_POR_PAGINA;
     const fin = inicio + REGISTROS_POR_PAGINA;
-    const pagina = historial.slice().reverse().slice(inicio, fin);
+    const pagina = historial.slice(inicio, fin);
 
-    pagina.forEach(item => {
+    pagina.forEach((item, indexPagina) => {
         const fecha = new Date(item.fecha).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' });
         const li = document.createElement('li');
+        
+        // Calcular el índice real en el historial completo
+        const itemIndex = inicio + indexPagina;
 
         // --- NUEVO: si existe un resumen de texto (nuevo formato), lo mostramos tal cual ---
         if (item.textoResumen) {
+            const categoriasTexto = (item.categorias && Array.isArray(item.categorias) && item.categorias.length > 0) 
+                ? item.categorias.join(', ') 
+                : '—';
+            
             li.innerHTML = `
                 <div style="padding:0.5rem; border:1px solid #ddd; border-radius:8px; margin-bottom:0.5rem; background:#fafafa;">
-                    <strong>${fecha}</strong><br>
+                    <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:0.5rem;">
+                        <div>
+                            <strong>${fecha}</strong><br>
+                            <small style="color:var(--text-light);">Categorías: ${categoriasTexto}</small>
+                        </div>
+                        <div style="display:flex; gap:0.5rem;">
+                            <button onclick="imprimirPresupuestoIndividual(${itemIndex})" 
+                                    style="background:var(--primary); color:white; border:none; border-radius:6px; padding:0.4rem 0.8rem; cursor:pointer; font-size:0.85rem;"
+                                    title="Imprimir este cálculo">
+                                🖨️ Imprimir
+                            </button>
+                            <button onclick="eliminarPresupuestoIndividual(${itemIndex})" 
+                                    style="background:var(--danger); color:white; border:none; border-radius:6px; padding:0.4rem 0.8rem; cursor:pointer; font-size:0.85rem;"
+                                    title="Eliminar este cálculo">
+                                🗑️ Eliminar
+                            </button>
+                        </div>
+                    </div>
                     <pre style="white-space: pre-wrap; font-family: inherit; margin: 0;">${item.textoResumen}</pre>
                 </div>
             `;
@@ -7269,13 +7399,22 @@ function mostrarHistorialPresupuestos() {
 
             li.innerHTML = `
                 <div style="padding:0.5rem; border:1px solid #ddd; border-radius:8px; margin-bottom:0.5rem; background:#fafafa;">
-                    <strong>${fecha}</strong><br>
-                    Categorías: ${categorias}<br>
-                    Total: Bs. ${formatNumberVE(total)}<br>
-                    Promedio: Bs. ${formatNumberVE(promedio)}<br>
-                    Inicial: Bs. ${formatNumberVE(inicial)}<br>
-                    Sugerido: Bs. ${formatNumberVE(sugerido)}<br>
-                    Restante: Bs. ${formatNumberVE(restante)}
+                    <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:0.5rem;">
+                        <div>
+                            <strong>${fecha}</strong><br>
+                            Categorías: ${categorias}<br>
+                            Total: Bs. ${formatNumberVE(total)}<br>
+                            Promedio: Bs. ${formatNumberVE(promedio)}<br>
+                            Inicial: Bs. ${formatNumberVE(inicial)}<br>
+                            Sugerido: Bs. ${formatNumberVE(sugerido)}<br>
+                            Restante: Bs. ${formatNumberVE(restante)}
+                        </div>
+                        <button onclick="eliminarPresupuestoIndividual(${itemIndex})" 
+                                style="background:var(--danger); color:white; border:none; border-radius:6px; padding:0.4rem 0.8rem; cursor:pointer; font-size:0.85rem;"
+                                title="Eliminar este cálculo">
+                            🗑️ Eliminar
+                        </button>
+                    </div>
                 </div>
             `;
         }
@@ -7463,6 +7602,8 @@ async function guardarRecordatorio() {
   const descripcion = document.getElementById('descripcionRecordatorio').value.trim();
   const fecha = document.getElementById('fechaRecordatorio').value; // 'YYYY-MM-DD'
   const dias = parseInt(document.getElementById('diasAnticipacion').value) || 5;
+  const repetirMismoDia = document.getElementById('repetirMismoDia').checked;
+  const intervaloMinutos = repetirMismoDia ? parseInt(document.getElementById('intervaloMinutos').value) || 30 : null;
 
   if (!titulo || !fecha) {
     mostrarToast('❌ Título y fecha son obligatorios', 'danger');
@@ -7472,13 +7613,20 @@ async function guardarRecordatorio() {
     mostrarToast('❌ La fecha debe ser futura', 'danger');
     return;
   }
+  if (repetirMismoDia && (!intervaloMinutos || intervaloMinutos < 1)) {
+    mostrarToast('❌ El intervalo de minutos debe ser mayor a 0', 'danger');
+    return;
+  }
 
   const rec = {
     titulo,
     descripcion,
     fechaLimite: fecha,            // mantenemos 'YYYY-MM-DD' (más simple para inputs)
     diasAnticipacion: dias,
-    avisado: false
+    avisado: false,
+    repetirMismoDia: repetirMismoDia || false,
+    intervaloMinutos: intervaloMinutos || null,
+    ultimoAvisoMismoDia: null  // Timestamp del último aviso en el mismo día
   };
 
   if (idRecordatorioEditando) {
@@ -7487,6 +7635,10 @@ async function guardarRecordatorio() {
     const original = todos.find(r => r.id === idRecordatorioEditando) || {};
     rec.id = idRecordatorioEditando;
     rec.fechaCreacion = original.fechaCreacion || new Date().toISOString();
+    // Preservar ultimoAvisoMismoDia si existe
+    if (original.ultimoAvisoMismoDia) {
+      rec.ultimoAvisoMismoDia = original.ultimoAvisoMismoDia;
+    }
     await updateRecordatorio(rec);
     idRecordatorioEditando = null;
     mostrarToast('✅ Recordatorio actualizado', 'success');
@@ -7511,6 +7663,9 @@ function limpiarFormRecordatorio() {
   document.getElementById('descripcionRecordatorio').value = '';
   document.getElementById('fechaRecordatorio').value = '';
   document.getElementById('diasAnticipacion').value = localStorage.getItem('defaultAnticipacion') || 5;
+  document.getElementById('repetirMismoDia').checked = false;
+  document.getElementById('intervaloMinutos').value = 30;
+  document.getElementById('intervaloRepeticionContainer').style.display = 'none';
 }
 
 /* ---------- Renderizado ---------- */
@@ -7553,6 +7708,7 @@ async function renderizarRecordatorios() {
             <br><small style="color:var(--text-light);">
               📅 ${fLim.toLocaleDateString('es-VE')} · ⏰ ${textoDias} 
               (${r.diasAnticipacion} días de anticipación)
+              ${r.repetirMismoDia && r.intervaloMinutos ? ` · 🔁 Repite cada ${r.intervaloMinutos} min` : ''}
             </small>
           </div>
           <div style="display:flex;gap:0.25rem;">
@@ -7580,6 +7736,16 @@ async function editarRecordatorio(id) {
   document.getElementById('fechaRecordatorio').value = fechaVal;
 
   document.getElementById('diasAnticipacion').value = rec.diasAnticipacion || localStorage.getItem('defaultAnticipacion') || 5;
+  
+  // Cargar configuración de repetición en el mismo día
+  const repetirMismoDia = rec.repetirMismoDia || false;
+  document.getElementById('repetirMismoDia').checked = repetirMismoDia;
+  if (repetirMismoDia) {
+    document.getElementById('intervaloRepeticionContainer').style.display = 'block';
+    document.getElementById('intervaloMinutos').value = rec.intervaloMinutos || 30;
+  } else {
+    document.getElementById('intervaloRepeticionContainer').style.display = 'none';
+  }
 
   // marcar que estamos editando ese id
   idRecordatorioEditando = id;
@@ -7619,12 +7785,46 @@ async function renderizarProximosAvisos() {
     const fLim = new Date(r.fechaLimite + 'T00:00:00');
     fLim.setHours(0, 0, 0, 0);
 
-    // 👇 Cambio importante: usamos Math.floor en vez de ceil
+    // 🔧 CORRECCIÓN: usar Math.floor consistentemente
     const dias = Math.floor((fLim - hoy) / (1000 * 60 * 60 * 24));
 
     // condición de aviso
     const dentroRango = dias <= r.diasAnticipacion && dias >= 0;
-    const puedeAvisar = modoAviso === 'repetido' ? dentroRango : (dentroRango && !r.avisado);
+    
+    // Si está dentro del rango y tiene repetición configurada, verificar intervalo
+    let puedeAvisar = false;
+    if (dentroRango && r.repetirMismoDia && r.intervaloMinutos) {
+      const ahora = new Date();
+      const ahoraMs = ahora.getTime();
+      let ultimoAviso = 0;
+      
+      // Verificar si el último aviso fue del mismo día
+      if (r.ultimoAvisoMismoDia) {
+        const fechaUltimoAviso = new Date(r.ultimoAvisoMismoDia);
+        const fechaUltimoAvisoNormalizada = new Date(fechaUltimoAviso.getFullYear(), fechaUltimoAviso.getMonth(), fechaUltimoAviso.getDate());
+        const hoyNormalizado = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+        
+        // Solo usar el último aviso si es del mismo día
+        if (fechaUltimoAvisoNormalizada.getTime() === hoyNormalizado.getTime()) {
+          ultimoAviso = fechaUltimoAviso.getTime();
+        } else {
+          // Resetear si es de otro día
+          r.ultimoAvisoMismoDia = null;
+          await updateRecordatorio(r);
+        }
+      }
+      
+      const intervaloMs = r.intervaloMinutos * 60 * 1000;
+      const tiempoDesdeUltimoAviso = ahoraMs - ultimoAviso;
+      
+      // Si nunca se ha avisado hoy o ha pasado el intervalo
+      if (ultimoAviso === 0 || tiempoDesdeUltimoAviso >= intervaloMs) {
+        puedeAvisar = true;
+      }
+    } else if (dentroRango) {
+      // Lógica normal para días anteriores (sin repetición por minutos)
+      puedeAvisar = modoAviso === 'repetido' ? true : !r.avisado;
+    }
 
     if (puedeAvisar) {
       proximos.push({ ...r, diasRestantes: dias });
@@ -7638,10 +7838,14 @@ async function renderizarProximosAvisos() {
       }
 
       // Reproducir sonido
-      reproducirSonidoAviso();
+      // reproducirSonidoAviso();
 
-      // Marcar como avisado si es modo único
-      if (modoAviso === 'unico') {
+      // Si tiene repetición por minutos configurada, actualizar timestamp
+      if (r.repetirMismoDia && r.intervaloMinutos) {
+        r.ultimoAvisoMismoDia = new Date().toISOString();
+        await updateRecordatorio(r);
+      } else if (modoAviso === 'unico') {
+        // Marcar como avisado solo si NO tiene repetición por minutos
         r.avisado = true;
         await updateRecordatorio(r);
       }
@@ -7899,35 +8103,143 @@ function guardarModoAvisoDiario() {
   mostrarToast('⚙️ Configuración de recordatorios actualizada', 'info');
 }
 
+// Función para mostrar/ocultar el campo de intervalo de repetición
+function toggleRepeticionMismoDia() {
+  const checkbox = document.getElementById('repetirMismoDia');
+  const container = document.getElementById('intervaloRepeticionContainer');
+  if (container) {
+    container.style.display = checkbox.checked ? 'block' : 'none';
+  }
+}
+
+// Función de depuración para verificar el estado de los recordatorios
+async function debugRecordatorios() {
+  const todos = await getAllRecordatorios();
+  const ahora = new Date();
+  const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+  hoy.setHours(0, 0, 0, 0);
+  
+  console.log('=== DEBUG RECORDATORIOS ===');
+  console.log('Fecha actual:', ahora.toLocaleString());
+  console.log('Hoy normalizado:', hoy.toLocaleDateString());
+  console.log('Total recordatorios:', todos.length);
+  
+  todos.forEach((r, index) => {
+    const fLim = new Date(r.fechaLimite + 'T00:00:00');
+    fLim.setHours(0, 0, 0, 0);
+    const diasRest = Math.floor((fLim - hoy) / (1000 * 60 * 60 * 24));
+    const dentroRango = diasRest <= r.diasAnticipacion && diasRest >= 0;
+    
+    console.log(`\n[${index + 1}] ${r.titulo}`);
+    console.log('  - Fecha límite:', r.fechaLimite);
+    console.log('  - Días restantes:', diasRest);
+    console.log('  - Días anticipación:', r.diasAnticipacion);
+    console.log('  - Dentro del rango:', dentroRango);
+    console.log('  - Repetir mismo día:', r.repetirMismoDia);
+    console.log('  - Intervalo minutos:', r.intervaloMinutos);
+    console.log('  - Último aviso:', r.ultimoAvisoMismoDia || 'Nunca');
+    
+    if (dentroRango && r.repetirMismoDia && r.intervaloMinutos) {
+      const ahoraMs = ahora.getTime();
+      let ultimoAviso = 0;
+      if (r.ultimoAvisoMismoDia) {
+        const fechaUltimoAviso = new Date(r.ultimoAvisoMismoDia);
+        const fechaUltimoAvisoNormalizada = new Date(fechaUltimoAviso.getFullYear(), fechaUltimoAviso.getMonth(), fechaUltimoAviso.getDate());
+        const hoyNormalizado = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+        if (fechaUltimoAvisoNormalizada.getTime() === hoyNormalizado.getTime()) {
+          ultimoAviso = fechaUltimoAviso.getTime();
+        }
+      }
+      const intervaloMs = r.intervaloMinutos * 60 * 1000;
+      const tiempoDesdeUltimoAviso = ahoraMs - ultimoAviso;
+      const minutosDesdeUltimo = Math.round(tiempoDesdeUltimoAviso / 1000 / 60);
+      console.log('  - Tiempo desde último aviso:', minutosDesdeUltimo, 'minutos');
+      console.log('  - Intervalo requerido:', r.intervaloMinutos, 'minutos');
+      console.log('  - Debe avisar:', ultimoAviso === 0 || tiempoDesdeUltimoAviso >= intervaloMs);
+    }
+  });
+  console.log('=== FIN DEBUG ===');
+}
+
+// Exponer función de debug en la consola
+window.debugRecordatorios = debugRecordatorios;
+
 // =========================================================
 // 🔔 Revisión automática de recordatorios en segundo plano
 // =========================================================
 async function revisarRecordatoriosEnSegundoPlano() {
   try {
     const todos = await getAllRecordatorios();
+    if (!todos || todos.length === 0) return;
 
-    const hoy = new Date();
+    const ahora = new Date();
+    const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
     hoy.setHours(0, 0, 0, 0); // normalizar hora para contar días completos
 
     const modoAviso = localStorage.getItem('modoAvisoDiario') || 'unico';
     const mostrarToastActivo = localStorage.getItem('mostrarToast') !== '0';
 
     for (const r of todos) {
+      // Verificar que el recordatorio tenga los campos necesarios
+      if (!r.fechaLimite) continue;
+      
       const fLim = new Date(r.fechaLimite + 'T00:00:00');
       fLim.setHours(0, 0, 0, 0);
 
-      const diasRest = Math.ceil((fLim - hoy) / (1000 * 60 * 60 * 24));
+      // 🔧 CORRECCIÓN: usar Math.floor consistentemente
+      const diasRest = Math.floor((fLim - hoy) / (1000 * 60 * 60 * 24));
       const dentroRango = diasRest <= r.diasAnticipacion && diasRest >= 0;
-      const puedeAvisar = modoAviso === 'repetido' ? dentroRango : (dentroRango && !r.avisado);
+      
+      // Si está dentro del rango y tiene repetición configurada, verificar intervalo
+      let puedeAvisar = false;
+      if (dentroRango && r.repetirMismoDia && r.intervaloMinutos) {
+        const ahoraMs = ahora.getTime();
+        let ultimoAviso = 0;
+        
+        // Verificar si el último aviso fue del mismo día
+        if (r.ultimoAvisoMismoDia) {
+          const fechaUltimoAviso = new Date(r.ultimoAvisoMismoDia);
+          const fechaUltimoAvisoNormalizada = new Date(fechaUltimoAviso.getFullYear(), fechaUltimoAviso.getMonth(), fechaUltimoAviso.getDate());
+          const hoyNormalizado = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+          
+          // Solo usar el último aviso si es del mismo día
+          if (fechaUltimoAvisoNormalizada.getTime() === hoyNormalizado.getTime()) {
+            ultimoAviso = fechaUltimoAviso.getTime();
+          } else {
+            // Resetear si es de otro día
+            r.ultimoAvisoMismoDia = null;
+            await updateRecordatorio(r);
+          }
+        }
+        
+        const intervaloMs = r.intervaloMinutos * 60 * 1000;
+        const tiempoDesdeUltimoAviso = ahoraMs - ultimoAviso;
+        
+        // Si nunca se ha avisado hoy o ha pasado el intervalo
+        if (ultimoAviso === 0 || tiempoDesdeUltimoAviso >= intervaloMs) {
+          puedeAvisar = true;
+          console.log(`[Recordatorios] Aviso activado: ${r.titulo} - Intervalo: ${r.intervaloMinutos} min, Tiempo desde último: ${Math.round(tiempoDesdeUltimoAviso / 1000 / 60)} min`);
+        }
+      } else if (dentroRango) {
+        // Lógica normal para días anteriores (sin repetición por minutos)
+        puedeAvisar = modoAviso === 'repetido' ? true : !r.avisado;
+      }
 
       if (puedeAvisar) {
         if (mostrarToastActivo) {
-          mostrarToast(`🔔 Recordatorio próximo: ${r.titulo} (${diasRest === 0 ? 'HOY' : 'en ' + diasRest + ' días'})`, 'info');
+          const mensaje = `🔔 Recordatorio: ${r.titulo} (${diasRest === 0 ? 'HOY' : 'en ' + diasRest + ' días'})`;
+          mostrarToast(mensaje, 'info');
+          console.log(`[Recordatorios] Toast mostrado: ${mensaje}`);
         }
 
-        reproducirSonidoAviso();
+        // reproducirSonidoAviso();
 
-        if (modoAviso === 'unico') {
+        // Si tiene repetición por minutos configurada, actualizar timestamp
+        if (r.repetirMismoDia && r.intervaloMinutos) {
+          r.ultimoAvisoMismoDia = ahora.toISOString();
+          await updateRecordatorio(r);
+        } else if (modoAviso === 'unico') {
+          // Marcar como avisado solo si NO tiene repetición por minutos
           r.avisado = true;
           await updateRecordatorio(r);
         }
@@ -7938,9 +8250,10 @@ async function revisarRecordatoriosEnSegundoPlano() {
   }
 }
 
-// Ejecutar al cargar y luego cada 5 minutos (300000 ms)
-setTimeout(revisarRecordatoriosEnSegundoPlano, 10000); // primera revisión a los 10s
-setInterval(revisarRecordatoriosEnSegundoPlano, 300000); // cada 5 minutos
+// Ejecutar al cargar y luego cada 30 segundos para mayor precisión
+// Esto permite que intervalos cortos (como 1-3 minutos) funcionen correctamente
+setTimeout(revisarRecordatoriosEnSegundoPlano, 5000); // primera revisión a los 5s
+setInterval(revisarRecordatoriosEnSegundoPlano, 30000); // cada 30 segundos (para soportar intervalos cortos)
 
 //NOTAS
 // =========================================================
@@ -9577,6 +9890,125 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ===============================
+// ✅ FUNCIÓN PARA IMPRIMIR UN PRESUPUESTO INDIVIDUAL
+// ===============================
+function imprimirPresupuestoIndividual(indice) {
+    const historialRaw = localStorage.getItem('historialPresupuestos');
+    if (!historialRaw) {
+        mostrarToast('No hay historial disponible.', 'info');
+        return;
+    }
+
+    let historial;
+    try {
+        historial = JSON.parse(historialRaw);
+    } catch (e) {
+        console.error('Error al parsear el historial:', e);
+        mostrarToast('Error al cargar el historial para imprimir.', 'danger');
+        return;
+    }
+
+    if (!historial || historial.length === 0 || indice < 0 || indice >= historial.length) {
+        mostrarToast('El cálculo seleccionado no existe.', 'warning');
+        return;
+    }
+
+    const item = historial[indice];
+    const fecha = new Date(item.fecha).toLocaleString('es-VE', {
+        dateStyle: 'full',
+        timeStyle: 'short'
+    });
+
+    // Obtener categorías solo del item
+    let categoriasTexto = '—';
+    if (item.categorias && Array.isArray(item.categorias) && item.categorias.length > 0) {
+        categoriasTexto = item.categorias.join(', ');
+    }
+
+    // Generar el contenido HTML para imprimir
+    const contenidoHTML = `
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <title>Presupuesto Sugerido - ${fecha}</title>
+            <style>
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    max-width: 800px;
+                    margin: 20px auto;
+                    padding: 20px;
+                    background: white;
+                }
+                h1 {
+                    text-align: center;
+                    color: #2c3e50;
+                    border-bottom: 2px solid #3498db;
+                    padding-bottom: 10px;
+                    margin-bottom: 20px;
+                }
+                .presupuesto-item {
+                    background: #f8f9fa;
+                    border: 1px solid #dee2e6;
+                    border-radius: 8px;
+                    padding: 15px;
+                    margin-bottom: 15px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                }
+                .presupuesto-header {
+                    font-weight: bold;
+                    color: #2c3e50;
+                    margin-bottom: 10px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                .resumen-texto {
+                    white-space: pre-wrap;
+                    background: #f1f3f5;
+                    padding: 10px;
+                    border-radius: 6px;
+                    font-family: inherit;
+                    font-size: 0.95rem;
+                }
+                @media print {
+                    body {
+                        background: white !important;
+                        color: black !important;
+                        margin: 0;
+                        padding: 20px;
+                    }
+                    .presupuesto-item {
+                        box-shadow: none;
+                        border: 1px solid #ccc;
+                    }
+                }
+            </style>
+        </head>
+        <body>
+            <h1>📋 Presupuesto Sugerido</h1>
+            <div class="presupuesto-item">
+                <div class="presupuesto-header">
+                    <span>${fecha}</span>
+                    <span>Categorías: ${categoriasTexto}</span>
+                </div>
+                <div class="resumen-texto">${item.textoResumen ? item.textoResumen.replace(/\n/g, '<br>') : 'No hay información disponible.'}</div>
+            </div>
+        </body>
+        </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(contenidoHTML);
+    printWindow.document.close();
+
+    printWindow.onload = function() {
+        printWindow.print();
+    };
+}
+
 // ✅ FUNCIÓN PARA IMPRIMIR EL HISTORIAL DE PRESUPUESTOS SUGERIDOS
 // ===============================
 function imprimirHistorialPresupuestos() {
@@ -9701,11 +10133,17 @@ function imprimirHistorialPresupuestos() {
 
                 // --- NUEVO FORMATO ---
                 if (item.textoResumen) {
+                    // Obtener categorías solo del item (no usar fallback de localStorage)
+                    let categoriasTexto = '—';
+                    if (item.categorias && Array.isArray(item.categorias) && item.categorias.length > 0) {
+                        categoriasTexto = item.categorias.join(', ');
+                    }
+                    
                     return `
                         <div class="presupuesto-item">
                             <div class="presupuesto-header">
                                 <span>${fecha}</span>
-                                <span>Categorías: ${item.categorias?.join(', ') || '—'}</span>
+                                <span>Categorías: ${categoriasTexto}</span>
                             </div>
                             <div class="presupuesto-details">
                                 <div class="resumen-texto">${item.textoResumen.replace(/\n/g, '<br>')}</div>
