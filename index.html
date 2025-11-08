@@ -10,10 +10,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=20251024" />
-  <link rel="stylesheet" href="deudas.css?v=20251024" />
-  <link rel="stylesheet" href="win11-theme.css?v=20251024">
-  <link rel="stylesheet" href="movimientos-cards-fixed.css?v=20251024">
+  <link rel="stylesheet" href="styles.css?v=20251107" />
+  <link rel="stylesheet" href="deudas.css?v=20251107" />
+  <link rel="stylesheet" href="win11-theme.css?v=20251107">
+  <link rel="stylesheet" href="movimientos-cards-fixed.css?v=20251107">
   
   <script src="enhanced-cards.js"></script>
   <script src="backup-manager.js"></script>
@@ -1650,6 +1650,22 @@ Asistente Financiero
           <input type="number" id="diasAnticipacion" value="5" min="1" max="365"
                  style="width:100%;padding:0.75rem;border:1px solid #ccc;border-radius:8px;">
         </label>
+        
+        <!-- Nuevo campo para repetición en el mismo día -->
+        <label style="margin-top:1rem;display:block;">
+          <input type="checkbox" id="repetirMismoDia" onchange="toggleRepeticionMismoDia()"
+                 style="transform:scale(1.2);accent-color:var(--primary);margin-right:0.5rem;">
+          Repetir aviso en el mismo día cada:
+        </label>
+        <div id="intervaloRepeticionContainer" style="margin-top:0.5rem;margin-left:1.5rem;display:none;">
+          <input type="number" id="intervaloMinutos" value="30" min="1" max="1440" 
+                 placeholder="Minutos"
+                 style="width:100%;padding:0.75rem;border:1px solid #ccc;border-radius:8px;">
+          <small style="color:var(--text-light);display:block;margin-top:0.25rem;">
+            El aviso se repetirá cada X minutos todos los días dentro del rango de anticipación
+          </small>
+        </div>
+        
         <button onclick="guardarRecordatorio()" 
                 style="width:100%;margin-top:1rem;background:var(--primary);color:white;border:none;border-radius:8px;padding:0.75rem;">Guardar</button>
 
@@ -1671,9 +1687,6 @@ Asistente Financiero
     <option value="mensual">Mensual</option>
   </select>
 </label>
-
-
-
       </div>
 
 <!------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------>      
@@ -2212,11 +2225,11 @@ Asistente Financiero
     </div>
 </div>
 
-  <script src="chart.umd.min.js?v=20251024"></script>
-  <script src="xlsx.full.min.js?v=20251024"></script>
+  <script src="chart.umd.min.js?v=20251107"></script>
+  <script src="xlsx.full.min.js?v=20251107"></script>
   <script src="equivalente-calculator.js"></script>
   <script src="presupuesto-sugerido.js"></script>
-  <script src="app.js?v=20251024"></script>
+  <script src="app.js?v=20251107"></script>
   
   <!-- MODAL DE BLOQUEO (SIN CANCELAR) -->
 <div id="modalBloqueo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1001; justify-content:center; align-items:center;">
