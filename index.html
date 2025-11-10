@@ -10,10 +10,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="styles.css?v=20251107" />
-  <link rel="stylesheet" href="deudas.css?v=20251107" />
-  <link rel="stylesheet" href="win11-theme.css?v=20251107">
-  <link rel="stylesheet" href="movimientos-cards-fixed.css?v=20251107">
+  <link rel="stylesheet" href="styles.css?v=20251109" />
+  <link rel="stylesheet" href="deudas.css?v=20251109" />
+  <link rel="stylesheet" href="win11-theme.css?v=20251109">
+  <link rel="stylesheet" href="movimientos-cards-fixed.css?v=20251109">
   
   <script src="enhanced-cards.js"></script>
   <script src="backup-manager.js"></script>
@@ -123,6 +123,12 @@ Inventario / Activos
 <button class="side-tab" onclick="mostrarSideTab('inversiones')">
   <img class="icon-png" src="recursos/icons/Inversiones.png" alt="Inversiones">
   Inversiones
+</button>
+
+<!-- ✅ NUEVA PESTAÑA: EMPRESAS (SISTEMA MULTI-EMPRESA) -->
+<button class="side-tab" onclick="mostrarSideTab('empresas')">
+  <img class="icon-png" src="recursos/icons/Empresas.png" alt="Empresas">
+  Empresas
 </button>
 
 <div class="nav-category-separator"></div>
@@ -367,6 +373,14 @@ Asistente Financiero
         </label>
         <input type="text" id="nuevoBanco" placeholder="Nombre del banco" style="display:none;" />
 
+        <label>Empresa:
+          <div style="display:flex; gap:.5rem;">
+            <select id="empresaMovimiento">
+              <option value="">Selecciona una empresa</option>
+              <option value="">Sin empresa</option>
+            </select>
+          </div>
+        </label>
 
         <label>Fecha:
           <input type="date" id="fechaMov" />
@@ -448,6 +462,10 @@ Asistente Financiero
             <button onclick="mostrarSeleccionFecha()" style="padding:1rem; border:none; border-radius:8px; background:#ff9800; color:white; font-size:1rem; cursor:pointer; transition:background .2s;">
     📅 Reporte por Fecha
 </button>
+
+            <button onclick="mostrarSeleccionEmpresa()" style="padding:1rem; border:none; border-radius:8px; background:#9c27b0; color:white; font-size:1rem; cursor:pointer; transition:background .2s;">
+    🏢 Reporte por Empresa
+</button>
         </div>
         <button onclick="cerrarModalReporte()" style="margin-top:1.5rem; padding:0.75rem; border:none; border-radius:8px; background:var(--danger); color:white; font-size:0.9rem; cursor:pointer; width:100%;">
             ❌ Cancelar
@@ -470,6 +488,15 @@ Asistente Financiero
     <label>Hasta: <input type="date" id="fechaHasta"></label>
     <button onclick="generarReportePorFecha()">Generar</button>
     <button onclick="cerrarFormFecha()">Cancelar</button>
+  </div>
+
+  <!-- Formulario oculto para seleccionar empresa -->
+  <div id="formEmpresa" style="display:none;">
+    <select id="selectEmpresaReporte">
+        <option value="">Selecciona una empresa</option>
+    </select>
+    <button onclick="generarReportePorEmpresa()">Generar</button>
+    <button onclick="cerrarFormEmpresa()">Cancelar</button>
   </div>
       </div>
       <div class="button-center">
@@ -2140,6 +2167,85 @@ Asistente Financiero
     </div>
 </div>
 
+<!-- ✅ NUEVA PESTAÑA: EMPRESAS (SISTEMA MULTI-EMPRESA) -->
+<div class="side-content" id="side-empresas">
+    <div class="sidebar-content">
+        <!-- Selector de empresa activa -->
+        <section id="selectorEmpresaActivaSection" style="background: var(--card-bg); padding: 1rem; border-radius: var(--radius); margin-bottom: 1.5rem;">
+            <h2 style="margin: 0 0 0.75rem 0; color: var(--text);">🏢 Empresa Activa
+                <button onclick="mostrarAyudaEmpresas()" 
+                        style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                        title="¿Cómo funciona el sistema multi-empresa?">❓</button>
+            </h2>
+            <select id="selectorEmpresaActiva" onchange="cambiarEmpresaActiva()" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem;">
+                <option value="">Todas las empresas</option>
+            </select>
+            <p style="color: var(--text-light); font-size: 0.875rem; margin-top: 0.5rem;">
+                💡 Selecciona una empresa para filtrar todos los datos o "Todas las empresas" para ver todo consolidado.
+            </p>
+        </section>
+
+        <!-- Formulario para agregar/editar empresas -->
+        <section id="formularioEmpresa">
+            <h2>📝 Registrar Empresa
+                <button onclick="mostrarAyudaFormularioEmpresa()" 
+                        style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                        title="¿Qué campos son obligatorios?">❓</button>
+            </h2>
+            
+            <div style="background: var(--card-bg); padding: 1.5rem; border-radius: var(--radius); margin-bottom: 1.5rem;">
+                <label for="empresaNombre">Nombre de la empresa <span style="color: var(--danger);">*</span>:</label>
+                <input type="text" id="empresaNombre" placeholder="Ej: Mi Empresa C.A." style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;" />
+                
+                <label for="empresaRif">RIF/Identificación:</label>
+                <input type="text" id="empresaRif" placeholder="Ej: J-12345678-9" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;" />
+                
+                <label for="empresaTelefono">Teléfono:</label>
+                <input type="tel" id="empresaTelefono" placeholder="Ej: 0212-1234567" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;" />
+                
+                <label for="empresaDireccion">Dirección:</label>
+                <textarea id="empresaDireccion" placeholder="Ej: Av. Principal, Edificio Central, Piso 5" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem; min-height: 80px; resize: vertical;"></textarea>
+                
+                <label for="empresaSector">Sector económico:</label>
+                <select id="empresaSector" style="width:100%; padding:0.75rem; border:1px solid #ccc; border-radius:8px; font-size:1rem; margin-bottom:1rem;">
+                    <option value="">Selecciona un sector</option>
+                    <option value="Comercio">Comercio</option>
+                    <option value="Servicios">Servicios</option>
+                    <option value="Manufactura">Manufactura</option>
+                    <option value="Tecnología">Tecnología</option>
+                    <option value="Construcción">Construcción</option>
+                    <option value="Salud">Salud</option>
+                    <option value="Educación">Educación</option>
+                    <option value="Finanzas">Finanzas</option>
+                    <option value="Turismo">Turismo</option>
+                    <option value="Transporte">Transporte</option>
+                    <option value="Agricultura">Agricultura</option>
+                    <option value="General">General</option>
+                    <option value="Otro">Otro</option>
+                </select>
+                
+                <div style="display: flex; gap: 0.75rem;">
+                    <button onclick="agregarEmpresa()" style="flex:1; background:var(--primary); color:white; border:none; border-radius:8px; padding:0.75rem; font-size:1rem; cursor:pointer;">➕ Agregar Empresa</button>
+                    <button onclick="limpiarFormularioEmpresa()" style="flex:1; background:#6b7280; color:white; border:none; border-radius:8px; padding:0.75rem; font-size:1rem; cursor:pointer;">🧹 Limpiar</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Listado de empresas -->
+        <section id="listadoEmpresas">
+            <h2>📋 Empresas Registradas
+                <button onclick="mostrarAyudaListadoEmpresas()" 
+                        style="background:none; border:none; color:var(--primary); font-size:1rem; cursor:pointer; margin-left:0.5rem; padding:0.25rem; border-radius:50%; transition:background 0.2s;"
+                        title="¿Cómo gestionar las empresas?">❓</button>
+            </h2>
+            <div id="contenedorEmpresas" style="margin-top: 1rem;">
+                <!-- Las empresas se cargarán dinámicamente aquí -->
+                <p style="text-align: center; color: var(--text-light);">Cargando empresas...</p>
+            </div>
+        </section>
+    </div>
+</div>
+
 <!-- ✅ NUEVA PESTAÑA: ASISTENTE FINANCIERO -->
 <div class="side-content" id="side-asistente-financiero">
     <div class="sidebar-content">
@@ -2225,11 +2331,11 @@ Asistente Financiero
     </div>
 </div>
 
-  <script src="chart.umd.min.js?v=20251107"></script>
-  <script src="xlsx.full.min.js?v=20251107"></script>
+  <script src="chart.umd.min.js?v=20251109"></script>
+  <script src="xlsx.full.min.js?v=20251109"></script>
   <script src="equivalente-calculator.js"></script>
   <script src="presupuesto-sugerido.js"></script>
-  <script src="app.js?v=20251107"></script>
+  <script src="app.js?v=20251109"></script>
   
   <!-- MODAL DE BLOQUEO (SIN CANCELAR) -->
 <div id="modalBloqueo" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1001; justify-content:center; align-items:center;">
