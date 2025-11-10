@@ -1,7 +1,7 @@
 // Variable global para la base de datos
 let db;
 const DB_NAME = 'sfpDB';
-const DB_VERSION = 17; // ✅ Versión actual de la base de datos
+const DB_VERSION = 18; // ✅ Versión actual de la base de datos
 
 // (variable global)
 let idRecordatorioEditando = null;
@@ -28,7 +28,7 @@ document.getElementById('selectSonido').addEventListener('change', (e) => {
 });
 
 document.getElementById('btnProbarSonido').addEventListener('click', () => {
- // reproducirSonidoAviso();
+  reproducirSonidoAviso();
 });
 
 // Nombres de los almacenes de objetos
@@ -39,16 +39,18 @@ const STORES = {
     REGLAS: 'reglas',
     SALDO_INICIAL: 'saldo_inicial',
     INVERSIONES: 'inversiones',
-    // ✅ NUEVO: Almacenamiento para Notas
+    // NUEVO: Almacenamiento para Notas
     NOTAS: 'notas',
     PROVEEDORES: 'proveedores',
     INVENTARIO: 'inventario',
     ASISTENTE: 'asistente',
-    CATEGORIAS_ASISTENTE: 'categorias_asistente'
+    CATEGORIAS_ASISTENTE: 'categorias_asistente',
+    // NUEVO: Almacenamiento para Empresas (Sistema Multi-Empresa)
+    EMPRESAS: 'empresas'
 };
 
 // ======================================================================================
-// ✅ FUNCIONES MODERNAS PARA ALERTAS Y CONFIRMACIONES (Reemplazo de alert() y confirm())
+// FUNCIONES MODERNAS PARA ALERTAS Y CONFIRMACIONES (Reemplazo de alert() y confirm())
 // ======================================================================================
 
 /**
@@ -377,6 +379,21 @@ function openDB() {
                 const recStore = db.createObjectStore('recordatorios', { keyPath: 'id', autoIncrement: true });
             recStore.createIndex('fechaIndex', 'fechaLimite', { unique: false });
             }
+
+            // ✅ NUEVO: Almacén para Empresas (Sistema Multi-Empresa)
+            if (!db.objectStoreNames.contains(STORES.EMPRESAS)) {
+                const empresasStore = db.createObjectStore(STORES.EMPRESAS, { keyPath: 'id', autoIncrement: true });
+                empresasStore.createIndex('nombreIndex', 'nombre', { unique: false });
+                empresasStore.createIndex('rifIndex', 'rif', { unique: true });
+            }
+
+            // ✅ MODIFICACIÓN: Agregar campo empresaId a movimientos si no existe
+            if (db.objectStoreNames.contains(STORES.MOVIMIENTOS)) {
+                const movimientosStore = event.target.transaction.objectStore(STORES.MOVIMIENTOS);
+                if (!movimientosStore.indexNames.contains('empresaIndex')) {
+                    movimientosStore.createIndex('empresaIndex', 'empresaId', { unique: false });
+                }
+            }
         };
 
         request.onsuccess = (event) => {
@@ -610,6 +627,7 @@ async function actualizarMovimiento() {
     const categoria = document.getElementById('categoria').value;
     const fecha = new Date(document.getElementById('fechaMov').value + 'T12:00:00');
     const banco = document.getElementById('banco').value;
+    const empresaId = document.getElementById('empresaMovimiento').value;
 
     // ✅ AÑADE ESTA VALIDACIÓN JUSTO ABAJO
     if (isNaN(cantidad) || cantidad <= 0) {
@@ -633,6 +651,8 @@ async function actualizarMovimiento() {
         categoria: categoria,
         fecha: fecha.toISOString(),
         banco: banco,
+        // ✅ NUEVO: Asociar a empresa si se seleccionó
+        empresaId: empresaId ? parseInt(empresaId) : null,
         // ✅ NUEVO: Guardar texto original para modo literal
         textoOriginal: textoOriginal,
         // ✅ Recalcular comisión si es gasto, o poner 0 si no lo es
@@ -688,6 +708,7 @@ async function agregarMovimiento() {
   const tipo = document.getElementById('tipo').value; // puede ser 'ingreso', 'gasto', 'saldo_inicial'
   const categoria = document.getElementById('categoria').value;
   const banco = document.getElementById('banco').value;
+  const empresaId = document.getElementById('empresaMovimiento').value;
   const fechaInput = document.getElementById('fechaMov').value;
 
   // Validación básica
@@ -735,6 +756,8 @@ async function agregarMovimiento() {
       categoria: categoria || 'Sin categoría',
       fecha: new Date(fechaInput + 'T12:00:00').toISOString(),
       banco: banco,
+      // ✅ NUEVO: Asociar a empresa si se seleccionó
+      empresaId: empresaId ? parseInt(empresaId) : null,
       // ✅ NUEVO: Guardar texto original para modo literal
       textoOriginal: textoOriginal,
       // ✅ NUEVO: Calcular y guardar la comisión solo una vez
@@ -796,13 +819,17 @@ async function agregarMovimiento() {
 
 async function calcularSaldo() {
     const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+    
+    // ✅ MOSTRAR TODOS LOS MOVIMIENTOS (sin filtro por empresa)
+    let movimientosFiltrados = movimientos;
+    
     // ✅ Sumar solo las comisiones ya guardadas
-    const totalComisiones = movimientos
+    const totalComisiones = movimientosFiltrados
         .filter(m => m.tipo === 'gasto')
         .reduce((sum, m) => sum + m.comision, 0);
 
     // ✅ Calcular saldo base: ingresos - gastos (sin volver a calcular comisión)
-    const saldoBase = movimientos.reduce((acc, m) => {
+    const saldoBase = movimientosFiltrados.reduce((acc, m) => {
         if (m.tipo === 'gasto') {
             return acc - m.cantidad; // Solo el gasto real
         } else {
@@ -855,8 +882,11 @@ async function renderizar() {
     const filtro = document.getElementById('filtroBanco').value;
     const texto = document.getElementById('txtBuscar').value.trim().toLowerCase();
 
+    // ✅ MOSTRAR TODOS LOS MOVIMIENTOS (sin filtro por empresa)
+    let movimientosFiltrados = movimientos;
+
     // Filtrar movimientos reales
-    let listaFiltrada = movimientos.filter(m =>
+    let listaFiltrada = movimientosFiltrados.filter(m =>
         (filtro ? (m.banco || '(Sin banco)') === filtro : true) &&
         (texto ? (m.concepto + (m.categoria || '') + (m.banco || '')).toLowerCase().includes(texto) : true)
     );
@@ -877,8 +907,21 @@ async function renderizar() {
     const movimientosPagina = listaFiltrada.slice(inicio, fin);
 
     // Renderizar movimientos de la página actual
-    movimientosPagina.forEach(m => {
+    movimientosPagina.forEach(async m => {
         if (m.oculto) return;
+
+        // ✅ OBTENER NOMBRE DE EMPRESA (Sistema Multi-Empresa)
+        let nombreEmpresa = 'Sin empresa';
+        if (m.empresaId) {
+            try {
+                const empresa = await getEmpresa(m.empresaId);
+                if (empresa) {
+                    nombreEmpresa = empresa.nombre;
+                }
+            } catch (error) {
+                console.error('Error obteniendo empresa:', error);
+            }
+        }
 
         const li = document.createElement('li');
 
@@ -917,6 +960,10 @@ async function renderizar() {
                     <span class="banco-tag">
                         <span class="banco-icon">🏦</span>
                         ${m.banco || '(Sin banco)'}
+                    </span>
+                    <span class="empresa-tag">
+                        <span class="empresa-icon">🏢</span>
+                        ${nombreEmpresa}
                     </span>
                 </div>
             </div>
@@ -997,7 +1044,23 @@ function renderizarControlesPaginacion(totalPaginas) {
                     style="padding:0.3rem 0.6rem; font-size:0.875rem; background:#0b57d0; color:white; border:none; border-radius:4px; cursor:pointer;">
                 ◀ Anterior
             </button>
-            <span style="color:var(--text-light);">Página ${paginaActual} de ${totalPaginas}</span>
+            <div style="display:flex; align-items:center; gap:0.5rem;">
+                <span style="color:var(--text-light);">Página</span>
+                <input type="number" 
+                       id="paginaInput" 
+                       min="1" 
+                       max="${totalPaginas}" 
+                       value="${paginaActual}" 
+                       style="width:60px; padding:0.3rem; text-align:center; border:1px solid var(--border); border-radius:4px; background:var(--card-bg); color:var(--text); font-size:0.875rem;"
+                       onkeypress="if(event.key === 'Enter') irAPaginaEspecifica(${totalPaginas})"
+                       title="Escribe el número de página y presiona Enter">
+                <span style="color:var(--text-light);">de ${totalPaginas}</span>
+                <button onclick="irAPaginaEspecifica(${totalPaginas})" 
+                        style="padding:0.3rem 0.6rem; font-size:0.875rem; background:#28a745; color:white; border:none; border-radius:4px; cursor:pointer;"
+                        title="Ir a la página especificada">
+                    Ir
+                </button>
+            </div>
             <button onclick="cambiarPagina(${Math.min(totalPaginas, paginaActual + 1)})" ${paginaActual >= totalPaginas ? 'disabled' : ''} 
                     style="padding:0.3rem 0.6rem; font-size:0.875rem; background:#0b57d0; color:white; border:none; border-radius:4px; cursor:pointer;">
                 Siguiente ▶
@@ -1012,6 +1075,34 @@ async function cambiarPagina(nuevaPagina) {
 
     // ✅ Scroll automático hacia la lista de movimientos después de cambiar página
     scrollToListaMovimientos();
+}
+
+// ✅ FUNCIÓN PARA IR A PÁGINA ESPECÍFICA
+async function irAPaginaEspecifica(totalPaginas) {
+    const input = document.getElementById('paginaInput');
+    const paginaDeseada = parseInt(input.value);
+    
+    // Validar que sea un número válido
+    if (isNaN(paginaDeseada)) {
+        alert('Por favor, ingresa un número de página válido.');
+        input.value = paginaActual;
+        return;
+    }
+    
+    // Validar que esté dentro del rango
+    if (paginaDeseada < 1 || paginaDeseada > totalPaginas) {
+        alert(`La página debe estar entre 1 y ${totalPaginas}.`);
+        input.value = paginaActual;
+        return;
+    }
+    
+    // Si es la misma página, no hacer nada
+    if (paginaDeseada === paginaActual) {
+        return;
+    }
+    
+    // Cambiar a la página deseada
+    await cambiarPagina(paginaDeseada);
 }
 
 async function borrar(id) {
@@ -1285,6 +1376,7 @@ function limpiarForm() {
     document.getElementById('banco').value = '';
     document.getElementById('nuevoBanco').value = '';
     document.getElementById('nuevoBanco').style.display = 'none';
+    document.getElementById('empresaMovimiento').value = '';
     
 
     // ✅ MANTENER LA FECHA ACTUAL EN EL CAMPO, NUNCA VACÍO
@@ -1351,6 +1443,12 @@ function mostrarSideTab(id) {
             break;
         case 'deudas':
             cargarDeudas();
+            break;
+        case 'empresas':
+            // ✅ SISTEMA MULTI-EMPRESA
+            renderizarEmpresas();
+            actualizarSelectorEmpresas();
+            actualizarSelectorEmpresaActiva();
             break;
         case 'config':
             renderizarReglas(); // Cargar las reglas al mostrar la pestaña
@@ -1425,7 +1523,7 @@ function mostrarSideTab(id) {
  * Función mejorada para buscar movimientos en tiempo real
  * Busca en concepto, categoría, banco, monto, fecha y tipo
  */
-function buscarMovimientos() {
+async function buscarMovimientos() {
     const query = document.getElementById('buscadorMovimientos').value.toLowerCase().trim();
     
     if (!query) {
@@ -1439,13 +1537,17 @@ function buscarMovimientos() {
         const store = transaction.objectStore(STORES.MOVIMIENTOS);
         const request = store.getAll();
 
-        request.onsuccess = function(event) {
+        request.onsuccess = async function(event) {
             const movimientos = event.target.result;
-            const resultados = movimientos.filter(movimiento => {
+            
+            // ✅ MOSTRAR TODOS LOS MOVIMIENTOS (sin filtro por empresa)
+            let movimientosFiltrados = movimientos;
+            
+            const resultados = movimientosFiltrados.filter(movimiento => {
                 return coincideConBusqueda(movimiento, query);
             });
 
-            mostrarResultadosBusqueda(resultados, query);
+            await mostrarResultadosBusqueda(resultados, query);
         };
 
         request.onerror = function() {
@@ -1511,7 +1613,7 @@ function coincideConBusqueda(movimiento, query) {
 /**
  * Mostrar resultados de búsqueda
  */
-function mostrarResultadosBusqueda(resultados, query) {
+async function mostrarResultadosBusqueda(resultados, query) {
     const listaMovimientos = document.getElementById('listaMovimientos');
     
     if (resultados.length === 0) {
@@ -1520,24 +1622,36 @@ function mostrarResultadosBusqueda(resultados, query) {
         return;
     }
 
-    let html = '';
-    resultados.forEach(movimiento => {
-        html += generarHTMLMovimiento(movimiento, query);
-    });
-
-    listaMovimientos.innerHTML = html;
+    // ✅ Generar HTML para cada movimiento de forma asíncrona
+    const htmlPromises = resultados.map(movimiento => generarHTMLMovimiento(movimiento, query));
+    const htmlArray = await Promise.all(htmlPromises);
+    
+    listaMovimientos.innerHTML = htmlArray.join('');
     mostrarContadorBusqueda(resultados.length, query);
 }
 
 /**
  * Generar HTML para un movimiento con resaltado
  */
-function generarHTMLMovimiento(movimiento, query) {
+async function generarHTMLMovimiento(movimiento, query) {
     const fecha = new Date(movimiento.fecha);
     const fechaFormateada = fecha.toLocaleDateString('es-ES');
     const montoFormateado = formatNumberVE(movimiento.cantidad);
     const tipoIcon = movimiento.tipo === 'ingreso' ? '💰' : '💸';
     const tipoClass = movimiento.tipo === 'ingreso' ? 'tipo-ingreso' : 'tipo-gasto';
+
+    // ✅ OBTENER NOMBRE DE EMPRESA
+    let nombreEmpresa = 'Sin empresa';
+    if (movimiento.empresaId) {
+        try {
+            const empresa = await getEmpresa(movimiento.empresaId);
+            if (empresa) {
+                nombreEmpresa = empresa.nombre;
+            }
+        } catch (error) {
+            console.error('Error obteniendo empresa:', error);
+        }
+    }
 
     return `
         <li class="movimiento-item" data-id="${movimiento.id}">
@@ -1550,13 +1664,14 @@ function generarHTMLMovimiento(movimiento, query) {
                 <div class="movimiento-detalles">
                     <span class="movimiento-categoria">🏷️ ${resaltarCoincidencia(movimiento.categoria || 'Sin categoría', query)}</span>
                     <span class="movimiento-banco">🏦 ${resaltarCoincidencia(movimiento.banco || 'Sin banco', query)}</span>
+                    <span class="movimiento-empresa">🏢 ${resaltarCoincidencia(nombreEmpresa, query)}</span>
                 </div>
             </div>
             <div class="movimiento-monto ${tipoClass}">
                 ${tipoIcon} ${montoFormateado}
             </div>
             <div class="movimiento-acciones">
-                <button onclick="editarMovimiento(${movimiento.id})" class="btn-editar" title="Editar">✏️</button>
+                <button onclick="cargarMovimientoParaEditar(${movimiento.id})" class="btn-editar" title="Editar">✏️</button>
                 <button onclick="eliminarMovimiento(${movimiento.id})" class="btn-eliminar" title="Eliminar">🗑️</button>
             </div>
         </li>
@@ -2298,6 +2413,26 @@ function cerrarFormCategoria() {
     document.getElementById('modalReporte').style.display = 'flex';
 }
 
+async function mostrarSeleccionEmpresa() {
+    const empresas = await getAllEmpresas();
+    
+    const select = document.getElementById('selectEmpresaReporte');
+    select.innerHTML = '<option value="">Selecciona una empresa</option>';
+    empresas.forEach(empresa => {
+        const opt = document.createElement('option');
+        opt.value = empresa.id;
+        opt.textContent = empresa.nombre;
+        select.appendChild(opt);
+    });
+    document.getElementById('formEmpresa').style.display = 'block';
+    document.getElementById('modalReporte').style.display = 'none';
+}
+
+function cerrarFormEmpresa() {
+    document.getElementById('formEmpresa').style.display = 'none';
+    document.getElementById('modalReporte').style.display = 'flex';
+}
+
 function mostrarSeleccionFecha() {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -2607,9 +2742,7 @@ async function generarReporteBase(categoriaFiltrada, rangoFechas, titulo) {
     ventana.document.close();
 }
 
-// ------------------------------------------------------------------------------------------------------------------------------------
-//                                 Bloqueo de App (PIN Local)
-// ------------------------------------------------------------------------------------------------------------------------------------
+// ... (rest of the code remains the same)
 
 // Cargar configuración de bloqueo al iniciar
 async function cargarConfigBloqueo() {
@@ -7086,14 +7219,8 @@ function cargarPresupuestoSugeridoGuardado() {
     // Restaurar inputs (si existen)
     const inputPresupuesto = document.getElementById('presupuestoInicial');
     if (inputPresupuesto) {
-        // Restaurar el valor original del texto si existe, sino usar el numérico sin formatear
-        const valorOriginal = datos.presupuestoInicialTexto;
-        if (valorOriginal && valorOriginal !== '') {
-            inputPresupuesto.value = valorOriginal;
-        } else {
-            // Si no hay valor original guardado, usar el numérico sin formatear (compatibilidad hacia atrás)
-            inputPresupuesto.value = presupuestoInicial > 0 ? presupuestoInicial.toString() : '';
-        }
+        // NO restaurar el valor automáticamente - dejar campo vacío para nuevo ingreso
+        inputPresupuesto.value = '';
     }
     const inputPorcentaje = document.getElementById('porcentajeExtra');
     if (inputPorcentaje) {
@@ -7838,7 +7965,7 @@ async function renderizarProximosAvisos() {
       }
 
       // Reproducir sonido
-      // reproducirSonidoAviso();
+      reproducirSonidoAviso();
 
       // Si tiene repetición por minutos configurada, actualizar timestamp
       if (r.repetirMismoDia && r.intervaloMinutos) {
@@ -8232,7 +8359,7 @@ async function revisarRecordatoriosEnSegundoPlano() {
           console.log(`[Recordatorios] Toast mostrado: ${mensaje}`);
         }
 
-        // reproducirSonidoAviso();
+        reproducirSonidoAviso();
 
         // Si tiene repetición por minutos configurada, actualizar timestamp
         if (r.repetirMismoDia && r.intervaloMinutos) {
@@ -10219,11 +10346,8 @@ document.addEventListener('DOMContentLoaded', async function () {
         await cargarSelectEliminarCategorias();
         await cargarSelectEliminarBancos();
         await cargarSelectBancoRegla();
-
-        // Renderizar la información inicial en la interfaz
-        await renderizar();
-        await renderizarResumenBancos();
-        await renderizarReglas();
+        
+        // ✅ Cargar selector de empresas (Sistema Multi-Empresa)
 
          // Cargar meta de presupuesto y actualizar
         await cargarMetaPresupuesto();
@@ -10233,6 +10357,13 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         // Cargar estado de los widgets
         cargarEstadoWidgets();
+
+        // ✅ INICIALIZAR SISTEMA MULTI-EMPRESA
+        await cargarEmpresaActiva();
+        await crearEmpresaPorDefecto();
+        await renderizarEmpresas();
+        await actualizarSelectorEmpresas();
+        actualizarSelectorEmpresaActiva();
 
         // Asignar Event Listeners
         document.getElementById('tasaCambio').addEventListener('input', actualizarEquivalente);
@@ -10319,3 +10450,437 @@ document.addEventListener('DOMContentLoaded', function() {
         generarSugerenciasAhorro();
     }, 1000); // Pequeño delay para asegurar que todo esté cargado
 });
+
+// =========================================================
+// ✅ SISTEMA DE GESTIÓN DE EMPRESAS (Sistema Multi-Empresa)
+// =========================================================
+
+/* - CRUD de Empresas - */
+async function addEmpresa(empresa) {
+    return addEntry(STORES.EMPRESAS, empresa);
+}
+
+async function getAllEmpresas() {
+    return getAllEntries(STORES.EMPRESAS);
+}
+
+async function getEmpresa(id) {
+    return getEntry(STORES.EMPRESAS, id);
+}
+
+async function updateEmpresa(empresa) {
+    return updateEntry(STORES.EMPRESAS, empresa);
+}
+
+async function deleteEmpresa(id) {
+    return deleteEntry(STORES.EMPRESAS, id);
+}
+
+/* - Funciones de gestión de empresas - */
+
+// ✅ Variable global para la empresa activa
+let empresaActiva = null;
+
+// ✅ Función para obtener la empresa activa
+function getEmpresaActiva() {
+    return empresaActiva;
+}
+
+// ✅ Función para establecer la empresa activa
+function setEmpresaActiva(empresa) {
+    empresaActiva = empresa;
+    localStorage.setItem('empresaActivaId', empresa ? empresa.id : null);
+    localStorage.setItem('empresaActivaNombre', empresa ? empresa.nombre : 'Todas');
+    
+    // Actualizar UI
+    actualizarSelectorEmpresaActiva();
+    
+    // Recargar datos con el filtro de empresa
+    if (typeof renderizar === 'function') {
+        renderizar();
+    }
+}
+
+// ✅ Función para cargar empresa activa desde localStorage
+async function cargarEmpresaActiva() {
+    const empresaActivaId = localStorage.getItem('empresaActivaId');
+    if (empresaActivaId) {
+        try {
+            const empresa = await getEmpresa(parseInt(empresaActivaId));
+            if (empresa) {
+                empresaActiva = empresa;
+            } else {
+                // Si no existe la empresa, limpiar localStorage
+                localStorage.removeItem('empresaActivaId');
+                localStorage.removeItem('empresaActivaNombre');
+                empresaActiva = null;
+            }
+        } catch (error) {
+            console.error('Error cargando empresa activa:', error);
+            empresaActiva = null;
+        }
+    }
+}
+
+// ✅ Función para renderizar empresas en la interfaz
+async function renderizarEmpresas() {
+    const empresas = await getAllEmpresas();
+    const contenedor = document.getElementById('contenedorEmpresas');
+    
+    if (!contenedor) return;
+    
+    if (empresas.length === 0) {
+        contenedor.innerHTML = '<p style="text-align: center; color: var(--text-light);">No hay empresas registradas.</p>';
+        return;
+    }
+    
+    let html = '';
+    empresas.forEach(empresa => {
+        const esActiva = empresaActiva && empresaActiva.id === empresa.id;
+        html += `
+            <div class="tarjeta-empresa" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; box-shadow: var(--shadow-sm); transition: transform 0.2s; cursor: pointer; ${esActiva ? 'border: 2px solid var(--primary);' : ''}">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                    <h4 style="margin: 0; color: var(--text);">${empresa.nombre}</h4>
+                    <div style="display: flex; gap: 0.25rem;">
+                        <button onclick="editarEmpresa(${empresa.id})" title="Editar" style="background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0.25rem; border-radius: 4px; transition: background .2s;">✏️</button>
+                        <button onclick="eliminarEmpresa(${empresa.id})" title="Eliminar" style="background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0.25rem; border-radius: 4px; transition: background .2s;">🗑️</button>
+                        <button onclick="seleccionarEmpresa(${empresa.id})" title="Seleccionar" style="background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0.25rem; border-radius: 4px; transition: background .2s;">${esActiva ? '✅' : '👁️'}</button>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span style="color: var(--text-light); font-size: 0.9rem;">📋 RIF: ${empresa.rif || 'N/A'}</span>
+                    <span style="color: var(--text-light); font-size: 0.9rem;">📞 ${empresa.telefono || 'N/A'}</span>
+                </div>
+                ${empresa.direccion ? `<p style="color: var(--text-light); font-size: 0.8rem; margin: 0.25rem 0;">📍 ${empresa.direccion}</p>` : ''}
+                ${empresa.sector ? `<p style="color: var(--text-light); font-size: 0.8rem; margin: 0.25rem 0;">🏭 ${empresa.sector}</p>` : ''}
+            </div>
+        `;
+    });
+    
+    contenedor.innerHTML = html;
+}
+
+// ✅ Función para agregar una nueva empresa
+async function agregarEmpresa() {
+    const nombre = document.getElementById('empresaNombre').value.trim();
+    const rif = document.getElementById('empresaRif').value.trim();
+    const telefono = document.getElementById('empresaTelefono').value.trim();
+    const direccion = document.getElementById('empresaDireccion').value.trim();
+    const sector = document.getElementById('empresaSector').value.trim();
+    
+    if (!nombre) {
+        mostrarToast('❌ El nombre de la empresa es obligatorio', 'danger');
+        return;
+    }
+    
+    // Verificar si ya existe una empresa con el mismo nombre o RIF
+    const empresas = await getAllEmpresas();
+    const empresaExistente = empresas.find(e => e.nombre.toLowerCase() === nombre.toLowerCase() || (rif && e.rif === rif));
+    
+    if (empresaExistente) {
+        mostrarToast('❌ Ya existe una empresa con ese nombre o RIF', 'danger');
+        return;
+    }
+    
+    const empresa = {
+        nombre,
+        rif,
+        telefono,
+        direccion,
+        sector,
+        fechaCreacion: new Date().toISOString()
+    };
+    
+    try {
+        await addEmpresa(empresa);
+        mostrarToast('✅ Empresa agregada correctamente', 'success');
+        limpiarFormularioEmpresa();
+        await renderizarEmpresas();
+        await actualizarSelectorEmpresas();
+    } catch (error) {
+        console.error('Error al agregar empresa:', error);
+        mostrarToast('❌ Error al agregar la empresa', 'danger');
+    }
+}
+
+// ✅ Función para editar una empresa
+async function editarEmpresa(id) {
+    const empresa = await getEmpresa(id);
+    if (!empresa) return;
+    
+    document.getElementById('empresaNombre').value = empresa.nombre || '';
+    document.getElementById('empresaRif').value = empresa.rif || '';
+    document.getElementById('empresaTelefono').value = empresa.telefono || '';
+    document.getElementById('empresaDireccion').value = empresa.direccion || '';
+    document.getElementById('empresaSector').value = empresa.sector || '';
+    
+    // Cambiar el texto del botón
+    const btnGuardar = document.querySelector('#side-empresas button[onclick="agregarEmpresa()"]');
+    if (btnGuardar) {
+        btnGuardar.textContent = 'Actualizar Empresa';
+        btnGuardar.setAttribute('onclick', 'actualizarEmpresa(' + id + ')');
+    }
+    
+    // Hacer scroll al formulario
+    document.getElementById('formularioEmpresa').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ✅ Función para actualizar una empresa
+async function actualizarEmpresa(id) {
+    const nombre = document.getElementById('empresaNombre').value.trim();
+    const rif = document.getElementById('empresaRif').value.trim();
+    const telefono = document.getElementById('empresaTelefono').value.trim();
+    const direccion = document.getElementById('empresaDireccion').value.trim();
+    const sector = document.getElementById('empresaSector').value.trim();
+    
+    if (!nombre) {
+        mostrarToast('❌ El nombre de la empresa es obligatorio', 'danger');
+        return;
+    }
+    
+    const empresa = await getEmpresa(id);
+    if (!empresa) {
+        mostrarToast('❌ Empresa no encontrada', 'danger');
+        return;
+    }
+    
+    // Actualizar datos
+    empresa.nombre = nombre;
+    empresa.rif = rif;
+    empresa.telefono = telefono;
+    empresa.direccion = direccion;
+    empresa.sector = sector;
+    empresa.fechaActualizacion = new Date().toISOString();
+    
+    try {
+        await updateEmpresa(empresa);
+        mostrarToast('✅ Empresa actualizada correctamente', 'success');
+        limpiarFormularioEmpresa();
+        await renderizarEmpresas();
+        await actualizarSelectorEmpresas();
+        
+        // Restaurar botón a su estado original
+        const btnGuardar = document.querySelector('#side-empresas button[onclick^="actualizarEmpresa"]');
+        if (btnGuardar) {
+            btnGuardar.textContent = '➕ Agregar Empresa';
+            btnGuardar.setAttribute('onclick', 'agregarEmpresa()');
+        }
+    } catch (error) {
+        console.error('Error al actualizar empresa:', error);
+        mostrarToast('❌ Error al actualizar la empresa', 'danger');
+    }
+}
+
+// ✅ Función para eliminar una empresa
+async function eliminarEmpresa(id) {
+    if (!await mostrarConfirmacion('¿Estás seguro de que quieres eliminar esta empresa? Esta acción no se puede deshacer.')) {
+        return;
+    }
+    
+    try {
+        // Verificar si hay movimientos asociados
+        const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+        const movimientosAsociados = movimientos.filter(m => m.empresaId === id);
+        
+        if (movimientosAsociados.length > 0) {
+            const reasignar = await mostrarConfirmacion(
+                `Esta empresa tiene ${movimientosAsociados.length} movimientos asociados. ¿Qué deseas hacer?\n\n` +
+                `1. Eliminar empresa y sus movimientos\n` +
+                `2. Mantener movimientos sin asignar a ninguna empresa\n\n` +
+                `Haz clic en Aceptar para eliminar los movimientos, o Cancelar para mantenerlos.`
+            );
+            
+            if (!reasignar) {
+                // Opción 2: Eliminar solo la empresa, mantener movimientos sin empresa
+                await deleteEmpresa(id);
+                mostrarToast('✅ Empresa eliminada. Los movimientos ahora no tienen empresa asignada.', 'success');
+            } else {
+                // Opción 1: Eliminar empresa y sus movimientos
+                for (const movimiento of movimientosAsociados) {
+                    await deleteEntry(STORES.MOVIMIENTOS, movimiento.id);
+                }
+                await deleteEmpresa(id);
+                mostrarToast(`✅ Empresa y ${movimientosAsociados.length} movimientos eliminados.`, 'success');
+            }
+        } else {
+            // No hay movimientos asociados, eliminar directamente
+            await deleteEmpresa(id);
+            mostrarToast('✅ Empresa eliminada correctamente', 'success');
+        }
+        
+        // Si era la empresa activa, limpiar selección
+        if (empresaActiva && empresaActiva.id === id) {
+            setEmpresaActiva(null);
+        }
+        
+        await renderizarEmpresas();
+        await actualizarSelectorEmpresas();
+    } catch (error) {
+        console.error('Error al eliminar empresa:', error);
+        mostrarToast('❌ Error al eliminar la empresa', 'danger');
+    }
+}
+
+// ✅ Función para seleccionar una empresa como activa
+async function seleccionarEmpresa(id) {
+    const empresa = await getEmpresa(id);
+    if (empresa) {
+        setEmpresaActiva(empresa);
+        mostrarToast(`✅ Empresa "${empresa.nombre}" seleccionada como activa`, 'success');
+        await renderizarEmpresas();
+    }
+}
+
+// ✅ Función para limpiar el formulario de empresa
+function limpiarFormularioEmpresa() {
+    document.getElementById('empresaNombre').value = '';
+    document.getElementById('empresaRif').value = '';
+    document.getElementById('empresaTelefono').value = '';
+    document.getElementById('empresaDireccion').value = '';
+    document.getElementById('empresaSector').value = '';
+}
+
+// ✅ Función para actualizar el selector de empresas en el formulario de movimientos
+async function actualizarSelectorEmpresas() {
+    const selector = document.getElementById('empresaMovimiento');
+    if (!selector) return;
+    
+    const empresas = await getAllEmpresas();
+    
+    // Limpiar selector
+    selector.innerHTML = '<option value="">Selecciona una empresa</option>';
+    
+    // Agregar empresas
+    empresas.forEach(empresa => {
+        const option = document.createElement('option');
+        option.value = empresa.id;
+        option.textContent = empresa.nombre;
+        if (empresaActiva && empresaActiva.id === empresa.id) {
+            option.selected = true;
+        }
+        selector.appendChild(option);
+    });
+}
+
+// ✅ Función para actualizar el selector de empresa activa
+function actualizarSelectorEmpresaActiva() {
+    const selector = document.getElementById('selectorEmpresaActiva');
+    if (!selector) return;
+    
+    selector.innerHTML = `
+        <option value="">Todas las empresas</option>
+    `;
+    
+    if (empresaActiva) {
+        selector.innerHTML += `<option value="${empresaActiva.id}" selected>${empresaActiva.nombre}</option>`;
+    }
+}
+
+// ✅ Función para crear empresa por defecto y migrar movimientos existentes
+async function crearEmpresaPorDefecto() {
+    const empresas = await getAllEmpresas();
+    
+    if (empresas.length === 0) {
+        // Crear empresa por defecto
+        const empresaDefecto = {
+            nombre: 'Empresa Principal',
+            rif: 'J-00000000-0',
+            telefono: '',
+            direccion: '',
+            sector: 'General',
+            fechaCreacion: new Date().toISOString(),
+            esPorDefecto: true
+        };
+        
+        const id = await addEmpresa(empresaDefecto);
+        empresaDefecto.id = id;
+        
+        // Asignar todos los movimientos existentes a esta empresa
+        const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+        for (const movimiento of movimientos) {
+            if (!movimiento.empresaId) {
+                movimiento.empresaId = id;
+                await updateEntry(STORES.MOVIMIENTOS, movimiento);
+            }
+        }
+        
+        // Establecer como empresa activa
+        setEmpresaActiva(empresaDefecto);
+        
+        mostrarToast('✅ Empresa principal creada y movimientos migrados', 'success');
+    }
+}
+
+// ✅ Función para cambiar la empresa activa desde el selector
+async function cambiarEmpresaActiva() {
+    const selector = document.getElementById('selectorEmpresaActiva');
+    const empresaId = selector.value;
+    
+    if (empresaId) {
+        const empresa = await getEmpresa(parseInt(empresaId));
+        if (empresa) {
+            setEmpresaActiva(empresa);
+            mostrarToast(`✅ Empresa "${empresa.nombre}" seleccionada como activa`, 'success');
+        }
+    } else {
+        // Opción "Todas las empresas"
+        setEmpresaActiva(null);
+        mostrarToast('✅ Vista consolidada: Todas las empresas', 'success');
+    }
+}
+
+// ✅ Funciones de ayuda para el sistema multi-empresa
+function mostrarAyudaEmpresas() {
+    mostrarConfirmacion(
+        '🏢 SISTEMA MULTI-EMPRESA\n\n' +
+        '¿Cómo funciona?\n\n' +
+        '• REGISTRO: Puedes registrar múltiples empresas con su información completa\n' +
+        '• SELECCIÓN: Elige una empresa activa para filtrar todos los datos\n' +
+        '• MOVIMIENTOS: Cada movimiento se asocia a una empresa específica\n' +
+        '• REPORTES: Genera reportes individuales por empresa o consolidados\n' +
+        '• MIGRACIÓN: Los movimientos existentes se asignan a "Empresa Principal"\n\n' +
+        '💡 Beneficios:\n' +
+        '- Control separado por cliente/proyecto\n' +
+        '- Mejor organización financiera\n' +
+        '- Reportes detallados por empresa\n' +
+        '- Escalabilidad del sistema\n\n' +
+        'Haz clic en Aceptar para continuar.'
+    );
+}
+
+function mostrarAyudaFormularioEmpresa() {
+    mostrarConfirmacion(
+        '📝 FORMULARIO DE EMPRESA\n\n' +
+        'CAMPOS OBLIGATORIOS:\n' +
+        '• Nombre de la empresa (*)\n\n' +
+        'CAMPOS OPCIONALES:\n' +
+        '• RIF/Identificación: Para fines fiscales\n' +
+        '• Teléfono: Información de contacto\n' +
+        '• Dirección: Ubicación física\n' +
+        '• Sector: Clasificación económica\n\n' +
+        '✏️ EDICIÓN:\n' +
+        'Para editar una empresa existente, haz clic en el botón ✏️ en la lista de empresas.\n\n' +
+        '💡 CONSEJO:\n' +
+        'Usa nombres claros y descriptivos para identificar fácilmente cada empresa.\n\n' +
+        'Haz clic en Aceptar para continuar.'
+    );
+}
+
+function mostrarAyudaListadoEmpresas() {
+    mostrarConfirmacion(
+        '📋 GESTIÓN DE EMPRESAS\n\n' +
+        'BOTONES DE ACCIÓN:\n' +
+        '• ✏️ Editar: Modificar datos de la empresa\n' +
+        '• 🗑️ Eliminar: Borrar empresa (con opción de mantener movimientos)\n' +
+        '• 👁️/✅ Seleccionar: Elegir como empresa activa\n\n' +
+        'INDICADORES VISUALES:\n' +
+        '• Borde azul: Empresa activa actual\n' +
+        '• ✅: Empresa seleccionada como activa\n' +
+        '• 👁️: Empresa disponible para seleccionar\n\n' +
+        '⚠️ ELIMINACIÓN:\n' +
+        'Si eliminas una empresa con movimientos asociados, podrás elegir:\n' +
+        '1. Eliminar también los movimientos\n' +
+        '2. Mantener los movimientos sin empresa asignada\n\n' +
+        'Haz clic en Aceptar para continuar.'
+    );
+}
