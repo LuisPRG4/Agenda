@@ -11105,6 +11105,7 @@ async function crearEmpresaPorDefecto() {
             telefono: '295.4006000',
             direccion: 'Av. Jovito Villalba - Isla de Margarita',
             sector: 'Salud',
+            logo: 'recursos/logo/Empresas/La Fe.png', // Logo predefinido para la empresa principal
             fechaCreacion: new Date().toISOString(),
             esPorDefecto: true
         };
