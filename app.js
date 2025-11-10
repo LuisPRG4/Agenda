@@ -2477,12 +2477,264 @@ function generarReportePorFecha() {
     generarReporteBase(null, { desde, hasta }, `Reporte por Fecha: ${new Date(desde).toLocaleDateString()} a ${new Date(hasta).toLocaleDateString()}`);
 }
 
-// ✅ FUNCIÓN UNIFICADA PARA GENERAR CUALQUIER TIPO DE REPORTE (General, por Categoría, por Fecha)
+// ✅ Función para Reporte por Empresa
+function generarReportePorEmpresa() {
+    const empresaId = document.getElementById('selectEmpresaReporte').value;
+    
+    if (!empresaId) {
+        mostrarToast('❌ Por favor, selecciona una empresa', 'danger');
+        return;
+    }
+    
+    // Obtener el nombre de la empresa para el título
+    const select = document.getElementById('selectEmpresaReporte');
+    const empresaNombre = select.options[select.selectedIndex].text;
+    
+    // Obtener opciones seleccionadas
+    const nivelDetalle = document.querySelector('input[name="nivelDetalle"]:checked').value;
+    const formatoExportacion = document.querySelector('input[name="formatoExportacion"]:checked').value;
+    
+    generarReportePorEmpresaBase(empresaId, empresaNombre, nivelDetalle, formatoExportacion);
+}
+
+// ✅ Función base para generar reporte por empresa específica
+async function generarReportePorEmpresaBase(empresaId, empresaNombre, nivelDetalle, formatoExportacion) {
+    const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
+    const tasaCambio = parseFloat(document.getElementById('tasaCambio').value) || 0;
+
+    // Filtrar movimientos por empresa
+    let movimientosFiltrados = movimientos.filter(m => {
+        return m.empresaId == empresaId; // Usar == para comparar string con number
+    });
+
+    if (movimientosFiltrados.length === 0) {
+        mostrarToast('❌ No hay movimientos para esta empresa', 'danger');
+        return;
+    }
+
+    // Agrupar movimientos por banco
+    const bancos = [...new Set(movimientosFiltrados.map(m => m.banco || '(Sin banco)'))];
+    const resumenBancos = {};
+
+    bancos.forEach(banco => {
+        const movimientosBanco = movimientosFiltrados.filter(m => (m.banco || '(Sin banco)') === banco);
+        
+        const ingresos = movimientosBanco
+            .filter(m => m.tipo === 'ingreso')
+            .reduce((sum, m) => sum + m.cantidad, 0);
+        
+        const gastos = movimientosBanco
+            .filter(m => m.tipo === 'gasto')
+            .reduce((sum, m) => sum + m.cantidad, 0);
+        
+        const saldo = ingresos - gastos;
+        
+        resumenBancos[banco] = { ingresos, gastos, saldo, movimientos: movimientosBanco };
+    });
+
+    // Generar reporte HTML para impresión
+    generarReporteHTML(empresaNombre, resumenBancos, nivelDetalle, tasaCambio);
+
+    mostrarToast(`✅ Reporte generado para "${empresaNombre}" con ${movimientosFiltrados.length} movimientos`, 'success');
+    
+    // Cerrar el formulario de selección
+    cerrarFormEmpresa();
+}
+
+// ✅ Función para mostrar vista previa del logo
+function vistaPreviaLogo(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            document.getElementById('vistaPreviaLogo').src = e.target.result;
+            document.getElementById('vistaPreviaLogoContainer').style.display = 'block';
+        };
+        
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+// ✅ Función para eliminar el logo seleccionado
+function eliminarLogo() {
+    document.getElementById('empresaLogo').value = '';
+    document.getElementById('vistaPreviaLogoContainer').style.display = 'none';
+    document.getElementById('vistaPreviaLogo').src = '';
+}
+
+// ✅ Función para generar reporte en formato HTML (para imprimir)
+async function generarReporteHTML(empresaNombre, resumenBancos, nivelDetalle, tasaCambio) {
+    // Obtener el logo de la empresa
+    const empresas = await getAllEmpresas();
+    const empresa = empresas.find(emp => emp.nombre === empresaNombre);
+    let logoUrl = '';
+    
+    if (empresa && empresa.logo) {
+        // Verificar si es base64 o una ruta local
+        if (empresa.logo.startsWith('data:')) {
+            // Es base64, usar directamente
+            logoUrl = empresa.logo;
+        } else {
+            // Es una ruta local, usarla directamente
+            logoUrl = empresa.logo;
+        }
+    }
+    
+    // Generar HTML del reporte
+    let html = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 1200px; margin: 0 auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+                ${logoUrl ? `
+                    <div style="flex: 0 0 auto;">
+                        <img src="${logoUrl}" style="max-height: 80px; max-width: 200px; object-fit: contain;" alt="Logo de ${empresaNombre}" onerror="this.style.display='none';">
+                    </div>
+                ` : '<div></div>'}
+                <div style="flex: 1; text-align: center;">
+                    <h1 style="color: #333; margin: 0;">
+                        ${empresaNombre}
+                    </h1>
+                    <p style="color: #666; margin: 10px 0 0 0;">
+                        Reporte Financiero - ${new Date().toLocaleDateString('es-VE')} a las ${new Date().toLocaleTimeString('es-VE')}
+                    </p>
+                </div>
+                <div style="flex: 0 0 auto; width: 200px;"></div>
+            </div>
+            
+            <h2 style="color: #444; border-bottom: 2px solid #ddd; padding-bottom: 10px;">📈 Resumen por Banco</h2>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                <thead>
+                    <tr style="background-color: #f5f5f5;">
+                        <th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Banco</th>
+                        <th style="border: 1px solid #ddd; padding: 12px; text-align: right;">Ingresos</th>
+                        <th style="border: 1px solid #ddd; padding: 12px; text-align: right;">Gastos</th>
+                        <th style="border: 1px solid #ddd; padding: 12px; text-align: right;">Saldo</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    let totalIngresos = 0;
+    let totalGastos = 0;
+
+    Object.entries(resumenBancos).forEach(([banco, datos]) => {
+        const ingresosFormateados = formatNumberVE(datos.ingresos);
+        const gastosFormateados = formatNumberVE(datos.gastos);
+        const saldoFormateado = formatNumberVE(datos.saldo);
+        const saldoColor = datos.saldo >= 0 ? 'green' : 'red';
+        
+        totalIngresos += datos.ingresos;
+        totalGastos += datos.gastos;
+        
+        html += `
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 10px; font-weight: bold;">${banco}</td>
+                <td style="border: 1px solid #ddd; padding: 10px; text-align: right; color: green;">${ingresosFormateados} Bs</td>
+                <td style="border: 1px solid #ddd; padding: 10px; text-align: right; color: red;">${gastosFormateados} Bs</td>
+                <td style="border: 1px solid #ddd; padding: 10px; text-align: right; color: ${saldoColor}; font-weight: bold;">${saldoFormateado} Bs</td>
+            </tr>
+        `;
+    });
+
+    const totalSaldo = totalIngresos - totalGastos;
+    const totalSaldoColor = totalSaldo >= 0 ? 'green' : 'red';
+
+    html += `
+                    <tr style="background-color: #f5f5f5; font-weight: bold;">
+                        <td style="border: 1px solid #ddd; padding: 12px;">TOTAL</td>
+                        <td style="border: 1px solid #ddd; padding: 12px; text-align: right; color: green;">${formatNumberVE(totalIngresos)} Bs</td>
+                        <td style="border: 1px solid #ddd; padding: 12px; text-align: right; color: red;">${formatNumberVE(totalGastos)} Bs</td>
+                        <td style="border: 1px solid #ddd; padding: 12px; text-align: right; color: ${totalSaldoColor};">${formatNumberVE(totalSaldo)} Bs</td>
+                    </tr>
+                </tbody>
+            </table>
+    `;
+
+    // Agregar detalle de movimientos solo si se seleccionó "completo"
+    if (nivelDetalle === 'completo') {
+        html += `
+            <h2 style="color: #444; border-bottom: 2px solid #ddd; padding-bottom: 10px;">📋 Detalle de Movimientos</h2>
+        `;
+
+        // Agrupar movimientos por banco para el detalle
+        Object.keys(resumenBancos).forEach(banco => {
+            const datos = resumenBancos[banco];
+            
+            html += `
+                <h3 style="color: #555; margin-top: 25px; margin-bottom: 15px;">🏦 ${banco}</h3>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                    <thead>
+                        <tr style="background-color: #f9f9f9;">
+                            <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Fecha</th>
+                            <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Concepto</th>
+                            <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Categoría</th>
+                            <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            datos.movimientos
+                .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+                .forEach(mov => {
+                    const fecha = new Date(mov.fecha).toLocaleDateString('es-VE');
+                    const montoFormateado = formatNumberVE(mov.cantidad);
+                    const montoColor = mov.tipo === 'ingreso' ? 'green' : 'red';
+                    const signo = mov.tipo === 'ingreso' ? '+' : '-';
+                    
+                    html += `
+                        <tr>
+                            <td style="border: 1px solid #ddd; padding: 6px;">${fecha}</td>
+                            <td style="border: 1px solid #ddd; padding: 6px;">${mov.concepto}</td>
+                            <td style="border: 1px solid #ddd; padding: 6px;">${mov.categoria || 'Sin categoría'}</td>
+                            <td style="border: 1px solid #ddd; padding: 6px; text-align: right; color: ${montoColor}; font-weight: bold;">
+                                ${signo} ${montoFormateado} Bs
+                            </td>
+                        </tr>
+                    `;
+                });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+        });
+    }
+
+    // Agregar equivalencia en dólares si hay tasa de cambio
+    if (tasaCambio > 0) {
+        const totalUSD = totalSaldo / tasaCambio;
+        html += `
+            <div style="margin-top: 30px; padding: 20px; background-color: #f0f8ff; border-left: 4px solid #007bff;">
+                <h3 style="color: #007bff; margin: 0 0 10px 0;">💱 Equivalencia en Dólares</h3>
+                <p style="margin: 5px 0; font-size: 16px;">
+                    <strong>Total:</strong> ${formatNumberVE(totalSaldo)} Bs ≈ ${formatNumberVE(totalUSD)} USD
+                </p>
+                <p style="margin: 5px 0; color: #666; font-size: 14px;">
+                    Tasa de cambio: ${formatNumberVE(tasaCambio)} Bs/USD
+                </p>
+            </div>
+        `;
+    }
+
+    html += `
+        </div>
+    `;
+
+    // Abrir en una nueva ventana para imprimir
+    const nuevaVentana = window.open('', '_blank');
+    nuevaVentana.document.write(html);
+    nuevaVentana.document.close();
+    
+    // Esperar a que cargue y luego mostrar diálogo de impresión
+    setTimeout(() => {
+        nuevaVentana.print();
+    }, 500);
+}
+
 async function generarReporteBase(categoriaFiltrada, rangoFechas, titulo) {
     const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
     const tasaCambio = parseFloat(document.getElementById('tasaCambio').value) || 0;
 
-    // Filtrar movimientos según categoría y/o rango de fechas
     let movimientosFiltrados = movimientos.filter(m => {
         let cumple = true;
 
@@ -10537,8 +10789,26 @@ async function renderizarEmpresas() {
     let html = '';
     empresas.forEach(empresa => {
         const esActiva = empresaActiva && empresaActiva.id === empresa.id;
+        
+        // Procesar el logo (base64 o ruta local)
+        let logoHtml = '';
+        if (empresa.logo) {
+            let logoSrc = '';
+            if (empresa.logo.startsWith('data:')) {
+                logoSrc = empresa.logo; // Base64
+            } else {
+                logoSrc = empresa.logo; // Ruta local
+            }
+            logoHtml = `
+                <div style="text-align: center; margin-bottom: 0.75rem;">
+                    <img src="${logoSrc}" style="max-height: 60px; max-width: 120px; object-fit: contain; border-radius: 4px;" alt="Logo de ${empresa.nombre}" onerror="this.style.display='none';">
+                </div>
+            `;
+        }
+        
         html += `
             <div class="tarjeta-empresa" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; box-shadow: var(--shadow-sm); transition: transform 0.2s; cursor: pointer; ${esActiva ? 'border: 2px solid var(--primary);' : ''}">
+                ${logoHtml}
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
                     <h4 style="margin: 0; color: var(--text);">${empresa.nombre}</h4>
                     <div style="display: flex; gap: 0.25rem;">
@@ -10573,6 +10843,19 @@ async function agregarEmpresa() {
         return;
     }
     
+    // Procesar el logo si se seleccionó uno
+    let logoBase64 = '';
+    const logoFile = document.getElementById('empresaLogo').files[0];
+    
+    if (logoFile) {
+        logoBase64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(logoFile);
+        });
+    }
+    
     // Verificar si ya existe una empresa con el mismo nombre o RIF
     const empresas = await getAllEmpresas();
     const empresaExistente = empresas.find(e => e.nombre.toLowerCase() === nombre.toLowerCase() || (rif && e.rif === rif));
@@ -10588,6 +10871,7 @@ async function agregarEmpresa() {
         telefono,
         direccion,
         sector,
+        logo: logoBase64,
         fechaCreacion: new Date().toISOString()
     };
     
@@ -10613,6 +10897,22 @@ async function editarEmpresa(id) {
     document.getElementById('empresaTelefono').value = empresa.telefono || '';
     document.getElementById('empresaDireccion').value = empresa.direccion || '';
     document.getElementById('empresaSector').value = empresa.sector || '';
+    
+    // Mostrar el logo existente si hay uno
+    if (empresa.logo) {
+        let logoSrc = '';
+        if (empresa.logo.startsWith('data:')) {
+            logoSrc = empresa.logo; // Base64
+        } else {
+            logoSrc = empresa.logo; // Ruta local
+        }
+        document.getElementById('vistaPreviaLogo').src = logoSrc;
+        document.getElementById('vistaPreviaLogoContainer').style.display = 'block';
+    } else {
+        // Limpiar la vista previa si no hay logo
+        document.getElementById('vistaPreviaLogoContainer').style.display = 'none';
+        document.getElementById('vistaPreviaLogo').src = '';
+    }
     
     // Cambiar el texto del botón
     const btnGuardar = document.querySelector('#side-empresas button[onclick="agregarEmpresa()"]');
@@ -10644,12 +10944,27 @@ async function actualizarEmpresa(id) {
         return;
     }
     
+    // Procesar el logo si se seleccionó uno nuevo
+    let logoActualizado = empresa.logo; // Mantener el logo existente por defecto
+    const logoFile = document.getElementById('empresaLogo').files[0];
+    
+    if (logoFile) {
+        // Hay un nuevo logo, procesarlo
+        logoActualizado = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(logoFile);
+        });
+    }
+    
     // Actualizar datos
     empresa.nombre = nombre;
     empresa.rif = rif;
     empresa.telefono = telefono;
     empresa.direccion = direccion;
     empresa.sector = sector;
+    empresa.logo = logoActualizado;
     empresa.fechaActualizacion = new Date().toISOString();
     
     try {
@@ -10738,6 +11053,11 @@ function limpiarFormularioEmpresa() {
     document.getElementById('empresaTelefono').value = '';
     document.getElementById('empresaDireccion').value = '';
     document.getElementById('empresaSector').value = '';
+    
+    // Limpiar el logo
+    document.getElementById('empresaLogo').value = '';
+    document.getElementById('vistaPreviaLogoContainer').style.display = 'none';
+    document.getElementById('vistaPreviaLogo').src = '';
 }
 
 // ✅ Función para actualizar el selector de empresas en el formulario de movimientos
@@ -10750,14 +11070,11 @@ async function actualizarSelectorEmpresas() {
     // Limpiar selector
     selector.innerHTML = '<option value="">Selecciona una empresa</option>';
     
-    // Agregar empresas
+    // Agregar empresas sin seleccionar ninguna por defecto
     empresas.forEach(empresa => {
         const option = document.createElement('option');
         option.value = empresa.id;
         option.textContent = empresa.nombre;
-        if (empresaActiva && empresaActiva.id === empresa.id) {
-            option.selected = true;
-        }
         selector.appendChild(option);
     });
 }
