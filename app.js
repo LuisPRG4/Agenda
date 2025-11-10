@@ -10783,11 +10783,11 @@ async function crearEmpresaPorDefecto() {
     if (empresas.length === 0) {
         // Crear empresa por defecto
         const empresaDefecto = {
-            nombre: 'Empresa Principal',
-            rif: 'J-00000000-0',
-            telefono: '',
-            direccion: '',
-            sector: 'General',
+            nombre: 'Centro Médico Quirúrgico La Fe',
+            rif: 'J-06507063-3',
+            telefono: '295.4006000',
+            direccion: 'Av. Jovito Villalba - Isla de Margarita',
+            sector: 'Salud',
             fechaCreacion: new Date().toISOString(),
             esPorDefecto: true
         };
@@ -10838,7 +10838,7 @@ function mostrarAyudaEmpresas() {
         '• SELECCIÓN: Elige una empresa activa para filtrar todos los datos\n' +
         '• MOVIMIENTOS: Cada movimiento se asocia a una empresa específica\n' +
         '• REPORTES: Genera reportes individuales por empresa o consolidados\n' +
-        '• MIGRACIÓN: Los movimientos existentes se asignan a "Empresa Principal"\n\n' +
+        '• MIGRACIÓN: Los movimientos existentes se asignan a "Centro Médico Quirúrgico La Fe"\n\n' +
         '💡 Beneficios:\n' +
         '- Control separado por cliente/proyecto\n' +
         '- Mejor organización financiera\n' +
