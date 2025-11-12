@@ -1,7 +1,7 @@
 // Variable global para la base de datos
 let db;
 const DB_NAME = 'sfpDB';
-const DB_VERSION = 18; // ✅ Versión actual de la base de datos
+const DB_VERSION = 19; // ✅ Versión actual de la base de datos
 
 // (variable global)
 let idRecordatorioEditando = null;
@@ -273,7 +273,12 @@ async function clearAllStores() {
         await openDB();
     }
 
-    const storeNames = Object.values(STORES);
+    const storeNames = [...Object.values(STORES)];
+
+    if (typeof STORES_RECORDATORIOS !== 'undefined' && STORES_RECORDATORIOS?.RECORDATORIOS) {
+        storeNames.push(STORES_RECORDATORIOS.RECORDATORIOS);
+    }
+
     for (const storeName of storeNames) {
         if (db.objectStoreNames.contains(storeName)) {
             const transaction = db.transaction([storeName], 'readwrite');
@@ -906,16 +911,16 @@ async function renderizar() {
     const fin = inicio + MOVIMIENTOS_POR_PAGINA;
     const movimientosPagina = listaFiltrada.slice(inicio, fin);
 
-    // Renderizar movimientos de la página actual
-    movimientosPagina.forEach(async m => {
-        if (m.oculto) return;
+    const fragment = document.createDocumentFragment();
 
-        // ✅ OBTENER NOMBRE DE EMPRESA (Sistema Multi-Empresa)
+    for (const m of movimientosPagina) {
+        if (m.oculto) continue;
+
         let nombreEmpresa = 'Sin empresa';
-        if (m.empresaId) {
+        if (m.empresaId !== undefined && m.empresaId !== null) {
             try {
                 const empresa = await getEmpresa(m.empresaId);
-                if (empresa) {
+                if (empresa && empresa.nombre) {
                     nombreEmpresa = empresa.nombre;
                 }
             } catch (error) {
@@ -929,7 +934,6 @@ async function renderizar() {
         const conceptoBase = esSaldoInicial ? m.concepto.split(' (')[0] : m.concepto;
         const saldoInicialTexto = esSaldoInicial ? m.concepto.split(' (')[1]?.replace(')', '') : '';
 
-        // Calcular comisión si es gasto
         const esGasto = m.tipo === 'gasto';
         const comision = esGasto && m.comision !== undefined && !isNaN(m.comision) ? m.comision.toFixed(2) : null;
 
@@ -994,28 +998,31 @@ async function renderizar() {
         </div>
     </div>
 `;
-        ul.appendChild(li);
+
+        fragment.appendChild(li);
+    }
+
+    ul.appendChild(fragment);
+
+    // 
+    ul.querySelectorAll('.btn-editar-mov').forEach(button => {
+        button.addEventListener('click', e => {
+            const id = parseInt(e.target.closest('button').dataset.id);
+            cargarMovimientoParaEditar(id);
+        });
     });
 
-    // ✅ Añadir Event Listeners para los botones de editar y eliminar
-document.querySelectorAll('.btn-editar-mov').forEach(button => {
-    button.addEventListener('click', e => {
-        const id = parseInt(e.target.closest('button').dataset.id);
-        cargarMovimientoParaEditar(id);
+    ul.querySelectorAll('.btn-eliminar-mov').forEach(button => {
+        button.addEventListener('click', e => {
+            const id = parseInt(e.target.closest('button').dataset.id);
+            eliminarMovimiento(id);
+        });
     });
-});
 
-document.querySelectorAll('.btn-eliminar-mov').forEach(button => {
-    button.addEventListener('click', e => {
-        const id = parseInt(e.target.closest('button').dataset.id);
-        eliminarMovimiento(id);
-    });
-});
-
-    // Renderizar controles de paginación
+    // 
     renderizarControlesPaginacion(totalPaginas);
 
-    // Verificar si hay movimientos para mostrar el botón de reporte
+    // 
     const controlesReporte = document.getElementById('botonReporte');
     if (controlesReporte) {
         controlesReporte.style.display = totalMovimientos > 0 ? 'block' : 'none';
@@ -2564,113 +2571,105 @@ function eliminarLogo() {
 
 // ✅ Función para generar reporte en formato HTML (para imprimir)
 async function generarReporteHTML(empresaNombre, resumenBancos, nivelDetalle, tasaCambio) {
-    // Obtener el logo de la empresa
     const empresas = await getAllEmpresas();
     const empresa = empresas.find(emp => emp.nombre === empresaNombre);
-    let logoUrl = '';
-    
-    if (empresa && empresa.logo) {
-        // Verificar si es base64 o una ruta local
-        if (empresa.logo.startsWith('data:')) {
-            // Es base64, usar directamente
-            logoUrl = empresa.logo;
-        } else {
-            // Es una ruta local, usarla directamente
-            logoUrl = empresa.logo;
-        }
-    }
-    
-    // Generar HTML del reporte
-    let html = `
-        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 1200px; margin: 0 auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-                ${logoUrl ? `
-                    <div style="flex: 0 0 auto;">
-                        <img src="${logoUrl}" style="max-height: 80px; max-width: 200px; object-fit: contain;" alt="Logo de ${empresaNombre}" onerror="this.style.display='none';">
-                    </div>
-                ` : '<div></div>'}
-                <div style="flex: 1; text-align: center;">
-                    <h1 style="color: #333; margin: 0;">
-                        ${empresaNombre}
-                    </h1>
-                    <p style="color: #666; margin: 10px 0 0 0;">
-                        Reporte Financiero - ${new Date().toLocaleDateString('es-VE')} a las ${new Date().toLocaleTimeString('es-VE')}
-                    </p>
-                </div>
-                <div style="flex: 0 0 auto; width: 200px;"></div>
-            </div>
-            
-            <h2 style="color: #444; border-bottom: 2px solid #ddd; padding-bottom: 10px;">📈 Resumen por Banco</h2>
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
-                <thead>
-                    <tr style="background-color: #f5f5f5;">
-                        <th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Banco</th>
-                        <th style="border: 1px solid #ddd; padding: 12px; text-align: right;">Ingresos</th>
-                        <th style="border: 1px solid #ddd; padding: 12px; text-align: right;">Gastos</th>
-                        <th style="border: 1px solid #ddd; padding: 12px; text-align: right;">Saldo</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
+    const logoUrl = empresa && empresa.logo ? empresa.logo : '';
+    const fechaGeneracion = new Date();
+    const fechaTexto = fechaGeneracion.toLocaleDateString('es-VE');
+    const horaTexto = fechaGeneracion.toLocaleTimeString('es-VE');
 
     let totalIngresos = 0;
     let totalGastos = 0;
+
+    let contenido = `
+        <div class="reporte-contenedor">
+            <header class="reporte-encabezado">
+                ${logoUrl ? `
+                    <div class="reporte-logo">
+                        <img src="${logoUrl}" alt="Logo de ${empresaNombre}" onerror="this.style.display='none';">
+                    </div>
+                ` : '<div class="reporte-logo"></div>'}
+                <div class="reporte-titulos">
+                    <h1>${empresaNombre}</h1>
+                    <p class="reporte-fecha">Reporte financiero — ${fechaTexto} ${horaTexto ? `a las ${horaTexto}` : ''}</p>
+                </div>
+                <div class="reporte-logo-placeholder"></div>
+            </header>
+
+            <section class="reporte-seccion">
+                <h2>📈 Resumen por banco</h2>
+                <table class="tabla-resumen">
+                    <thead>
+                        <tr>
+                            <th>Banco</th>
+                            <th>Ingresos</th>
+                            <th>Gastos</th>
+                            <th>Saldo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+    `;
 
     Object.entries(resumenBancos).forEach(([banco, datos]) => {
         const ingresosFormateados = formatNumberVE(datos.ingresos);
         const gastosFormateados = formatNumberVE(datos.gastos);
         const saldoFormateado = formatNumberVE(datos.saldo);
-        const saldoColor = datos.saldo >= 0 ? 'green' : 'red';
-        
+        const saldoColor = datos.saldo >= 0 ? 'positivo' : 'negativo';
+
         totalIngresos += datos.ingresos;
         totalGastos += datos.gastos;
-        
-        html += `
+
+        contenido += `
             <tr>
-                <td style="border: 1px solid #ddd; padding: 10px; font-weight: bold;">${banco}</td>
-                <td style="border: 1px solid #ddd; padding: 10px; text-align: right; color: green;">${ingresosFormateados} Bs</td>
-                <td style="border: 1px solid #ddd; padding: 10px; text-align: right; color: red;">${gastosFormateados} Bs</td>
-                <td style="border: 1px solid #ddd; padding: 10px; text-align: right; color: ${saldoColor}; font-weight: bold;">${saldoFormateado} Bs</td>
+                <td class="celda-banco">${banco}</td>
+                <td class="celda-monto positivo">${ingresosFormateados} Bs</td>
+                <td class="celda-monto negativo">${gastosFormateados} Bs</td>
+                <td class="celda-monto ${saldoColor}">${saldoFormateado} Bs</td>
             </tr>
         `;
     });
 
     const totalSaldo = totalIngresos - totalGastos;
-    const totalSaldoColor = totalSaldo >= 0 ? 'green' : 'red';
+    const totalSaldoColor = totalSaldo >= 0 ? 'positivo' : 'negativo';
 
-    html += `
-                    <tr style="background-color: #f5f5f5; font-weight: bold;">
-                        <td style="border: 1px solid #ddd; padding: 12px;">TOTAL</td>
-                        <td style="border: 1px solid #ddd; padding: 12px; text-align: right; color: green;">${formatNumberVE(totalIngresos)} Bs</td>
-                        <td style="border: 1px solid #ddd; padding: 12px; text-align: right; color: red;">${formatNumberVE(totalGastos)} Bs</td>
-                        <td style="border: 1px solid #ddd; padding: 12px; text-align: right; color: ${totalSaldoColor};">${formatNumberVE(totalSaldo)} Bs</td>
-                    </tr>
-                </tbody>
-            </table>
+    contenido += `
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th>TOTAL</th>
+                            <th class="positivo">${formatNumberVE(totalIngresos)} Bs</th>
+                            <th class="negativo">${formatNumberVE(totalGastos)} Bs</th>
+                            <th class="${totalSaldoColor}">${formatNumberVE(totalSaldo)} Bs</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </section>
     `;
 
-    // Agregar detalle de movimientos solo si se seleccionó "completo"
     if (nivelDetalle === 'completo') {
-        html += `
-            <h2 style="color: #444; border-bottom: 2px solid #ddd; padding-bottom: 10px;">📋 Detalle de Movimientos</h2>
+        const bancos = Object.keys(resumenBancos);
+        contenido += `
+            <section class="reporte-seccion">
+                <h2>📋 Detalle de movimientos</h2>
         `;
 
-        // Agrupar movimientos por banco para el detalle
-        Object.keys(resumenBancos).forEach(banco => {
+        bancos.forEach((banco, index) => {
             const datos = resumenBancos[banco];
-            
-            html += `
-                <h3 style="color: #555; margin-top: 25px; margin-bottom: 15px;">🏦 ${banco}</h3>
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-                    <thead>
-                        <tr style="background-color: #f9f9f9;">
-                            <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Fecha</th>
-                            <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Concepto</th>
-                            <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Categoría</th>
-                            <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Monto</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+            const bloqueClase = index > 0 ? 'detalle-banco page-break' : 'detalle-banco';
+
+            contenido += `
+                <div class="${bloqueClase}">
+                    <h3>🏦 ${banco}</h3>
+                    <table class="tabla-detalle">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Concepto</th>
+                                <th>Categoría</th>
+                                <th>Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
             `;
 
             datos.movimientos
@@ -2678,57 +2677,238 @@ async function generarReporteHTML(empresaNombre, resumenBancos, nivelDetalle, ta
                 .forEach(mov => {
                     const fecha = new Date(mov.fecha).toLocaleDateString('es-VE');
                     const montoFormateado = formatNumberVE(mov.cantidad);
-                    const montoColor = mov.tipo === 'ingreso' ? 'green' : 'red';
+                    const montoClase = mov.tipo === 'ingreso' ? 'positivo' : 'negativo';
                     const signo = mov.tipo === 'ingreso' ? '+' : '-';
-                    
-                    html += `
-                        <tr>
-                            <td style="border: 1px solid #ddd; padding: 6px;">${fecha}</td>
-                            <td style="border: 1px solid #ddd; padding: 6px;">${mov.concepto}</td>
-                            <td style="border: 1px solid #ddd; padding: 6px;">${mov.categoria || 'Sin categoría'}</td>
-                            <td style="border: 1px solid #ddd; padding: 6px; text-align: right; color: ${montoColor}; font-weight: bold;">
-                                ${signo} ${montoFormateado} Bs
-                            </td>
-                        </tr>
+
+                    contenido += `
+                            <tr>
+                                <td>${fecha}</td>
+                                <td>${mov.concepto}</td>
+                                <td>${mov.categoria || 'Sin categoría'}</td>
+                                <td class="${montoClase}">${signo} ${montoFormateado} Bs</td>
+                            </tr>
                     `;
                 });
 
-            html += `
-                    </tbody>
-                </table>
+            contenido += `
+                        </tbody>
+                    </table>
+                </div>
             `;
         });
-    }
 
-    // Agregar equivalencia en dólares si hay tasa de cambio
-    if (tasaCambio > 0) {
-        const totalUSD = totalSaldo / tasaCambio;
-        html += `
-            <div style="margin-top: 30px; padding: 20px; background-color: #f0f8ff; border-left: 4px solid #007bff;">
-                <h3 style="color: #007bff; margin: 0 0 10px 0;">💱 Equivalencia en Dólares</h3>
-                <p style="margin: 5px 0; font-size: 16px;">
-                    <strong>Total:</strong> ${formatNumberVE(totalSaldo)} Bs ≈ ${formatNumberVE(totalUSD)} USD
-                </p>
-                <p style="margin: 5px 0; color: #666; font-size: 14px;">
-                    Tasa de cambio: ${formatNumberVE(tasaCambio)} Bs/USD
-                </p>
-            </div>
+        contenido += `
+            </section>
         `;
     }
 
-    html += `
-        </div>
+    if (tasaCambio > 0) {
+        const totalUSD = totalSaldo / tasaCambio;
+        contenido += `
+            <section class="reporte-seccion">
+                <div class="equivalencia-cambio">
+                    <h3>💱 Equivalencia en dólares</h3>
+                    <p><strong>Total:</strong> ${formatNumberVE(totalSaldo)} Bs ≈ ${formatNumberVE(totalUSD)} USD</p>
+                    <p class="tasa">Tasa de cambio utilizada: ${formatNumberVE(tasaCambio)} Bs/USD</p>
+                </div>
+            </section>
+        `;
+    }
+
+    contenido += '</div>';
+
+    const estilos = `
+        :root { color-scheme: only light; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #ffffff;
+            font-family: 'Roboto', Arial, sans-serif;
+            color: #1f1f1f;
+        }
+        .reporte-contenedor {
+            padding: 32px 28px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        .reporte-encabezado {
+            display: grid;
+            grid-template-columns: 200px 1fr 200px;
+            align-items: center;
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        .reporte-logo img {
+            max-width: 180px;
+            max-height: 90px;
+            object-fit: contain;
+        }
+        .reporte-titulos {
+            text-align: center;
+        }
+        .reporte-titulos h1 {
+            margin: 0;
+            font-size: 1.9rem;
+            font-weight: 600;
+            color: #1f1f1f;
+        }
+        .reporte-fecha {
+            margin: 10px 0 0;
+            color: #5f6368;
+            font-size: 0.95rem;
+        }
+        .reporte-seccion {
+            margin-bottom: 36px;
+        }
+        .reporte-seccion h2 {
+            font-size: 1.35rem;
+            color: #202124;
+            border-bottom: 2px solid #dfe1e5;
+            padding-bottom: 10px;
+            margin: 0 0 18px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 28px;
+        }
+        th, td {
+            border: 1px solid #dfe1e5;
+            padding: 10px 12px;
+            font-size: 0.95rem;
+            text-align: left;
+        }
+        th {
+            background: #f5f5f5;
+            font-weight: 600;
+            color: #1f1f1f;
+        }
+        .tabla-resumen tfoot th {
+            background: #e8f0fe;
+            font-size: 1rem;
+        }
+        .celda-banco {
+            font-weight: 600;
+        }
+        .celda-monto,
+        .tabla-detalle td:last-child,
+        .tabla-resumen th:nth-child(n+2),
+        .tabla-resumen td:nth-child(n+2) {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        .positivo { color: #0f9d58; }
+        .negativo { color: #d93025; }
+        .detalle-banco {
+            margin-bottom: 28px;
+        }
+        .detalle-banco h3 {
+            margin: 0 0 14px;
+            font-size: 1.15rem;
+            color: #3c4043;
+        }
+        .tabla-detalle tbody tr:nth-child(even) {
+            background: #fafafa;
+        }
+        .equivalencia-cambio {
+            background: #f0f8ff;
+            border-left: 4px solid #1a73e8;
+            padding: 18px 20px;
+            border-radius: 8px;
+        }
+        .equivalencia-cambio h3 {
+            margin: 0 0 12px;
+            color: #1a73e8;
+        }
+        .equivalencia-cambio p {
+            margin: 6px 0;
+        }
+        .equivalencia-cambio .tasa {
+            color: #5f6368;
+            font-size: 0.9rem;
+        }
+        @media print {
+            body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            @page {
+                size: A4;
+                margin: 18mm 14mm;
+            }
+            .reporte-contenedor {
+                padding: 0;
+            }
+            .reporte-encabezado {
+                margin-bottom: 24px;
+            }
+            .reporte-seccion {
+                margin-bottom: 30px;
+            }
+            h1, h2, h3 {
+                page-break-after: avoid;
+                break-after: avoid;
+            }
+            table {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+            .detalle-banco {
+                page-break-inside: avoid;
+            }
+            .page-break {
+                page-break-before: always;
+                break-before: page;
+            }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
+        }
     `;
 
-    // Abrir en una nueva ventana para imprimir
-    const nuevaVentana = window.open('', '_blank');
-    nuevaVentana.document.write(html);
-    nuevaVentana.document.close();
-    
-    // Esperar a que cargue y luego mostrar diálogo de impresión
+    const tituloDocumento = `Reporte ${empresaNombre}`;
+    const slug = empresaNombre
+        .toString()
+        .normalize('NFD')
+        .replace(/[^\w\s-]/g, '')
+        .trim()
+        .replace(/[\s_-]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'reporte-empresa';
+    const nombreArchivo = `reporte-${slug}.html`;
+
+    const scriptInline = `(() => {
+        document.title = ${JSON.stringify(tituloDocumento)};
+        try { history.replaceState(null, document.title, ${JSON.stringify(nombreArchivo)}); } catch (error) { console.warn('No se pudo ajustar la URL del reporte:', error); }
+        window.addEventListener('load', () => {
+            setTimeout(() => window.print(), 400);
+        });
+    })();`;
+
+    const docHTML = `<!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <title>${tituloDocumento}</title>
+        <style>${estilos}</style>
+    </head>
+    <body>
+        ${contenido}
+        <script>${scriptInline.replace(/<\//g, '<\\/')}</script>
+    </body>
+    </html>`;
+
+    const reporteBlob = new Blob([docHTML], { type: 'text/html' });
+    const reporteURL = URL.createObjectURL(reporteBlob);
+    const ventanaReporte = window.open(reporteURL, '_blank');
+
+    if (!ventanaReporte) {
+        URL.revokeObjectURL(reporteURL);
+        mostrarToast('❌ El navegador bloqueó la vista previa del reporte. Permite ventanas emergentes para continuar.', 'danger');
+        return;
+    }
+
     setTimeout(() => {
-        nuevaVentana.print();
-    }, 500);
+        URL.revokeObjectURL(reporteURL);
+    }, 60 * 1000);
 }
 
 async function generarReporteBase(categoriaFiltrada, rangoFechas, titulo) {
@@ -3584,32 +3764,90 @@ async function exportarBackup() {
         const fecha = new Date();
         const nombreBackup = `${nombreBase}_${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}_${String(fecha.getHours()).padStart(2, '0')}${String(fecha.getMinutes()).padStart(2, '0')}.json`;
 
-        // Crear los datos del backup
+        // Datos de IndexedDB
         const movimientos = await getAllEntries(STORES.MOVIMIENTOS);
         const categorias = await getAllEntries(STORES.CATEGORIAS);
         const bancos = await getAllEntries(STORES.BANCOS);
         const reglas = await getAllEntries(STORES.REGLAS);
         const saldoInicial = await getAllEntries(STORES.SALDO_INICIAL);
-        const metaPresupuesto = localStorage.getItem('metaPresupuesto');
-        const tasaCambio = localStorage.getItem('tasaCambio');
-        const bloqueoActivo = localStorage.getItem('bloqueoActivo') === 'true';
-        const bloqueoPIN = localStorage.getItem('bloqueoPIN');
-        const tema = localStorage.getItem('agendaTema');
+        const inversiones = await getAllEntries(STORES.INVERSIONES);
+        const empresas = await getAllEntries(STORES.EMPRESAS);
+        const proveedores = await getAllEntries(STORES.PROVEEDORES);
+        const inventario = await getAllEntries(STORES.INVENTARIO);
+        const notas = await getAllEntries(STORES.NOTAS);
+        const asistente = await getAllEntries(STORES.ASISTENTE);
+        const categoriasAsistente = await getAllEntries(STORES.CATEGORIAS_ASISTENTE);
 
-        // Crear objeto de backup
+        let recordatorios = [];
+        if (typeof getAllRecordatorios === 'function') {
+            try {
+                recordatorios = await getAllRecordatorios();
+            } catch (error) {
+                console.warn('No se pudieron obtener los recordatorios para el backup:', error);
+            }
+        }
+
+        // Datos del localStorage
+        const localConfigKeys = {
+            metaPresupuesto: localStorage.getItem('metaPresupuesto'),
+            tasaCambio: localStorage.getItem('tasaCambio'),
+            bloqueoActivo: localStorage.getItem('bloqueoActivo'),
+            bloqueoPIN: localStorage.getItem('bloqueoPIN'),
+            bloqueoDesbloqueado: localStorage.getItem('bloqueoDesbloqueado'),
+            preguntaSeguridad1: localStorage.getItem('preguntaSeguridad1'),
+            preguntaSeguridad2: localStorage.getItem('preguntaSeguridad2'),
+            respuestaSeguridad1: localStorage.getItem('respuestaSeguridad1'),
+            respuestaSeguridad2: localStorage.getItem('respuestaSeguridad2'),
+            agendaTema: localStorage.getItem('agendaTema'),
+            agendaPestanaActiva: localStorage.getItem('agendaPestañaActiva'),
+            empresaActivaId: localStorage.getItem('empresaActivaId'),
+            empresaActivaNombre: localStorage.getItem('empresaActivaNombre'),
+            numeroModo: localStorage.getItem('numeroModo'),
+            sonidosActivados: localStorage.getItem('sonidosActivados'),
+            historialBCV: localStorage.getItem('historialBCV'),
+            dashboardWidgets: localStorage.getItem('dashboardWidgets'),
+            deudas: localStorage.getItem('deudas'),
+            metasAhorro: localStorage.getItem('metasAhorro'),
+            sonidoSeleccionado: localStorage.getItem('sonidoSeleccionado'),
+            sonidoPersonalizado: localStorage.getItem('sonidoPersonalizado'),
+            mostrarTodasCategorias: localStorage.getItem('mostrarTodasCategorias'),
+            intentosFallidos: localStorage.getItem('intentosFallidos')
+        };
+
+        // Construir objeto de respaldo completo
         const backup = {
-            version: '1.0',
-            fecha: new Date().toISOString(),
-            movimientos: movimientos,
-            categorias: categorias,
-            bancos: bancos,
-            reglas: reglas,
-            saldoInicial: saldoInicial.length > 0 ? saldoInicial[0] : null,
-            metaPresupuesto: metaPresupuesto,
-            tasaCambio: tasaCambio,
-            bloqueoActivo: bloqueoActivo,
-            bloqueoPIN: bloqueoPIN,
-            tema: tema
+            version: '2.0',
+            appVersion: APP_VERSION,
+            generadoEn: new Date().toISOString(),
+            descripcion: 'Respaldo total del Sistema Financiero',
+            datos: {
+                movimientos,
+                categorias,
+                bancos,
+                reglas,
+                saldoInicial,
+                inversiones,
+                empresas,
+                proveedores,
+                inventario,
+                notas,
+                asistente,
+                categoriasAsistente,
+                recordatorios
+            },
+            preferencias: localConfigKeys,
+            estadisticas: {
+                totalMovimientos: movimientos.length,
+                totalCategorias: categorias.length,
+                totalBancos: bancos.length,
+                totalReglas: reglas.length,
+                totalEmpresas: empresas.length,
+                totalProveedores: proveedores.length,
+                totalInventario: inventario.length,
+                totalNotas: notas.length,
+                totalRecordatorios: recordatorios.length,
+                totalInversiones: inversiones.length
+            }
         };
 
         // Convertir a JSON y descargar
@@ -3627,6 +3865,11 @@ async function exportarBackup() {
         console.error("Error al exportar backup:", error);
         mostrarToast('❌ Error al exportar el backup', 'danger');
     }
+}
+
+// Alias semántico para el nuevo botón de exportación total
+async function exportarRespaldoTotal() {
+    await exportarBackup();
 }
 
 // ✅ Función auxiliar para guardar el backup localmente (con nombre personalizado)
@@ -3693,67 +3936,29 @@ async function importarBackupDesdeDisco() {
     document.body.appendChild(input);
     input.onchange = async (e) => {
         const file = e.target.files[0];
-        if (!file) return;
+        if (!file) {
+            input.remove();
+            return;
+        }
         const reader = new FileReader();
         reader.onload = async (event) => {
             try {
                 const backup = JSON.parse(event.target.result);
+                const version = backup?.version?.toString();
 
-                // Validar versión
-                if (backup.version !== '1.0') {
+                if (version !== '1.0' && version !== '2.0') {
                     alert("⚠️ Este archivo de backup no es compatible con esta versión de la app.");
+                    input.remove();
                     return;
                 }
 
-                // Confirmar antes de sobrescribir
                 if (!confirm("⚠️ ¡ADVERTENCIA! Esto borrará todos tus datos actuales y los reemplazará con los del backup. ¿Continuar?")) {
+                    input.remove();
                     return;
                 }
 
-                // 1. Borrar todo lo existente
-                await clearAllStores();
+                await restaurarBackupDesdeObjeto(backup);
 
-                // 2. Restaurar categorías
-                if (backup.categorias && backup.categorias.length > 0) {
-                    for (const cat of backup.categorias) {
-                        await addEntry(STORES.CATEGORIAS, cat);
-                    }
-                }
-
-                // 3. Restaurar bancos
-                if (backup.bancos && backup.bancos.length > 0) {
-                    for (const ban of backup.bancos) {
-                        await addEntry(STORES.BANCOS, ban);
-                    }
-                }
-
-                // 4. Restaurar reglas
-                if (backup.reglas && backup.reglas.length > 0) {
-                    for (const reg of backup.reglas) {
-                        await addEntry(STORES.REGLAS, reg);
-                    }
-                }
-
-                // 5. Restaurar saldo inicial
-                if (backup.saldoInicial) {
-                    await addEntry(STORES.SALDO_INICIAL, backup.saldoInicial);
-                }
-
-                // 6. Restaurar movimientos
-                if (backup.movimientos && backup.movimientos.length > 0) {
-                    for (const mov of backup.movimientos) {
-                        await addEntry(STORES.MOVIMIENTOS, mov);
-                    }
-                }
-
-                // 7. Restaurar localStorage
-                localStorage.setItem('metaPresupuesto', backup.metaPresupuesto || '');
-                localStorage.setItem('tasaCambio', backup.tasaCambio || '');
-                localStorage.setItem('bloqueoActivo', backup.bloqueoActivo ? 'true' : 'false');
-                localStorage.setItem('bloqueoPIN', backup.bloqueoPIN || '');
-                localStorage.setItem('agendaTema', backup.tema || '');
-
-                // 8. Limpiar input y refrescar app
                 input.remove();
                 alert("✅ Backup importado con éxito. Recargando la app...");
                 location.reload();
@@ -3772,70 +3977,150 @@ async function importarBackupDesdeDisco() {
 // ✅ Función para importar un backup local (desde localStorage)
 async function importarBackupLocal(nombreBackup) {
     try {
-        // Obtener el backup desde localStorage
         const backup = JSON.parse(localStorage.getItem(nombreBackup));
+        const version = backup?.version?.toString();
 
-        // Validar versión
-        if (backup.version !== '1.0') {
+        if (version !== '1.0' && version !== '2.0') {
             alert("⚠️ Este archivo de backup no es compatible con esta versión de la app.");
             return;
         }
 
-        // Confirmar antes de sobrescribir
         if (!confirm("⚠️ ¡ADVERTENCIA! Esto borrará todos tus datos actuales y los reemplazará con los del backup. ¿Continuar?")) {
             return;
         }
 
-        // 1. Borrar todo lo existente
-        await clearAllStores();
+        await restaurarBackupDesdeObjeto(backup);
 
-        // 2. Restaurar categorías
-        if (backup.categorias && backup.categorias.length > 0) {
-            for (const cat of backup.categorias) {
-                await addEntry(STORES.CATEGORIAS, cat);
-            }
-        }
-
-        // 3. Restaurar bancos
-        if (backup.bancos && backup.bancos.length > 0) {
-            for (const ban of backup.bancos) {
-                await addEntry(STORES.BANCOS, ban);
-            }
-        }
-
-        // 4. Restaurar reglas
-        if (backup.reglas && backup.reglas.length > 0) {
-            for (const reg of backup.reglas) {
-                await addEntry(STORES.REGLAS, reg);
-            }
-        }
-
-        // 5. Restaurar saldo inicial
-        if (backup.saldoInicial) {
-            await addEntry(STORES.SALDO_INICIAL, backup.saldoInicial);
-        }
-
-        // 6. Restaurar movimientos
-        if (backup.movimientos && backup.movimientos.length > 0) {
-            for (const mov of backup.movimientos) {
-                await addEntry(STORES.MOVIMIENTOS, mov);
-            }
-        }
-
-        // 7. Restaurar localStorage
-        localStorage.setItem('metaPresupuesto', backup.metaPresupuesto || '');
-        localStorage.setItem('tasaCambio', backup.tasaCambio || '');
-        localStorage.setItem('bloqueoActivo', backup.bloqueoActivo ? 'true' : 'false');
-        localStorage.setItem('bloqueoPIN', backup.bloqueoPIN || '');
-        localStorage.setItem('agendaTema', backup.tema || '');
-
-        // 8. Limpiar input y refrescar app
         alert("✅ Backup importado con éxito. Recargando la app...");
         location.reload();
 
     } catch (error) {
         console.error("Error al importar backup local:", error);
         alert("❌ Error al importar el backup. El archivo puede estar corrupto o no compatible.");
+    }
+}
+
+function setLocalStorageValue(key, value) {
+    if (value === null || value === undefined) {
+        localStorage.removeItem(key);
+    } else {
+        localStorage.setItem(key, value);
+    }
+}
+
+async function restaurarColeccion(items, inserter) {
+    if (!Array.isArray(items) || items.length === 0 || typeof inserter !== 'function') {
+        return;
+    }
+
+    for (const item of items) {
+        if (item !== undefined && item !== null) {
+            await inserter(item);
+        }
+    }
+}
+
+async function restaurarDesdeBackupV1(backup) {
+    await restaurarColeccion(backup.categorias, (item) => addEntry(STORES.CATEGORIAS, item));
+    await restaurarColeccion(backup.bancos, (item) => addEntry(STORES.BANCOS, item));
+    await restaurarColeccion(backup.reglas, (item) => addEntry(STORES.REGLAS, item));
+    await restaurarColeccion(backup.movimientos, (item) => addEntry(STORES.MOVIMIENTOS, item));
+
+    if (backup.saldoInicial) {
+        await addEntry(STORES.SALDO_INICIAL, backup.saldoInicial);
+    }
+
+    setLocalStorageValue('metaPresupuesto', backup.metaPresupuesto ?? '');
+    setLocalStorageValue('tasaCambio', backup.tasaCambio ?? '');
+    setLocalStorageValue('bloqueoActivo', backup.bloqueoActivo ? 'true' : 'false');
+    setLocalStorageValue('bloqueoPIN', backup.bloqueoPIN ?? '');
+    setLocalStorageValue('agendaTema', backup.tema ?? '');
+}
+
+async function restaurarDesdeBackupV2(backup) {
+    const datos = backup.datos || {};
+    const preferencias = backup.preferencias || {};
+
+    await restaurarColeccion(datos.categorias, (item) => addEntry(STORES.CATEGORIAS, item));
+    await restaurarColeccion(datos.bancos, (item) => addEntry(STORES.BANCOS, item));
+    await restaurarColeccion(datos.reglas, (item) => addEntry(STORES.REGLAS, item));
+    await restaurarColeccion(datos.movimientos, (item) => addEntry(STORES.MOVIMIENTOS, item));
+    await restaurarColeccion(datos.saldoInicial, (item) => addEntry(STORES.SALDO_INICIAL, item));
+    await restaurarColeccion(datos.inversiones, (item) => addEntry(STORES.INVERSIONES, item));
+    await restaurarColeccion(datos.empresas, (item) => addEntry(STORES.EMPRESAS, item));
+    await restaurarColeccion(datos.proveedores, (item) => addEntry(STORES.PROVEEDORES, item));
+    await restaurarColeccion(datos.inventario, (item) => addEntry(STORES.INVENTARIO, item));
+    await restaurarColeccion(datos.notas, (item) => addEntry(STORES.NOTAS, item));
+    await restaurarColeccion(datos.asistente, (item) => addEntry(STORES.ASISTENTE, item));
+    await restaurarColeccion(datos.categoriasAsistente, (item) => addEntry(STORES.CATEGORIAS_ASISTENTE, item));
+
+    if (Array.isArray(datos.recordatorios) && datos.recordatorios.length > 0) {
+        if (typeof addRecordatorio === 'function') {
+            await restaurarColeccion(datos.recordatorios, (item) => addRecordatorio(item));
+        } else if (typeof STORES_RECORDATORIOS !== 'undefined' && STORES_RECORDATORIOS?.RECORDATORIOS) {
+            await restaurarColeccion(datos.recordatorios, (item) => addEntry(STORES_RECORDATORIOS.RECORDATORIOS, item));
+        }
+    }
+
+    const preferenceMap = {
+        metaPresupuesto: 'metaPresupuesto',
+        tasaCambio: 'tasaCambio',
+        bloqueoActivo: 'bloqueoActivo',
+        bloqueoPIN: 'bloqueoPIN',
+        bloqueoDesbloqueado: 'bloqueoDesbloqueado',
+        preguntaSeguridad1: 'preguntaSeguridad1',
+        preguntaSeguridad2: 'preguntaSeguridad2',
+        respuestaSeguridad1: 'respuestaSeguridad1',
+        respuestaSeguridad2: 'respuestaSeguridad2',
+        agendaTema: 'agendaTema',
+        agendaPestanaActiva: 'agendaPestañaActiva',
+        empresaActivaId: 'empresaActivaId',
+        empresaActivaNombre: 'empresaActivaNombre',
+        numeroModo: 'numeroModo',
+        sonidosActivados: 'sonidosActivados',
+        historialBCV: 'historialBCV',
+        dashboardWidgets: 'dashboardWidgets',
+        deudas: 'deudas',
+        metasAhorro: 'metasAhorro',
+        sonidoSeleccionado: 'sonidoSeleccionado',
+        sonidoPersonalizado: 'sonidoPersonalizado',
+        mostrarTodasCategorias: 'mostrarTodasCategorias',
+        intentosFallidos: 'intentosFallidos'
+    };
+
+    Object.entries(preferenceMap).forEach(([backupKey, storageKey]) => {
+        if (Object.prototype.hasOwnProperty.call(preferencias, backupKey)) {
+            setLocalStorageValue(storageKey, preferencias[backupKey]);
+        } else {
+            setLocalStorageValue(storageKey, null);
+        }
+    });
+
+    // Manejar posibles claves adicionales para compatibilidad futura
+    for (const [key, value] of Object.entries(preferencias)) {
+        if (!Object.prototype.hasOwnProperty.call(preferenceMap, key)) {
+            setLocalStorageValue(key, value);
+        }
+    }
+}
+
+async function restaurarBackupDesdeObjeto(backup) {
+    if (!backup || !backup.version) {
+        throw new Error('El archivo de backup no contiene una versión válida.');
+    }
+
+    const version = backup.version.toString();
+
+    if (version !== '1.0' && version !== '2.0') {
+        throw new Error(`Versión de backup no compatible: ${version}`);
+    }
+
+    await clearAllStores();
+
+    if (version === '1.0') {
+        await restaurarDesdeBackupV1(backup);
+    } else {
+        await restaurarDesdeBackupV2(backup);
     }
 }
 
@@ -6173,17 +6458,18 @@ document.addEventListener('DOMContentLoaded', function() {
 async function obtenerTasasBCV() {
     const btn = document.querySelector('[onclick="obtenerTasasBCV()"]');
     const textoOriginal = btn.textContent;
-    
+
     try {
         // Mostrar loading
         btn.textContent = '⏳ Consultando...';
         btn.disabled = true;
-        
-        // Obtener tasas del BCV (método scraping respetuoso)
-        const tasas = await consultarTasasBCV();
-        
-        if (tasas.dolar && tasas.euro) {
-            // Actualizar UI
+
+        // Obtener HTML desde BCV usando proxy
+        const htmlDesdeBCV = await obtenerHTMLDesdeBCV();
+
+        if (htmlDesdeBCV) {
+            // Obtener tasas del BCV (método scraping respetuoso)
+            const tasas = await consultarTasasBCV(htmlDesdeBCV);
             document.getElementById('tasaBCV').textContent = formatNumberVE(tasas.dolar);
             document.getElementById('fechaBCV').textContent = `Actualizado: ${new Date().toLocaleString('es-ES')}`;
             
@@ -6208,83 +6494,143 @@ async function obtenerTasasBCV() {
     }
 }
 
-// ✅ Función para consultar tasas del BCV (scraping controlado)
+async function obtenerHTMLDesdeBCV() {
+    const urls = [
+        'https://r.jina.ai/https://www.bcv.org.ve/',
+        'https://r.jina.ai/http://www.bcv.org.ve/',
+        'https://api.allorigins.win/raw?url=https%3A%2F%2Fwww.bcv.org.ve%2F'
+    ];
+
+    for (const url of urls) {
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                },
+                cache: 'no-store'
+            });
+
+            if (response.ok) {
+                const html = await response.text();
+                if (html && html.includes('USD') && html.includes('EUR')) {
+                    console.log(`✅ HTML del BCV obtenido desde proxy: ${url}`);
+                    return html;
+                }
+            } else {
+                console.warn(`⚠️ Proxy BCV respondió ${response.status} (${url})`);
+            }
+        } catch (error) {
+            console.warn(`⚠️ Error usando proxy BCV (${url}):`, error.message);
+        }
+    }
+
+    return null;
+}
+
 async function consultarTasasBCV() {
     try {
         console.log('🔍 Consultando tasas oficiales del BCV...');
 
-        // Método 1: Usar API pública de tasas (más confiable)
-        const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD', {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json'
-            }
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            const tasaUSD = data.rates.VES || 179.43; // Tasa USD a VES
-
-            // Para EUR, usar conversión aproximada
-            const tasaEUR = tasaUSD / 0.866; // EUR típicamente ~8% más alto que USD
-
-            console.log(`💱 Tasas desde API pública: USD ${tasaUSD}, EUR ${tasaEUR}`);
-
-            return {
-                dolar: tasaUSD,
-                euro: tasaEUR,
-                fecha: new Date().toISOString(),
-                fuente: 'API Pública'
-            };
-        }
-
-        // Método 2: Si falla la API, intentar BCV directamente (con timeout corto)
-        console.log('⚠️ API pública falló, intentando BCV directo...');
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos timeout
-
+        // Método 1: Intentar directamente desde la página oficial del BCV usando un proxy sin CORS
         try {
-            const bcvResponse = await fetch('https://www.bcv.org.ve/', {
-                method: 'GET',
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language': 'es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3',
-                    'Cache-Control': 'no-cache'
-                },
-                signal: controller.signal
-            });
+            const bcvHtml = await obtenerHTMLDesdeBCV();
 
-            clearTimeout(timeoutId);
+            if (bcvHtml) {
+                const dolarRegex = /USD[^\d]*(\d{1,3}(?:\.\d{3})*,\d{2})/s;
+                const euroRegex = /EUR[^\d]*(\d{1,3}(?:\.\d{3})*,\d{2})/s;
 
-            if (bcvResponse.ok) {
-                const html = await bcvResponse.text();
-
-                // Buscar tasas en el HTML del BCV
-                const dolarRegex = /USD.*?(\d{1,3}(?:\.\d{3})*,\d{2})/s;
-                const euroRegex = /EUR.*?(\d{1,3}(?:\.\d{3})*,\d{2})/s;
-
-                const dolarMatch = html.match(dolarRegex);
-                const euroMatch = html.match(euroRegex);
+                const dolarMatch = bcvHtml.match(dolarRegex);
+                const euroMatch = bcvHtml.match(euroRegex);
 
                 if (dolarMatch && euroMatch) {
                     const dolar = parseFloat(dolarMatch[1].replace(/\./g, '').replace(',', '.'));
                     const euro = parseFloat(euroMatch[1].replace(/\./g, '').replace(',', '.'));
 
-                    return {
-                        dolar: dolar,
-                        euro: euro,
-                        fecha: new Date().toISOString(),
-                        fuente: 'BCV Oficial'
-                    };
+                    if (isFinite(dolar) && isFinite(euro)) {
+                        console.log(`🏦 Tasas oficiales BCV: USD ${dolar}, EUR ${euro}`);
+                        return {
+                            dolar,
+                            euro,
+                            fecha: new Date().toISOString(),
+                            fuente: 'BCV Oficial'
+                        };
+                    }
                 }
             }
         } catch (bcvError) {
-            console.log('❌ BCV directo falló:', bcvError.message);
+            console.log('⚠️ No se pudo obtener la tasa directamente del BCV:', bcvError.message);
         }
 
-        // Método 3: Fallback con datos actuales aproximados
-        console.log('⚠️ Usando tasas aproximadas actuales');
+        // Método 2: Usar API pública de tasas como fallback
+        console.log('⚠️ BCV directo no disponible, intentando API pública...');
+        const apiUsdUrl = 'https://api.exchangerate-api.com/v4/latest/USD';
+        const apiEurUrl = 'https://api.exchangerate-api.com/v4/latest/EUR';
+        const fetchOptions = {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        };
+
+        let dataUSD = null;
+        let dataEUR = null;
+
+        try {
+            const responseUSD = await fetch(apiUsdUrl, fetchOptions);
+            if (responseUSD.ok) {
+                dataUSD = await responseUSD.json();
+            } else {
+                console.warn(`⚠️ API USD respondió ${responseUSD.status}`);
+            }
+        } catch (usdError) {
+            console.warn('⚠️ No se pudo obtener la tasa USD desde la API pública:', usdError.message);
+        }
+
+        try {
+            const responseEUR = await fetch(apiEurUrl, fetchOptions);
+            if (responseEUR.ok) {
+                dataEUR = await responseEUR.json();
+            } else {
+                console.warn(`⚠️ API EUR respondió ${responseEUR.status}`);
+            }
+        } catch (eurError) {
+            console.warn('⚠️ No se pudo obtener la tasa EUR desde la API pública:', eurError.message);
+        }
+
+        let tasaUSD = dataUSD?.rates?.VES ?? null;
+        let tasaEUR = dataEUR?.rates?.VES ?? null;
+        let fuente = 'API Pública (Exchangerate-api)';
+
+        // Si alguna de las tasas falta, intentar derivarla de la otra respuesta
+        if (!tasaEUR && dataUSD?.rates?.EUR && tasaUSD) {
+            const eurDesdeUsd = dataUSD.rates.EUR;
+            if (eurDesdeUsd) {
+                tasaEUR = tasaUSD / eurDesdeUsd;
+                fuente = 'API Pública (EUR derivado de USD)';
+            }
+        }
+
+        if (!tasaUSD && dataEUR?.rates?.USD && tasaEUR) {
+            const usdDesdeEur = dataEUR.rates.USD;
+            if (usdDesdeEur) {
+                tasaUSD = tasaEUR / usdDesdeEur;
+                fuente = 'API Pública (USD derivado de EUR)';
+            }
+        }
+
+        if (isFinite(tasaUSD) && isFinite(tasaEUR) && tasaUSD > 0 && tasaEUR > 0) {
+            console.log(`💱 Tasas desde API pública: USD ${tasaUSD}, EUR ${tasaEUR}`);
+            return {
+                dolar: tasaUSD,
+                euro: tasaEUR,
+                fecha: new Date().toISOString(),
+                fuente
+            };
+        }
+
+        // Método 3: Fallback con datos aproximados
+        console.log('⚠️ API pública falló, usando valores aproximados...');
         return {
             dolar: 179.43,
             euro: 195.20,
