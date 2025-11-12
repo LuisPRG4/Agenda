@@ -1376,6 +1376,7 @@ function limpiarForm() {
     document.getElementById('saldoInicial').value = '';
     document.getElementById('concepto').value = '';
     document.getElementById('cantidad').value = '';
+
     document.getElementById('tipo').value = 'ingreso';
     document.getElementById('categoria').value = '';
     document.getElementById('nuevaCategoria').value = '';
@@ -1383,8 +1384,14 @@ function limpiarForm() {
     document.getElementById('banco').value = '';
     document.getElementById('nuevoBanco').value = '';
     document.getElementById('nuevoBanco').style.display = 'none';
-    document.getElementById('empresaMovimiento').value = '';
-    
+    const selectorEmpresa = document.getElementById('empresaMovimiento');
+    if (selectorEmpresa) {
+        if (empresaActiva) {
+            selectorEmpresa.value = empresaActiva.id;
+        } else {
+            selectorEmpresa.value = '';
+        }
+    }
 
     // ✅ MANTENER LA FECHA ACTUAL EN EL CAMPO, NUNCA VACÍO
     const today = new Date().toISOString().split('T')[0];
@@ -11421,6 +11428,9 @@ async function actualizarSelectorEmpresas() {
         const option = document.createElement('option');
         option.value = empresa.id;
         option.textContent = empresa.nombre;
+        if (empresaActiva && empresaActiva.id === empresa.id) {
+            option.selected = true;
+        }
         selector.appendChild(option);
     });
 }
